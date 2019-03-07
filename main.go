@@ -69,6 +69,7 @@ func main() {
 	router := http.NewServeMux()
 	router.HandleFunc("/", c.index)
 	router.HandleFunc("/healthz", c.healthz)
+	router.HandleFunc("/stackstorm", c.redirectStackStorm)
 
 	server := &http.Server{
 		Addr:         listenAddr,
