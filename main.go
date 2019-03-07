@@ -1,8 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"crypto/tls"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -69,7 +72,7 @@ func main() {
 	router := http.NewServeMux()
 	router.HandleFunc("/", c.index)
 	router.HandleFunc("/healthz", c.healthz)
-	router.HandleFunc("/stackstorm", c.redirectStackStorm)
+	router.HandleFunc("/stackstorm", c.forwardStackStorm)
 
 	server := &http.Server{
 		Addr:         listenAddr,
@@ -104,12 +107,33 @@ func (c *controller) healthz(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func (c *controller) redirectStackStorm(w http.ResponseWriter, req *http.Request) {
-	if req.Method == http.MethodPost {
-		req.Header.Add("St2-Api-Key", os.Getenv("STACKSTORM_API_KEY"))
-		target := "https://" + os.Getenv("STACKSTORM_HOST") + "/api/webhooks/" + os.Getenv("STACKSTORM_RULE")
-		http.Redirect(w, req, target, http.StatusMovedPermanently)
+func (c *controller) forwardStackStorm(w http.ResponseWriter, req *http.Request) {
+	body, err := ioutil.ReadAll(req.Body)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
+	req.Body = ioutil.NopCloser(bytes.NewReader(body))
+	url := "https://" + os.Getenv("STACKSTORM_HOST") + "/api/webhooks/" + os.Getenv("STACKSTORM_RULE")
+	proxyReq, err := http.NewRequest(req.Method, url, bytes.NewReader(body))
+	// Filter some headers, otherwise could just use a shallow copy proxyReq.Header = req.Header
+	proxyReq.Header = make(http.Header)
+	for h, val := range req.Header {
+		proxyReq.Header[h] = val
+	}
+	// proxyReq.Header = req.Header
+	proxyReq.Header.Add("St2-Api-Key", os.Getenv("STACKSTORM_API_KEY"))
+	// Create a httpclient with disabled security checks
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+	httpClient := http.Client{Transport: tr}
+	resp, err := httpClient.Do(proxyReq)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadGateway)
+		return
+	}
+	defer resp.Body.Close()
 }
 
 func (c *controller) logging(hdlr http.Handler) http.Handler {
