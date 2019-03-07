@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"crypto/tls"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"os"
 )
@@ -14,13 +13,10 @@ import (
 // be forwarded to Stackstorm host using Golang http client.
 func TriggerSt2Rule(w http.ResponseWriter, req *http.Request) {
 	body, err := ioutil.ReadAll(req.Body)
-	logger := log.New(os.Stdout, "http: ", log.LstdFlags)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-		logger.Println(err.Error())
 		return
 	}
-	logger.Println(req)
 	req.Body = ioutil.NopCloser(bytes.NewReader(body))
 	url := "https://" + os.Getenv("STACKSTORM_HOST") + "/api/webhooks/" + os.Getenv("STACKSTORM_RULE")
 	proxyReq, err := http.NewRequest(req.Method, url, bytes.NewReader(body))
@@ -31,17 +27,14 @@ func TriggerSt2Rule(w http.ResponseWriter, req *http.Request) {
 	}
 	// proxyReq.Header = req.Header
 	proxyReq.Header.Add("St2-Api-Key", os.Getenv("STACKSTORM_API_KEY"))
-	logger.Println(proxyReq)
 	// Create a httpclient with disabled security checks
 	tr := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	}
 	httpClient := http.Client{Transport: tr}
 	resp, err := httpClient.Do(proxyReq)
-	logger.Println(resp)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadGateway)
-		logger.Println(err.Error())
 		return
 	}
 	defer resp.Body.Close()
