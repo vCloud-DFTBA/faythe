@@ -105,8 +105,9 @@ func (c *controller) healthz(w http.ResponseWriter, req *http.Request) {
 
 func (c *controller) redirectStackStorm(w http.ResponseWriter, req *http.Request) {
 	if req.Method == http.MethodPost {
-		req.Header.Add("St2-Api-Key", os.Getenv("St2_API_KEY"))
-		http.Redirect(w, req, req.RequestURI, http.StatusMovedPermanently)
+		req.Header.Add("St2-Api-Key", os.Getenv("STACKSTORM_API_KEY"))
+		target := "https://" + os.Getenv("STACKSTORM_HOST") + "/api/webhooks/" + os.Getenv("STACKSTORM_RULE")
+		http.Redirect(w, req, target, http.StatusMovedPermanently)
 	}
 }
 
