@@ -1,3 +1,3 @@
-# Go-Fowarder
+# Simple Golang Web Server
 
-A dead simple Golang Web API to forward request to other endpoints!
+A very simple Golang Web Server.
