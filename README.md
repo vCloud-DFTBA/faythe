@@ -1,3 +1,6 @@
-# Simple Golang Web Server
+# Cloudhotpot Middleware
 
-A very simple Golang Web Server.
+## Features
+
+* Modify the given request headers then forward it!
+* Autoscaling webhook (Dev)
