@@ -1,10 +1,13 @@
 package openstack
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"net/http"
 	"os"
+	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/gophercloud/gophercloud"
@@ -12,72 +15,70 @@ import (
 	"github.com/gophercloud/gophercloud/openstack/orchestration/v1/stacks"
 	"github.com/gophercloud/gophercloud/pagination"
 	mw "github.com/ntk148v/cloudhotpot-middleware/middlewares"
+	"github.com/prometheus/alertmanager/template"
 )
 
-var (
-	stackOutputs         map[string]interface{}
-	opts                 gophercloud.AuthOptions
-	provider             gophercloud.ProviderClient
-	orchestractionClient gophercloud.ServiceClient
-)
+// StacksOutputs represents the outputs of a list of stacks.
+// map[stack_id:map[output_key:output_value]]
+type StacksOutputs map[string]map[string]string
 
-func UpdateStackOutputs(listOpts stacks.ListOpts, wg *sync.WaitGroup) {
+var sos atomic.Value
+
+// UpdateStacksOutputs queries the outputs of stacks that was filters with a given listOpts periodically.
+func UpdateStacksOutputs(wg *sync.WaitGroup) {
 	defer wg.Done()
+	sos.Store(make(StacksOutputs))
+	var mu sync.Mutex // used only by writers
+	// Retrieve all OpenStack environment variables
+	opts, err := openstack.AuthOptionsFromEnv()
+	if err != nil {
+		mw.Logger.Printf("UpdateStacksOutputs - retrieve OpenStack environment varibales is failed due to %s", err.Error())
+		return
+	}
+
+	// Create a general client
+	provider, err := openstack.AuthenticatedClient(opts)
+	if err != nil {
+		mw.Logger.Printf("UpdateStacksOutputs - create provider client is failed due to %s", err.Error())
+		return
+	}
+
+	orchestractionClient, err := openstack.NewOrchestrationV1(provider, gophercloud.EndpointOpts{
+		Region: os.Getenv("OS_REGION_NAME"),
+	})
+	if err != nil {
+		mw.Logger.Printf("UpdateStacksOutputs - create Orchestraction client is failed due to %s", err.Error())
+		return
+	}
+
+	listOpts := stacks.ListOpts{
+		Tags: "scale",
+	}
+
 	for {
-		// Retrieve all OpenStack environment variables
-		if opts == nil {
-			opts, err := openstack.AuthOptionsFromEnv()
-			if err != nil {
-				mw.Logger.Printf("UpdateStackOutputs - retrieve OpenStack environment varibales is failed due to %s", err.Error())
-				continue
-			}
-		}
-
-		// Create a general client
-		if provider == nil {
-			provider, err := openstack.AuthenticatedClient(opts)
-			if err != nil {
-				mw.Logger.Printf("UpdateStackOutputs - create provider client is failed due to %s", err.Error())
-				continue
-			}
-		}
-		// Create a ServiceClient that may be used to access the v1 orchestraction service
-		if orchestractionClient == nil {
-			orchestractionClient, err := openstack.NewOrchestrationV1(provider, gophercloud.EndpointOpts{
-				Region: os.Getenv("OS_REGION_NAME"),
-			})
-			if err != nil {
-				mw.Logger.Printf("UpdateStackOutputs - create Orchestraction client is failed due to %s", err.Error())
-				continue
-			}
-		}
-
 		// List all stacks with given options
-		pager := stacks.List(client, listOpts)
-		err = pager.EachPage(func(page pagination.Page) (bool, error) {
+		pager := stacks.List(orchestractionClient, listOpts)
+		err := pager.EachPage(func(page pagination.Page) (bool, error) {
+			mu.Lock()
+			defer mu.Unlock()
+			_ = sos.Load().(StacksOutputs)
+			stacksOutputs := make(StacksOutputs)
 			stackList, err := stacks.ExtractStacks(page)
 			if err != nil {
 				return false, err
 			}
-			for _, s := range stacklist {
-				outputValues := make(map[string]interface{})
-				stack := stacks.Get(client, s.Name, s.ID)
+			for _, s := range stackList {
+				outputValues := make(map[string]string)
+				stack := stacks.Get(orchestractionClient, s.Name, s.ID)
 				stackBody, _ := stack.Extract()
 				for _, v := range stackBody.Outputs {
-					outputValueRaw := v["output_value"].(string)
-					outputValueMap := make(map[string]interface{})
-					// Convert output value to map if it is in JSON string format
-					if err := json.Unmarshal([]byte(outputValueRaw), &outputValueMap); err != nil {
-						outputValues[v["output_key"].(string)] = outputValueRaw
-						continue
-					}
-
-					outputValues[v["output_key"].(string)] = outputValueMap
+					outputValues[v["output_key"].(string)] = v["output_value"].(string)
 				}
 				if len(outputValues) != 0 {
-					stackOutputs[s.ID] = outputValues
+					stacksOutputs[s.ID] = outputValues
 				}
 			}
+			sos.Store(stacksOutputs)
 			return true, nil
 		})
 		if err != nil {
@@ -87,6 +88,44 @@ func UpdateStackOutputs(listOpts stacks.ListOpts, wg *sync.WaitGroup) {
 	}
 }
 
+// Autoscaling gets Webhook be triggered from Prometheus Alertmanager.
 func Autoscaling(w http.ResponseWriter, req *http.Request) {
-
+	defer req.Body.Close()
+	data := template.Data{}
+	if err := json.NewDecoder(req.Body).Decode(&data); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	mw.Logger.Printf("Alerts: GroupLabels=%v, CommonLabels=%v", data.GroupLabels, data.CommonLabels)
+	for _, alert := range data.Alerts {
+		mw.Logger.Printf("Alert: status=%s,Labels=%v,Annotations=%v", alert.Status, alert.Labels, alert.Annotations)
+		stacksOutputs := sos.Load().(StacksOutputs)
+		stackID := alert.Labels["stack_id"]
+		// scale_action must be one of two values: `up` and `down`.
+		/// TODO: add check later.
+		scaleURLKey := "scale_" + strings.ToLower(alert.Labels["scale_action"]) + "_url"
+		var scaleURL string
+		stack := stacksOutputs[stackID]
+		if microservice, ok := alert.Labels["microservice"]; ok {
+			// Convert output value (JSON string) to Map to able to index
+			stackMap := make(map[string]string)
+			json.Unmarshal([]byte(stack[microservice]), &stackMap)
+			scaleURL = stackMap[scaleURLKey]
+		} else {
+			scaleURL = stack[scaleURLKey]
+		}
+		scaleReq, err := http.NewRequest("POST", scaleURL, nil)
+		// Create a httpclient with disabled security checks
+		tr := &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		}
+		httpClient := http.Client{Transport: tr}
+		resp, err := httpClient.Do(scaleReq)
+		if err != nil {
+			mw.Logger.Println(err.Error())
+			http.Error(w, err.Error(), http.StatusBadGateway)
+			return
+		}
+		defer resp.Body.Close()
+	}
 }

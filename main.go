@@ -9,12 +9,14 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"sync"
 	"sync/atomic"
 	"syscall"
 	"time"
 
-	mw ".github.com/ntk148v/cloudhotpot-middleware/middlewares"
+	"github.com/ntk148v/cloudhotpot-middleware/handlers/openstack"
 	"github.com/ntk148v/cloudhotpot-middleware/handlers/stackstorm"
+	mw "github.com/ntk148v/cloudhotpot-middleware/middlewares"
 )
 
 var (
@@ -35,6 +37,11 @@ func main() {
 	router.HandleFunc("/", index)
 	router.HandleFunc("/healthz", healthz)
 	router.HandleFunc("/stackstorm", stackstorm.TriggerSt2Rule)
+	// Query the outputs of a list of Heat stacks.
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go openstack.UpdateStacksOutputs(&wg)
+	router.HandleFunc("/autoscaling", openstack.Autoscaling)
 	// Add more routes here
 	// 1. Create a new handler, for example: handlers/new/new.go
 	// 2. import "./handlers/new"
