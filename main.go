@@ -13,13 +13,8 @@ import (
 	"syscall"
 	"time"
 
-	"./handlers/stackstorm"
-)
-
-type key int
-
-const (
-	requestIDKey key = 0
+	mw ".github.com/ntk148v/cloudhotpot-middleware/middlewares"
+	"github.com/ntk148v/cloudhotpot-middleware/handlers/stackstorm"
 )
 
 var (
@@ -31,9 +26,9 @@ func main() {
 	flag.StringVar(&listenAddr, "listen-addr", ":5000", "server listen address")
 	flag.Parse()
 
-	logger := log.New(os.Stdout, "http: ", log.LstdFlags)
-	logger.Println("Simple Go Server")
-	logger.Println("Server is starting...")
+	mw.Logger = log.New(os.Stdout, "http: ", log.LstdFlags)
+	mw.Logger.Println("Simple Go Server")
+	mw.Logger.Println("Server is starting...")
 
 	router := http.NewServeMux()
 	// routing
@@ -51,8 +46,8 @@ func main() {
 
 	server := &http.Server{
 		Addr:         listenAddr,
-		Handler:      tracing(nextRequestID)(logging(logger)(router)),
-		ErrorLog:     logger,
+		Handler:      mw.Tracing(nextRequestID)(mw.Logging(mw.Logger)(router)),
+		ErrorLog:     mw.Logger,
 		ReadTimeout:  5 * time.Second,
 		WriteTimeout: 10 * time.Second,
 		IdleTimeout:  15 * time.Second,
@@ -61,10 +56,10 @@ func main() {
 	atomic.StoreInt64(&healthy, time.Now().UnixNano())
 
 	if err := server.ListenAndServe(); err != http.ErrServerClosed {
-		logger.Fatalf("Could not listen on %q: %s\n", listenAddr, err)
+		mw.Logger.Fatalf("Could not listen on %q: %s\n", listenAddr, err)
 	}
 	<-ctx.Done()
-	logger.Printf("Server stopped\n")
+	mw.Logger.Printf("Server stopped\n")
 }
 
 func shutdown(ctx context.Context, server *http.Server) context.Context {
@@ -106,34 +101,5 @@ func healthz(w http.ResponseWriter, req *http.Request) {
 		w.WriteHeader(http.StatusServiceUnavailable)
 	} else {
 		fmt.Fprintf(w, "uptime: %s\n", time.Since(time.Unix(0, h)))
-	}
-}
-
-func logging(logger *log.Logger) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			defer func() {
-				requestID, ok := r.Context().Value(requestIDKey).(string)
-				if !ok {
-					requestID = "unknown"
-				}
-				logger.Println(requestID, r.Method, r.URL.Path, r.RemoteAddr, r.UserAgent())
-			}()
-			next.ServeHTTP(w, r)
-		})
-	}
-}
-
-func tracing(nextRequestID func() string) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			requestID := r.Header.Get("X-Request-Id")
-			if requestID == "" {
-				requestID = nextRequestID()
-			}
-			ctx := context.WithValue(r.Context(), requestIDKey, requestID)
-			w.Header().Set("X-Request-Id", requestID)
-			next.ServeHTTP(w, r.WithContext(ctx))
-		})
 	}
 }
