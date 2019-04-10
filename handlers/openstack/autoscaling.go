@@ -1,7 +1,6 @@
 package openstack
 
 import (
-	"crypto/tls"
 	"encoding/json"
 	"net/http"
 	"os"
@@ -114,13 +113,9 @@ func Autoscaling(w http.ResponseWriter, req *http.Request) {
 		} else {
 			scaleURL = stack[scaleURLKey]
 		}
-		scaleReq, err := http.NewRequest("POST", scaleURL, nil)
-		// Create a httpclient with disabled security checks
-		tr := &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-		}
-		httpClient := http.Client{Transport: tr}
-		resp, err := httpClient.Do(scaleReq)
+
+		// Good now, create a POST request to scale URL
+		resp, err := http.Post(scaleURL, "application/json", nil)
 		if err != nil {
 			mw.Logger.Println(err.Error())
 			http.Error(w, err.Error(), http.StatusBadGateway)
