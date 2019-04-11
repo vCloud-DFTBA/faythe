@@ -9,7 +9,7 @@ import (
 )
 
 // Log represents a global Logger.
-var Log log.Logger
+var Log *log.Logger
 
 func main() {
 	var listenAddr string
@@ -17,7 +17,7 @@ func main() {
 	flag.Parse()
 
 	// Create a logger, router and server
-	Log := log.New(os.Stdout, "http: ", log.LstdFlags)
+	Log = log.New(os.Stdout, "http: ", log.LstdFlags)
 	router := newRouter()
 	server := newServer(
 		listenAddr,
