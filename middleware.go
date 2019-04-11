@@ -1,4 +1,4 @@
-package middlewares
+package main
 
 import (
 	"context"
@@ -12,9 +12,17 @@ const (
 	requestIDKey key = 0
 )
 
-var Logger *log.Logger
+type middleware func(http.Handler) http.Handler
+type middlewares []middleware
 
-func Logging(logger *log.Logger) func(http.Handler) http.Handler {
+func (mws middlewares) apply(hdlr http.Handler) http.Handler {
+	if len(mws) == 0 {
+		return hdlr
+	}
+	return mws[1:].apply(mws[0](hdlr))
+}
+
+func logging(logger *log.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			defer func() {
@@ -29,7 +37,7 @@ func Logging(logger *log.Logger) func(http.Handler) http.Handler {
 	}
 }
 
-func Tracing(nextRequestID func() string) func(http.Handler) http.Handler {
+func tracing(nextRequestID func() string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			requestID := r.Header.Get("X-Request-Id")

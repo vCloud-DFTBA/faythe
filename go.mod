@@ -1,4 +1,4 @@
-module github.com/ntk148v/cloudhotpot-middleware
+module cloudhotpot-middleware
 
 go 1.12
 

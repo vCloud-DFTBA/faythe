@@ -2,6 +2,7 @@ package openstack
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -13,7 +14,6 @@ import (
 	"github.com/gophercloud/gophercloud/openstack"
 	"github.com/gophercloud/gophercloud/openstack/orchestration/v1/stacks"
 	"github.com/gophercloud/gophercloud/pagination"
-	mw "github.com/ntk148v/cloudhotpot-middleware/middlewares"
 	"github.com/prometheus/alertmanager/template"
 )
 
@@ -24,21 +24,21 @@ type StacksOutputs map[string]map[string]string
 var sos atomic.Value
 
 // UpdateStacksOutputs queries the outputs of stacks that was filters with a given listOpts periodically.
-func UpdateStacksOutputs(wg *sync.WaitGroup) {
+func UpdateStacksOutputs(logger *log.Logger, wg *sync.WaitGroup) {
 	defer wg.Done()
 	sos.Store(make(StacksOutputs))
 	var mu sync.Mutex // used only by writers
 	// Retrieve all OpenStack environment variables
 	opts, err := openstack.AuthOptionsFromEnv()
 	if err != nil {
-		mw.Logger.Printf("UpdateStacksOutputs - retrieve OpenStack environment varibales is failed due to %s", err.Error())
+		logger.Printf("UpdateStacksOutputs - retrieve OpenStack environment varibales is failed due to %s", err.Error())
 		return
 	}
 
 	// Create a general client
 	provider, err := openstack.AuthenticatedClient(opts)
 	if err != nil {
-		mw.Logger.Printf("UpdateStacksOutputs - create provider client is failed due to %s", err.Error())
+		logger.Printf("UpdateStacksOutputs - create provider client is failed due to %s", err.Error())
 		return
 	}
 
@@ -46,7 +46,7 @@ func UpdateStacksOutputs(wg *sync.WaitGroup) {
 		Region: os.Getenv("OS_REGION_NAME"),
 	})
 	if err != nil {
-		mw.Logger.Printf("UpdateStacksOutputs - create Orchestraction client is failed due to %s", err.Error())
+		logger.Printf("UpdateStacksOutputs - create Orchestraction client is failed due to %s", err.Error())
 		return
 	}
 
@@ -81,46 +81,48 @@ func UpdateStacksOutputs(wg *sync.WaitGroup) {
 			return true, nil
 		})
 		if err != nil {
-			mw.Logger.Printf("UpdateStackOutputs - get stack outputs is failed due to %s", err.Error())
+			logger.Printf("UpdateStackOutputs - get stack outputs is failed due to %s", err.Error())
 		}
 		time.Sleep(time.Second * 30)
 	}
 }
 
 // Autoscaling gets Webhook be triggered from Prometheus Alertmanager.
-func Autoscaling(w http.ResponseWriter, req *http.Request) {
-	defer req.Body.Close()
-	data := template.Data{}
-	if err := json.NewDecoder(req.Body).Decode(&data); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	mw.Logger.Printf("Alerts: GroupLabels=%v, CommonLabels=%v", data.GroupLabels, data.CommonLabels)
-	for _, alert := range data.Alerts {
-		mw.Logger.Printf("Alert: status=%s,Labels=%v,Annotations=%v", alert.Status, alert.Labels, alert.Annotations)
-		stacksOutputs := sos.Load().(StacksOutputs)
-		stackID := alert.Labels["stack_id"]
-		// scale_action must be one of two values: `up` and `down`.
-		/// TODO: add check later.
-		scaleURLKey := "scale_" + strings.ToLower(alert.Labels["scale_action"]) + "_url"
-		var scaleURL string
-		stack := stacksOutputs[stackID]
-		if microservice, ok := alert.Labels["microservice"]; ok {
-			// Convert output value (JSON string) to Map to able to index
-			stackMap := make(map[string]string)
-			json.Unmarshal([]byte(stack[microservice]), &stackMap)
-			scaleURL = stackMap[scaleURLKey]
-		} else {
-			scaleURL = stack[scaleURLKey]
-		}
-
-		// Good now, create a POST request to scale URL
-		resp, err := http.Post(scaleURL, "application/json", nil)
-		if err != nil {
-			mw.Logger.Println(err.Error())
-			http.Error(w, err.Error(), http.StatusBadGateway)
+func Autoscaling(logger *log.Logger) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		defer req.Body.Close()
+		data := template.Data{}
+		if err := json.NewDecoder(req.Body).Decode(&data); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		defer resp.Body.Close()
-	}
+		logger.Printf("Alerts: GroupLabels=%v, CommonLabels=%v", data.GroupLabels, data.CommonLabels)
+		for _, alert := range data.Alerts {
+			logger.Printf("Alert: status=%s,Labels=%v,Annotations=%v", alert.Status, alert.Labels, alert.Annotations)
+			stacksOutputs := sos.Load().(StacksOutputs)
+			stackID := alert.Labels["stack_id"]
+			// scale_action must be one of two values: `up` and `down`.
+			/// TODO: add check later.
+			scaleURLKey := "scale_" + strings.ToLower(alert.Labels["scale_action"]) + "_url"
+			var scaleURL string
+			stack := stacksOutputs[stackID]
+			if microservice, ok := alert.Labels["microservice"]; ok {
+				// Convert output value (JSON string) to Map to able to index
+				stackMap := make(map[string]string)
+				json.Unmarshal([]byte(stack[microservice]), &stackMap)
+				scaleURL = stackMap[scaleURLKey]
+			} else {
+				scaleURL = stack[scaleURLKey]
+			}
+
+			// Good now, create a POST request to scale URL
+			resp, err := http.Post(scaleURL, "application/json", nil)
+			if err != nil {
+				logger.Println(err.Error())
+				http.Error(w, err.Error(), http.StatusBadGateway)
+				return
+			}
+			defer resp.Body.Close()
+		}
+	})
 }
