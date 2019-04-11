@@ -1,0 +1,23 @@
+# github.com/gophercloud/gophercloud v0.0.0-20190408160324-6c7ac67f8855
+github.com/gophercloud/gophercloud
+github.com/gophercloud/gophercloud/openstack
+github.com/gophercloud/gophercloud/openstack/orchestration/v1/stacks
+github.com/gophercloud/gophercloud/pagination
+github.com/gophercloud/gophercloud/openstack/identity/v2/tokens
+github.com/gophercloud/gophercloud/openstack/identity/v3/tokens
+github.com/gophercloud/gophercloud/openstack/utils
+github.com/gophercloud/gophercloud/openstack/identity/v2/tenants
+# github.com/prometheus/alertmanager v0.16.2
+github.com/prometheus/alertmanager/template
+github.com/prometheus/alertmanager/asset
+github.com/prometheus/alertmanager/types
+# github.com/prometheus/common v0.0.0-20181126121408-4724e9255275
+github.com/prometheus/common/model
+# github.com/shurcooL/httpfs v0.0.0-20171119174359-809beceb2371
+github.com/shurcooL/httpfs/filter
+github.com/shurcooL/httpfs/union
+github.com/shurcooL/httpfs/vfsutil
+# github.com/shurcooL/vfsgen v0.0.0-20180825020608-02ddb050ef6b
+github.com/shurcooL/vfsgen
+# gopkg.in/yaml.v2 v2.2.2
+gopkg.in/yaml.v2
