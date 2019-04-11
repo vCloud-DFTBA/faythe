@@ -20,10 +20,10 @@ type Server struct {
 }
 
 // newServer creates a new HTTP server
-func newServer(port string, h http.Handler, l *log.Logger) *Server {
+func newServer(listenAddr string, h http.Handler, l *log.Logger) *Server {
 	return &Server{
 		server: &http.Server{
-			Addr:           ":" + port,
+			Addr:           listenAddr,
 			Handler:        h, // pass in mux/router
 			ErrorLog:       l,
 			ReadTimeout:    5 * time.Second,
@@ -63,7 +63,7 @@ func (s *Server) run() error {
 	}()
 
 	s.server.ErrorLog.Println("** Cloudhotpot-middle **")
-	s.server.ErrorLog.Printf("%s - Starting server on port %v", hostname, s.server.Addr)
+	s.server.ErrorLog.Printf("%s - Starting server on %v", hostname, s.server.Addr)
 	atomic.StoreInt32(&healthy, 1)
 	if err := s.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		s.server.ErrorLog.Fatalf("Could not listen on %s: %v", s.server.Addr, err)

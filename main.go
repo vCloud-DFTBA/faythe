@@ -13,7 +13,7 @@ var Log log.Logger
 
 func main() {
 	var listenAddr string
-	flag.StringVar(&listenAddr, "listen-addr", ":5000", "server listen address")
+	flag.StringVar(&listenAddr, "listen-addr", ":8600", "server listen address")
 	flag.Parse()
 
 	// Create a logger, router and server
