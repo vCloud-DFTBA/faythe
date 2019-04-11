@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-var healthy int32
+var healthy int64
 
 // Server implements HTTP server
 type Server struct {
@@ -50,7 +50,7 @@ func (s *Server) run() error {
 		<-quit
 		fmt.Println("")
 		s.server.ErrorLog.Printf("%s - Shutdown signal received...\n", hostname)
-		atomic.StoreInt32(&healthy, 0)
+		atomic.StoreInt64(&healthy, 0)
 
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
@@ -64,7 +64,8 @@ func (s *Server) run() error {
 
 	s.server.ErrorLog.Println("** Cloudhotpot-middle **")
 	s.server.ErrorLog.Printf("%s - Starting server on %v", hostname, s.server.Addr)
-	atomic.StoreInt32(&healthy, 1)
+	atomic.StoreInt64(&healthy, time.Now().UnixNano())
+
 	if err := s.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		s.server.ErrorLog.Fatalf("Could not listen on %s: %v", s.server.Addr, err)
 	}

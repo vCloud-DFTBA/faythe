@@ -2,9 +2,9 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"time"
 )
 
@@ -16,12 +16,17 @@ func main() {
 	flag.StringVar(&listenAddr, "listen-addr", ":8600", "server listen address")
 	flag.Parse()
 
+	// Create nextRequestID
+	nextRequestID := func() string {
+		return strconv.FormatInt(time.Now().UnixNano(), 36)
+	}
+
 	// Create a logger, router and server
 	Log = log.New(os.Stdout, "http: ", log.LstdFlags)
 	router := newRouter()
 	server := newServer(
 		listenAddr,
-		(middlewares{tracing(func() string { return fmt.Sprintf("%d", time.Now().UnixNano()) }), logging(Log)}).apply(router),
+		tracing(nextRequestID)(logging(Log)(router)),
 		Log,
 	)
 

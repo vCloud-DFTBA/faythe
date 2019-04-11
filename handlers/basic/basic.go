@@ -1,9 +1,10 @@
 package basic
 
 import (
-	"io"
+	"fmt"
 	"net/http"
 	"sync/atomic"
+	"time"
 )
 
 // Index handles request to / url.
@@ -15,19 +16,19 @@ func Index() http.Handler {
 		}
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-		io.WriteString(w, "Hello, World!")
+		fmt.Fprintf(w, "Hello stranger! Welcome to Cloudhotpot-middleware")
 	})
 }
 
 // Healthz handles requests to /healthz and returns uptime.
-func Healthz(healthy int32) http.Handler {
+func Healthz(healthy *int64) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if atomic.LoadInt32(&healthy) == 1 {
+		if h := atomic.LoadInt64(healthy); h == 0 {
+			w.WriteHeader(http.StatusServiceUnavailable)
+		} else {
 			w.Header().Set("X-Content-Type-Options", "nosniff")
 			w.Header().Set("Content-Type", "application/json; charset=utf-8")
-			io.WriteString(w, `{"alive": true}`)
-			return
+			fmt.Fprintf(w, "uptime: %s\n", time.Since(time.Unix(0, h)))
 		}
-		w.WriteHeader(http.StatusServiceUnavailable)
 	})
 }
