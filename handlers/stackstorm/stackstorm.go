@@ -16,7 +16,7 @@ func TriggerSt2Rule(logger *log.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		body, err := ioutil.ReadAll(req.Body)
 		if err != nil {
-			logger.Println(err.Error())
+			logger.Printf("Stackstorm/TriggerSt2Rule - get request body failed: %s", err.Error())
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -24,7 +24,7 @@ func TriggerSt2Rule(logger *log.Logger) http.Handler {
 		url := "https://" + os.Getenv("STACKSTORM_HOST") + "/api/webhooks/" + os.Getenv("STACKSTORM_RULE")
 		proxyReq, err := http.NewRequest(req.Method, url, bytes.NewReader(body))
 		if err != nil {
-			logger.Println(err.Error())
+			logger.Printf("Stackstorm/TriggerSt2Rule - create a new request failed: %s", err.Error())
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -40,12 +40,14 @@ func TriggerSt2Rule(logger *log.Logger) http.Handler {
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		}
 		httpClient := http.Client{Transport: tr}
+		logger.Printf("Stackstorm/TriggerSt2Rule - send a POST request to %s...\n", url)
 		resp, err := httpClient.Do(proxyReq)
 		if err != nil {
 			logger.Println(err.Error())
 			http.Error(w, err.Error(), http.StatusBadGateway)
 			return
 		}
+		logger.Printf("Stackstorm/TriggerSt2Rule - send a POST request to Stackstorm host %s successfully!\n", os.Getenv("STACKSTORM_HOST"))
 		defer resp.Body.Close()
 	})
 }

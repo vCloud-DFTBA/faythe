@@ -31,14 +31,14 @@ func UpdateStacksOutputs(logger *log.Logger, wg *sync.WaitGroup) {
 	// Retrieve all OpenStack environment variables
 	opts, err := openstack.AuthOptionsFromEnv()
 	if err != nil {
-		logger.Printf("UpdateStacksOutputs - retrieve OpenStack environment varibales is failed due to %s", err.Error())
+		logger.Printf("OpenStack/UpdateStacksOutputs - retrieve OpenStack environment varibales failed due to %s", err.Error())
 		return
 	}
 
 	// Create a general client
 	provider, err := openstack.AuthenticatedClient(opts)
 	if err != nil {
-		logger.Printf("UpdateStacksOutputs - create provider client is failed due to %s", err.Error())
+		logger.Printf("OpenStack/UpdateStacksOutputs - create provider client failed due to %s", err.Error())
 		return
 	}
 
@@ -46,7 +46,7 @@ func UpdateStacksOutputs(logger *log.Logger, wg *sync.WaitGroup) {
 		Region: os.Getenv("OS_REGION_NAME"),
 	})
 	if err != nil {
-		logger.Printf("UpdateStacksOutputs - create Orchestraction client is failed due to %s", err.Error())
+		logger.Printf("OpenStack/UpdateStacksOutputs - create Orchestraction client failed due to %s", err.Error())
 		return
 	}
 
@@ -77,11 +77,14 @@ func UpdateStacksOutputs(logger *log.Logger, wg *sync.WaitGroup) {
 					stacksOutputs[s.ID] = outputValues
 				}
 			}
+			if len(stacksOutputs) != 0 {
+				logger.Println("Autoscaling/UpdateStacksOutputs - the stacks outputs: ", stacksOutputs)
+			}
 			sos.Store(stacksOutputs)
 			return true, nil
 		})
 		if err != nil {
-			logger.Printf("UpdateStackOutputs - get stack outputs is failed due to %s", err.Error())
+			logger.Printf("Autoscaling/UpdateStacksOutputs - get stack outputs is failed due to %s", err.Error())
 		}
 		time.Sleep(time.Second * 30)
 	}
@@ -96,16 +99,24 @@ func Autoscaling(logger *log.Logger) http.Handler {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		logger.Printf("Alerts: GroupLabels=%v, CommonLabels=%v", data.GroupLabels, data.CommonLabels)
+
+		logger.Printf("OpenStack/Autoscaling - Alerts: GroupLabels=%v, CommonLabels=%v", data.GroupLabels, data.CommonLabels)
+
 		for _, alert := range data.Alerts {
-			logger.Printf("Alert: status=%s,Labels=%v,Annotations=%v", alert.Status, alert.Labels, alert.Annotations)
+			logger.Printf("OpenStack/Autoscaling - Alert: status=%s,Labels=%v,Annotations=%v", alert.Status, alert.Labels, alert.Annotations)
+
+			// Get the updated stacksOutputs
 			stacksOutputs := sos.Load().(StacksOutputs)
-			stackID := alert.Labels["stack_id"]
+			stack := stacksOutputs[alert.Labels["stack_id"]]
+
 			// scale_action must be one of two values: `up` and `down`.
-			/// TODO: add check later.
+			// TODO: add check format later.
 			scaleURLKey := "scale_" + strings.ToLower(alert.Labels["scale_action"]) + "_url"
 			var scaleURL string
-			stack := stacksOutputs[stackID]
+
+			// There are two potential output format.
+			// It might be a simple map with two keys: `scale_down_url` and `scale_up_url`.
+			// It can also be a nested map which its keys are microservice name.
 			if microservice, ok := alert.Labels["microservice"]; ok {
 				// Convert output value (JSON string) to Map to able to index
 				stackMap := make(map[string]string)
@@ -116,12 +127,14 @@ func Autoscaling(logger *log.Logger) http.Handler {
 			}
 
 			// Good now, create a POST request to scale URL
+			logger.Printf("OpenStack/Autoscaling - send a POST request to scale %s...", strings.ToLower(alert.Labels["scale_action"]))
 			resp, err := http.Post(scaleURL, "application/json", nil)
 			if err != nil {
 				logger.Println(err.Error())
 				http.Error(w, err.Error(), http.StatusBadGateway)
 				return
 			}
+			logger.Println("OpenStack/Autoscaling - scaling scaling scaling!")
 			defer resp.Body.Close()
 		}
 	})
