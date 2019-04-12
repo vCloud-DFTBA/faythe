@@ -4,7 +4,10 @@ import (
 	"context"
 	"log"
 	"net/http"
+	"time"
 )
+
+type middleware func(http.Handler) http.Handler
 
 type key int
 
@@ -12,7 +15,8 @@ const (
 	requestIDKey key = 0
 )
 
-func logging(logger *log.Logger) func(http.Handler) http.Handler {
+// logging logs all requests with its information and the time it took to process
+func logging(logger *log.Logger) middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			defer func() {
@@ -20,14 +24,16 @@ func logging(logger *log.Logger) func(http.Handler) http.Handler {
 				if !ok {
 					requestID = "unknown"
 				}
-				logger.Println(requestID, r.Method, r.URL.Path, r.RemoteAddr, r.UserAgent())
+				start := time.Now()
+				logger.Println(requestID, r.Method, r.URL.Path, r.RemoteAddr, r.UserAgent(), time.Since(start))
 			}()
 			next.ServeHTTP(w, r)
 		})
 	}
 }
 
-func tracing(nextRequestID func() string) func(http.Handler) http.Handler {
+// tracing appends a ID to each request
+func tracing(nextRequestID func() string) middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			requestID := r.Header.Get("X-Request-Id")
@@ -37,6 +43,20 @@ func tracing(nextRequestID func() string) func(http.Handler) http.Handler {
 			ctx := context.WithValue(r.Context(), requestIDKey, requestID)
 			w.Header().Set("X-Request-Id", requestID)
 			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
+}
+
+// method ensures that url can only be requested with a specific method, else return a 400 Bad Request
+func method(m string) middleware {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != m {
+				http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+				return
+			}
+
+			next.ServeHTTP(w, r)
 		})
 	}
 }
