@@ -1,4 +1,4 @@
-module cloudhotpot-middleware
+module faythe
 
 go 1.12
 

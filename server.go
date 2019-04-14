@@ -62,7 +62,7 @@ func (s *Server) run() error {
 		close(done)
 	}()
 
-	s.server.ErrorLog.Println("** Cloudhotpot-middle **")
+	s.server.ErrorLog.Println("** Faythe **")
 	s.server.ErrorLog.Printf("%s - Starting server on %v", hostname, s.server.Addr)
 	atomic.StoreInt64(&healthy, time.Now().UnixNano())
 

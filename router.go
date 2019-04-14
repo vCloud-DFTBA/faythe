@@ -1,9 +1,9 @@
 package main
 
 import (
-	"cloudhotpot-middleware/handlers/basic"
-	"cloudhotpot-middleware/handlers/openstack"
-	"cloudhotpot-middleware/handlers/stackstorm"
+	"faythe/handlers/basic"
+	"faythe/handlers/openstack"
+	"faythe/handlers/stackstorm"
 	"net/http"
 	"sync"
 )
