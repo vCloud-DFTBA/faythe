@@ -1,0 +1,13 @@
+openstack:
+  regionName: "RegionOne"
+  domainName: "Default"
+  authURL: "http://openstackhost:5000"
+  username: "admin"
+  password: "password"
+  projectID: "tenantID"
+  projectName: "tenantName"
+
+stackstorm:
+  host: "stackstormhost"
+  rule: "test-rule"
+  apiKey: "fakestackstomrapikey"
