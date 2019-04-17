@@ -99,10 +99,10 @@ func UpdateStacksOutputs(logger *log.Logger, wg *sync.WaitGroup) {
 
 // Autoscaling gets Webhook be triggered from Prometheus Alertmanager.
 func Autoscaling(logger *log.Logger) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		defer req.Body.Close()
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer r.Body.Close()
 		data := template.Data{}
-		if err := json.NewDecoder(req.Body).Decode(&data); err != nil {
+		if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}

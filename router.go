@@ -4,12 +4,13 @@ import (
 	"faythe/handlers/basic"
 	"faythe/handlers/openstack"
 	"faythe/handlers/stackstorm"
-	"net/http"
 	"sync"
+
+	"github.com/gorilla/mux"
 )
 
-func newRouter() *http.ServeMux {
-	router := http.NewServeMux()
+func newRouter() *mux.Router {
+	router := mux.NewRouter()
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -18,7 +19,7 @@ func newRouter() *http.ServeMux {
 	// routing
 	router.Handle("/", basic.Index())
 	router.Handle("/healthz", basic.Healthz(&healthy))
-	router.Handle("/stackstorm", stackstorm.TriggerSt2Rule(Log))
+	router.Handle("/stackstorm/{st-rule}", stackstorm.TriggerSt2Rule(Log))
 	router.Handle("/autoscaling", openstack.Autoscaling(Log))
 
 	return router
