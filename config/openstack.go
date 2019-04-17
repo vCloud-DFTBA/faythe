@@ -1,5 +1,7 @@
 package config
 
+import "faythe/utils"
+
 /*
 OpenStackConfiguration stores information needed to authenticate to an OpenStack Cloud.
 */
@@ -14,15 +16,15 @@ type OpenStackConfiguration struct {
 	// Username is required if using Identity V2 API. Consult with your provider's
 	// control panel to discover your account's username. In Identity V3, either
 	// UserID or a combination of Username and DomainID or DomainName are needed.
-	Username string `yaml:"username,omitempty"`
-	UserID   string `yaml:"-"`
+	Username string `yaml:"username"`
+	UserID   string `yaml:"userid"`
 
-	Password string `yaml:"password"`
+	Password utils.Secret `yaml:"password"`
 
 	// At most one of DomainID and DomainName must be provided if using Username
 	// with Identity V3. Otherwise, either are optional.
-	DomainName string `yaml:"domainName,omitempty"`
-	DomainID   string `yaml:"-"`
+	DomainName string `yaml:"domainName"`
+	DomainID   string `yaml:"domainId"`
 
 	// The ProjectID and ProjectName fields are optional for the Identity V2 API.
 	// The same fields are known as project_id and project_name in the Identity
@@ -35,8 +37,8 @@ type OpenStackConfiguration struct {
 	// and scope to a Project in a different Domain by using ProjectName. To
 	// accomplish that, the ProjectID will need to be provided as the ProjectID
 	// option.
-	ProjectName string `yaml:"projectId,omitempty"`
-	ProjectID   string `yaml:"projectName,omitempty"`
+	ProjectName string `yaml:"projectId"`
+	ProjectID   string `yaml:"projectName"`
 
 	// UpdateInterval field is the number of seconds that queries the outputs of stacks
 	// that was filters with a given listOpts periodically.
