@@ -1,20 +1,38 @@
 package main
 
 import (
+	"faythe/config"
 	"flag"
 	"log"
 	"os"
+	"runtime"
 	"strconv"
 	"time"
 )
 
-// Log represents a global Logger.
-var Log *log.Logger
+const (
+	defaultConfigFilePath = "./etc/"
+	configFilePathUsage   = "config file directory (eg. '/etc/faythe/'). Config file must be named 'config.yml'."
+)
+
+var (
+	// Log represents a global Logger.
+	Log            *log.Logger
+	configFilePath string
+	listenAddr     string
+)
+
+func init() {
+	flag.StringVar(&configFilePath, "conf", defaultConfigFilePath, configFilePathUsage)
+	flag.StringVar(&listenAddr, "listen-addr", ":8600", "server listen address.")
+	flag.Parse()
+	config.Load(configFilePath)
+}
 
 func main() {
-	var listenAddr string
-	flag.StringVar(&listenAddr, "listen-addr", ":8600", "server listen address")
-	flag.Parse()
+	if os.Getenv("GOMAXPROCS") == "" {
+		runtime.GOMAXPROCS(runtime.NumCPU())
+	}
 
 	// Create nextRequestID
 	nextRequestID := func() string {

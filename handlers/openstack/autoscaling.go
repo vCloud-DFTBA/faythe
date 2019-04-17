@@ -2,9 +2,9 @@ package openstack
 
 import (
 	"encoding/json"
+	"faythe/utils"
 	"log"
 	"net/http"
-	"os"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -15,24 +15,30 @@ import (
 	"github.com/gophercloud/gophercloud/openstack/orchestration/v1/stacks"
 	"github.com/gophercloud/gophercloud/pagination"
 	"github.com/prometheus/alertmanager/template"
+	"github.com/spf13/viper"
 )
 
 // StacksOutputs represents the outputs of a list of stacks.
 // map[stack_id:map[output_key:output_value]]
 type StacksOutputs map[string]map[string]string
 
-var sos atomic.Value
+var (
+	sos atomic.Value
+	mu  sync.Mutex // used only by writers
+)
 
 // UpdateStacksOutputs queries the outputs of stacks that was filters with a given listOpts periodically.
 func UpdateStacksOutputs(logger *log.Logger, wg *sync.WaitGroup) {
 	defer wg.Done()
 	sos.Store(make(StacksOutputs))
-	var mu sync.Mutex // used only by writers
-	// Retrieve all OpenStack environment variables
-	opts, err := openstack.AuthOptionsFromEnv()
-	if err != nil {
-		logger.Printf("OpenStack/UpdateStacksOutputs - retrieve OpenStack environment varibales failed due to %s", err.Error())
-		return
+	opts := gophercloud.AuthOptions{
+		IdentityEndpoint: utils.Getenv("OS_AUTH_URL", viper.GetString("openstack.authURL")),
+		Username:         utils.Getenv("OS_USERNAME", viper.GetString("openstack.username")),
+		Password:         utils.Getenv("OS_PASSWORD", viper.GetString("openstack.password")),
+		DomainName:       utils.Getenv("OS_DOMAIN_NAME", viper.GetString("openstack.domainName")),
+		DomainID:         utils.Getenv("OS_DOMAIN_ID", viper.GetString("openstack.domainID")),
+		TenantID:         utils.Getenv("OS_TENANT_ID", viper.GetString("openstack.projectID")),
+		TenantName:       utils.Getenv("OS_TENANT_NAME", viper.GetString("openstack.projectName")),
 	}
 
 	// Create a general client
@@ -43,7 +49,7 @@ func UpdateStacksOutputs(logger *log.Logger, wg *sync.WaitGroup) {
 	}
 
 	orchestractionClient, err := openstack.NewOrchestrationV1(provider, gophercloud.EndpointOpts{
-		Region: os.Getenv("OS_REGION_NAME"),
+		Region: utils.Getenv("OS_REGION_NAME", viper.GetString("openstack.regionName")),
 	})
 	if err != nil {
 		logger.Printf("OpenStack/UpdateStacksOutputs - create Orchestraction client failed due to %s", err.Error())
@@ -51,7 +57,7 @@ func UpdateStacksOutputs(logger *log.Logger, wg *sync.WaitGroup) {
 	}
 
 	listOpts := stacks.ListOpts{
-		Tags: "scale",
+		Tags: viper.GetString("openstack.stackTags"),
 	}
 
 	for {
@@ -86,7 +92,8 @@ func UpdateStacksOutputs(logger *log.Logger, wg *sync.WaitGroup) {
 		if err != nil {
 			logger.Printf("Autoscaling/UpdateStacksOutputs - get stack outputs is failed due to %s", err.Error())
 		}
-		time.Sleep(time.Second * 30)
+
+		time.Sleep(time.Second * time.Duration(viper.GetInt("openstack.updateInterval")))
 	}
 }
 
