@@ -17,10 +17,10 @@ func newRouter() *mux.Router {
 	go openstack.UpdateStacksOutputs(Log, &wg)
 
 	// routing
-	router.Handle("/", basic.Index())
-	router.Handle("/healthz", basic.Healthz(&healthy))
-	router.Handle("/stackstorm/{st-rule}", stackstorm.TriggerSt2Rule(Log))
-	router.Handle("/autoscaling", openstack.Autoscaling(Log))
+	router.Handle("/", basic.Index()).Methods("GET")
+	router.Handle("/healthz", basic.Healthz(&healthy)).Methods("GET")
+	router.Handle("/stackstorm/{st-rule}", stackstorm.TriggerSt2Rule(Log)).Methods("POST")
+	router.Handle("/autoscaling", openstack.Autoscaling(Log)).Methods("POST")
 
 	return router
 }

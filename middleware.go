@@ -46,17 +46,3 @@ func tracing(nextRequestID func() string) middleware {
 		})
 	}
 }
-
-// method ensures that url can only be requested with a specific method, else return a 400 Bad Request
-func method(m string) middleware {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.Method != m {
-				http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
-				return
-			}
-
-			next.ServeHTTP(w, r)
-		})
-	}
-}
