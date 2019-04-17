@@ -1,15 +1,19 @@
+# OpenStackConfiguration.
+# These configs will be overwritten by OS_* environment variables.
+# Check handlers/openstack/.env.example for details.
 openstack:
   regionName: "RegionOne"
   domainName: "Default"
-  domainId: "domainId"
   authURL: "http://openstackhost:5000"
   username: "admin"
   password: "password"
-  projectId: "tenantID"
   projectName: "tenantName"
   stackTags: "scale"
   updateInterval: 30
 
+# StackStormConfiguration
+# These configs will be overwritten by STACKSTORM_* environment variables.
+# Check handlers/stackstorm/.env.example for details.
 stackstorm:
   host: "stackstormhost"
   apiKey: "fakestackstomrapikey"
