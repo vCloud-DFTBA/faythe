@@ -9,7 +9,7 @@ type OpenStackConfiguration struct {
 	// all of the identity services, it will often be populated by a provider-level
 	// function.
 	AuthURL    string `yaml:"-"`
-	RegionName string `yaml:"regionname,omitempty"`
+	RegionName string `yaml:"regionName,omitempty"`
 
 	// Username is required if using Identity V2 API. Consult with your provider's
 	// control panel to discover your account's username. In Identity V3, either
@@ -37,4 +37,12 @@ type OpenStackConfiguration struct {
 	// option.
 	ProjectName string `yaml:"projectId,omitempty"`
 	ProjectID   string `yaml:"projectName,omitempty"`
+
+	// UpdateInterval field is the number of seconds that queries the outputs of stacks
+	// that was filters with a given listOpts periodically.
+	UpdateInterval int `yaml:"updateInterval"`
+
+	// StackTags Lists stacks that contain one or more simple string tags. To specify
+	// multiple tags, separate the tags with commas. For example, tag1,tag2
+	StackTags string `yaml:"stackTags,omitempty"`
 }

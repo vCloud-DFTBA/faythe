@@ -18,7 +18,7 @@ func newRouter() *http.ServeMux {
 	// routing
 	router.Handle("/", basic.Index())
 	router.Handle("/healthz", basic.Healthz(&healthy))
-	router.Handle("/stackstorm", stackstorm.TriggerSt2Rule(Log, nil))
+	router.Handle("/stackstorm", stackstorm.TriggerSt2Rule(Log))
 	router.Handle("/autoscaling", openstack.Autoscaling(Log))
 
 	return router

@@ -6,6 +6,6 @@ request to an StackStorm instance.
 */
 type StackStormConfiguration struct {
 	Host   string `yaml:"host"`
-	Rule   string `yaml:"rule"`
+	Rule   string `yaml:"rule,omitempty"`
 	APIKey string `yaml:"apiKey"`
 }

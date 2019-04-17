@@ -6,6 +6,8 @@ openstack:
   password: "password"
   projectID: "tenantID"
   projectName: "tenantName"
+  stackTags: "scale"
+  updateInterval: 30
 
 stackstorm:
   host: "stackstormhost"
