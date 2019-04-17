@@ -3,6 +3,7 @@ package openstack
 import (
 	"encoding/json"
 	"faythe/utils"
+	"fmt"
 	"log"
 	"net/http"
 	"strings"
@@ -107,13 +108,20 @@ func Autoscaling(logger *log.Logger) http.Handler {
 			return
 		}
 
+		// Get the updated stacksOutputs
+		stacksOutputs := sos.Load().(StacksOutputs)
+		if len(stacksOutputs) == 0 {
+			msg := "OpenStack/Autoscaling - stacksOutput is empty now!"
+			logger.Println(msg)
+			fmt.Fprintf(w, msg)
+			return
+		}
+
 		logger.Printf("OpenStack/Autoscaling - Alerts: GroupLabels=%v, CommonLabels=%v", data.GroupLabels, data.CommonLabels)
 
 		for _, alert := range data.Alerts {
 			logger.Printf("OpenStack/Autoscaling - Alert: status=%s,Labels=%v,Annotations=%v", alert.Status, alert.Labels, alert.Annotations)
 
-			// Get the updated stacksOutputs
-			stacksOutputs := sos.Load().(StacksOutputs)
 			stack := stacksOutputs[alert.Labels["stack_id"]]
 
 			// scale_action must be one of two values: `up` and `down`.
