@@ -3,7 +3,6 @@ package openstack
 import (
 	"encoding/json"
 	"faythe/utils"
-	"fmt"
 	"log"
 	"net/http"
 	"strings"
@@ -85,13 +84,13 @@ func UpdateStacksOutputs(logger *log.Logger, wg *sync.WaitGroup) {
 				}
 			}
 			if len(stacksOutputs) != 0 {
-				logger.Println("Autoscaling/UpdateStacksOutputs - the stacks outputs: ", stacksOutputs)
+				logger.Println("OpenStack/UpdateStacksOutputs - the stacks outputs: ", stacksOutputs)
 			}
 			sos.Store(stacksOutputs)
 			return true, nil
 		})
 		if err != nil {
-			logger.Printf("Autoscaling/UpdateStacksOutputs - get stack outputs is failed due to %s", err.Error())
+			logger.Printf("OpenStack/UpdateStacksOutputs - get stack outputs is failed due to %s", err.Error())
 		}
 
 		time.Sleep(time.Second * time.Duration(viper.GetInt("openstack.updateInterval")))
@@ -109,11 +108,10 @@ func Autoscaling(logger *log.Logger) http.Handler {
 		}
 
 		// Get the updated stacksOutputs
+		var scaleURLKey, scaleURL string
 		stacksOutputs := sos.Load().(StacksOutputs)
 		if len(stacksOutputs) == 0 {
-			msg := "OpenStack/Autoscaling - stacksOutput is empty now!"
-			logger.Println(msg)
-			fmt.Fprintf(w, msg)
+			logger.Println("OpenStack/Autoscaling - stacksOutput is empty now!")
 			return
 		}
 
@@ -123,11 +121,14 @@ func Autoscaling(logger *log.Logger) http.Handler {
 			logger.Printf("OpenStack/Autoscaling - Alert: status=%s,Labels=%v,Annotations=%v", alert.Status, alert.Labels, alert.Annotations)
 
 			stack := stacksOutputs[alert.Labels["stack_id"]]
+			if len(stack) == 0 {
+				logger.Printf("OpenStack/Autoscaling - Unable to get stack with id %s", alert.Labels["stack_id"])
+				continue
+			}
 
 			// scale_action must be one of two values: `up` and `down`.
 			// TODO: add check format later.
-			scaleURLKey := "scale_" + strings.ToLower(alert.Labels["scale_action"]) + "_url"
-			var scaleURL string
+			scaleURLKey = "scale_" + strings.ToLower(alert.Labels["scale_action"]) + "_url"
 
 			// There are two potential output format.
 			// It might be a simple map with two keys: `scale_down_url` and `scale_up_url`.
@@ -141,10 +142,9 @@ func Autoscaling(logger *log.Logger) http.Handler {
 				scaleURL = stack[scaleURLKey]
 			}
 
-			logger.Printf("Scale URL is %s", scaleURL)
-
 			if scaleURL == "" {
-				return
+				logger.Printf("OpenStack/Autoscaling - Unable to get scale URL.")
+				continue
 			}
 
 			// Good now, create a POST request to scale URL
