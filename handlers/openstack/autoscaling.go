@@ -141,6 +141,12 @@ func Autoscaling(logger *log.Logger) http.Handler {
 				scaleURL = stack[scaleURLKey]
 			}
 
+			logger.Printf("Scale URL is %s", scaleURL)
+
+			if scaleURL == "" {
+				return
+			}
+
 			// Good now, create a POST request to scale URL
 			logger.Printf("OpenStack/Autoscaling - send a POST request to scale %s...", strings.ToLower(alert.Labels["scale_action"]))
 			resp, err := http.Post(scaleURL, "application/json", nil)
