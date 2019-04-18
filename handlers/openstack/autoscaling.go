@@ -203,7 +203,7 @@ func Autoscaling(logger *log.Logger) http.Handler {
 
 		for i := 0; i < len(scaleAlerts); i++ {
 			rs := <-scaleResults
-			msg := fmt.Sprintf("OpenStack/Autoscaling - Send request scale %s to stack %s: %s because %s", rs.action, rs.stackID, rs.result, rs.reason)
+			msg := fmt.Sprintf("OpenStack/Autoscaling - Send request scale %s to stack %s: %s", rs.action, rs.stackID, rs.result)
 			if rs.reason != "" {
 				msg += "because " + rs.reason
 			}
