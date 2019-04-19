@@ -1,6 +1,9 @@
 package utils
 
-import "os"
+import (
+	"crypto/sha1"
+	"os"
+)
 
 // Secret special type for storing secrets.
 type Secret string
@@ -26,4 +29,11 @@ func Getenv(key, fallback string) string {
 		return value
 	}
 	return fallback
+}
+
+// Hash compute SHA1 hashes of s given input.
+func Hash(s string) string {
+	h := sha1.New()
+	h.Write([]byte(s))
+	return string(h.Sum(nil))
 }

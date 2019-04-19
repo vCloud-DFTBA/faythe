@@ -3,6 +3,7 @@ package openstack
 import (
 	"encoding/json"
 	"faythe/utils"
+	"fmt"
 	"log"
 	"net/http"
 	"strings"
@@ -22,9 +23,23 @@ import (
 // map[stack_id:map[output_key:output_value]]
 type StacksOutputs map[string]map[string]string
 
+// ScaleResult stores scale request call information.
+type ScaleResult struct {
+	stackID string
+	action  string
+	result  string
+	reason  string
+}
+
 var (
-	sos atomic.Value
-	mu  sync.Mutex // used only by writers
+	sos           atomic.Value
+	mu            sync.Mutex // used only by writers
+	data          template.Data
+	stacksOutputs StacksOutputs
+	scaleResults  chan ScaleResult
+	scaleAlerts   map[string]template.Alert
+	scaleURLKey   string
+	scaleURL      string
 )
 
 // UpdateStacksOutputs queries the outputs of stacks that was filters with a given listOpts periodically.
@@ -97,66 +112,112 @@ func UpdateStacksOutputs(logger *log.Logger, wg *sync.WaitGroup) {
 	}
 }
 
-// Autoscaling gets Webhook be triggered from Prometheus Alertmanager.
+func doScale(scaleResults chan<- ScaleResult, stack map[string]string, stackID, action, microservice string) {
+	if len(stack) == 0 {
+		scaleResults <- ScaleResult{
+			stackID: stackID,
+			action:  action,
+			result:  "failed",
+			reason:  "Couldn't find stack",
+		}
+		return
+	}
+
+	// scale_action must be one of two values: `up` and `down`.
+	// TODO: add check format later.
+	scaleURLKey = strings.Join([]string{"scale", action, "url"}, "_")
+
+	// There are two potential output format.
+	// It might be a simple map with two keys: `scale_down_url` and `scale_up_url`.
+	// It can also be a nested map which its keys are microservice name.
+	if microservice != "" {
+		// Convert output value (JSON string) to Map to able to index
+		stackMap := make(map[string]string)
+		json.Unmarshal([]byte(stack[microservice]), &stackMap)
+		scaleURL = stackMap[scaleURLKey]
+	} else {
+		scaleURL = stack[scaleURLKey]
+	}
+
+	if scaleURL == "" {
+		scaleResults <- ScaleResult{
+			stackID: stackID,
+			action:  action,
+			result:  "failed",
+			reason:  "Couldn't find scale url in stack's output",
+		}
+		return
+	}
+
+	// Good now, create a POST request to scale URL
+	resp, err := http.Post(scaleURL, "application/json", nil)
+	if err != nil {
+		scaleResults <- ScaleResult{
+			stackID: stackID,
+			action:  action,
+			result:  "failed",
+			reason:  err.Error(),
+		}
+		return
+	}
+	scaleResults <- ScaleResult{
+		stackID: stackID,
+		action:  action,
+		result:  "success",
+	}
+	defer resp.Body.Close()
+}
+
+// Autoscaling get Webhook be trigered from Prometheus Alertmanager.
 func Autoscaling(logger *log.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
-		data := template.Data{}
 		if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
 		// Get the updated stacksOutputs
-		var scaleURLKey, scaleURL string
 		stacksOutputs := sos.Load().(StacksOutputs)
 		if len(stacksOutputs) == 0 {
 			logger.Println("OpenStack/Autoscaling - stacksOutput is empty now!")
+			w.WriteHeader(http.StatusAccepted)
 			return
 		}
 
-		logger.Printf("OpenStack/Autoscaling - Alerts: GroupLabels=%v, CommonLabels=%v", data.GroupLabels, data.CommonLabels)
-
-		for _, alert := range data.Alerts {
-			logger.Printf("OpenStack/Autoscaling - Alert: status=%s,Labels=%v,Annotations=%v", alert.Status, alert.Labels, alert.Annotations)
-
-			stack := stacksOutputs[alert.Labels["stack_id"]]
-			if len(stack) == 0 {
-				logger.Printf("OpenStack/Autoscaling - Unable to get stack with id %s", alert.Labels["stack_id"])
-				continue
+		alerts := data.Alerts.Firing()
+		scaleAlerts = make(map[string]template.Alert)
+		// Get alerts with scale action only, ignore the rest
+		// TODO: Could reduce this step by grouping alerts from Prometheus
+		// alertmanager side.
+		for _, alert := range alerts {
+			if _, ok := alert.Labels["scale_action"]; ok {
+				// Deduce alerts. If alerts which is firing by multiple instances
+				// with the same stack_id, microservice, scale_action, use just one.
+				key := utils.Hash(strings.Join([]string{alert.Labels["stack_id"], alert.Labels["microservice"], alert.Labels["scale_action"]}, "_"))
+				if _, ok := scaleAlerts[key]; ok {
+					continue
+				}
+				scaleAlerts[key] = alert
 			}
-
-			// scale_action must be one of two values: `up` and `down`.
-			// TODO: add check format later.
-			scaleURLKey = "scale_" + strings.ToLower(alert.Labels["scale_action"]) + "_url"
-
-			// There are two potential output format.
-			// It might be a simple map with two keys: `scale_down_url` and `scale_up_url`.
-			// It can also be a nested map which its keys are microservice name.
-			if microservice, ok := alert.Labels["microservice"]; ok {
-				// Convert output value (JSON string) to Map to able to index
-				stackMap := make(map[string]string)
-				json.Unmarshal([]byte(stack[microservice]), &stackMap)
-				scaleURL = stackMap[scaleURLKey]
-			} else {
-				scaleURL = stack[scaleURLKey]
-			}
-
-			if scaleURL == "" {
-				logger.Printf("OpenStack/Autoscaling - Unable to get scale URL.")
-				continue
-			}
-
-			// Good now, create a POST request to scale URL
-			logger.Printf("OpenStack/Autoscaling - send a POST request to scale %s...", strings.ToLower(alert.Labels["scale_action"]))
-			resp, err := http.Post(scaleURL, "application/json", nil)
-			if err != nil {
-				logger.Println(err.Error())
-				http.Error(w, err.Error(), http.StatusBadGateway)
-				return
-			}
-			logger.Println("OpenStack/Autoscaling - scaling scaling scaling!")
-			defer resp.Body.Close()
 		}
+
+		scaleResults := make(chan ScaleResult, len(scaleAlerts))
+
+		for _, alert := range scaleAlerts {
+			logger.Printf("OpenStack/Autoscaling - Alert: status=%s,Labels=%v,Annotations=%v", alert.Status, alert.Labels, alert.Annotations)
+			stack := stacksOutputs[alert.Labels["stack_id"]]
+			go doScale(scaleResults, stack, alert.Labels["stack_id"], strings.ToLower(alert.Labels["scale_action"]), alert.Labels["microservice"])
+		}
+
+		for i := 0; i < len(scaleAlerts); i++ {
+			rs := <-scaleResults
+			msg := fmt.Sprintf("OpenStack/Autoscaling - Send request scale %s to stack %s: %s", rs.action, rs.stackID, rs.result)
+			if rs.reason != "" {
+				msg += "because " + rs.reason
+			}
+			logger.Printf(msg)
+		}
+		w.WriteHeader(http.StatusAccepted)
 	})
 }
