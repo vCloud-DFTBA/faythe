@@ -37,7 +37,7 @@ var (
 	data          template.Data
 	stacksOutputs StacksOutputs
 	scaleResults  chan ScaleResult
-	scaleAlerts   []template.Alert
+	scaleAlerts   map[string]template.Alert
 	scaleURLKey   string
 	scaleURL      string
 )
@@ -112,6 +112,64 @@ func UpdateStacksOutputs(logger *log.Logger, wg *sync.WaitGroup) {
 	}
 }
 
+func doScale(alert *template.Alert) {
+	stack := stacksOutputs[alert.Labels["stack_id"]]
+	action := strings.ToLower(alert.Labels["scale_action"])
+	if len(stack) == 0 {
+		scaleResults <- ScaleResult{
+			stackID: alert.Labels["stack_id"],
+			action:  action,
+			result:  "failed",
+			reason:  "Couldn't find stack",
+		}
+		return
+	}
+
+	// scale_action must be one of two values: `up` and `down`.
+	// TODO: add check format later.
+	scaleURLKey = strings.Join([]string{"scale", action, "url"}, "_")
+
+	// There are two potential output format.
+	// It might be a simple map with two keys: `scale_down_url` and `scale_up_url`.
+	// It can also be a nested map which its keys are microservice name.
+	if microservice, ok := alert.Labels["microservice"]; ok {
+		// Convert output value (JSON string) to Map to able to index
+		stackMap := make(map[string]string)
+		json.Unmarshal([]byte(stack[microservice]), &stackMap)
+		scaleURL = stackMap[scaleURLKey]
+	} else {
+		scaleURL = stack[scaleURLKey]
+	}
+
+	if scaleURL == "" {
+		scaleResults <- ScaleResult{
+			stackID: alert.Labels["stack_id"],
+			action:  action,
+			result:  "failed",
+			reason:  "Couldn't find scale url in stack's output",
+		}
+		return
+	}
+
+	// Good now, create a POST request to scale URL
+	resp, err := http.Post(scaleURL, "application/json", nil)
+	if err != nil {
+		scaleResults <- ScaleResult{
+			stackID: alert.Labels["stack_id"],
+			action:  action,
+			result:  "failed",
+			reason:  err.Error(),
+		}
+		return
+	}
+	scaleResults <- ScaleResult{
+		stackID: alert.Labels["stack_id"],
+		action:  action,
+		result:  "success",
+	}
+	defer resp.Body.Close()
+}
+
 // Autoscaling get Webhook be trigered from Prometheus Alertmanager.
 func Autoscaling(logger *log.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -129,12 +187,19 @@ func Autoscaling(logger *log.Logger) http.Handler {
 			return
 		}
 
+		alerts := data.Alerts.Firing()
 		// Get alerts with scale action only, ignore the rest
 		// TODO: Could reduce this step by grouping alerts from Prometheus
 		// alertmanager side.
-		for _, alert := range data.Alerts {
+		for _, alert := range alerts {
 			if _, ok := alert.Labels["scale_action"]; ok {
-				scaleAlerts = append(scaleAlerts, alert)
+				// Deduce alerts. If alerts which is firing by multiple instances
+				// with the same stack_id, microservice, scale_action, use just one.
+				key := utils.Hash(strings.Join([]string{alert.Labels["stack_id"], alert.Labels["microservice"], alert.Labels["scale_action"]}, "_"))
+				if _, ok := scaleAlerts[key]; ok {
+					continue
+				}
+				scaleAlerts[key] = alert
 			}
 		}
 
@@ -142,63 +207,7 @@ func Autoscaling(logger *log.Logger) http.Handler {
 
 		for _, alert := range scaleAlerts {
 			logger.Printf("OpenStack/Autoscaling - Alert: status=%s,Labels=%v,Annotations=%v", alert.Status, alert.Labels, alert.Annotations)
-			go func(alert *template.Alert) {
-				stack := stacksOutputs[alert.Labels["stack_id"]]
-				scaleAction := strings.ToLower(alert.Labels["scale_action"])
-				if len(stack) == 0 {
-					scaleResults <- ScaleResult{
-						stackID: alert.Labels["stack_id"],
-						action:  scaleAction,
-						result:  "failed",
-						reason:  "Couldn't find stack",
-					}
-					return
-				}
-
-				// scale_action must be one of two values: `up` and `down`.
-				// TODO: add check format later.
-				scaleURLKey = "scale_" + scaleAction + "_url"
-
-				// There are two potential output format.
-				// It might be a simple map with two keys: `scale_down_url` and `scale_up_url`.
-				// It can also be a nested map which its keys are microservice name.
-				if microservice, ok := alert.Labels["microservice"]; ok {
-					// Convert output value (JSON string) to Map to able to index
-					stackMap := make(map[string]string)
-					json.Unmarshal([]byte(stack[microservice]), &stackMap)
-					scaleURL = stackMap[scaleURLKey]
-				} else {
-					scaleURL = stack[scaleURLKey]
-				}
-
-				if scaleURL == "" {
-					scaleResults <- ScaleResult{
-						stackID: alert.Labels["stack_id"],
-						action:  scaleAction,
-						result:  "failed",
-						reason:  "Couldn't find scale url in stack's output",
-					}
-					return
-				}
-
-				// Good now, create a POST request to scale URL
-				resp, err := http.Post(scaleURL, "application/json", nil)
-				if err != nil {
-					scaleResults <- ScaleResult{
-						stackID: alert.Labels["stack_id"],
-						action:  scaleAction,
-						result:  "failed",
-						reason:  err.Error(),
-					}
-					return
-				}
-				scaleResults <- ScaleResult{
-					stackID: alert.Labels["stack_id"],
-					action:  scaleAction,
-					result:  "success",
-				}
-				defer resp.Body.Close()
-			}(&alert)
+			go doScale(&alert)
 		}
 
 		for i := 0; i < len(scaleAlerts); i++ {
