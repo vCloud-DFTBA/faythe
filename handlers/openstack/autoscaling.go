@@ -112,7 +112,7 @@ func UpdateStacksOutputs(logger *log.Logger, wg *sync.WaitGroup) {
 	}
 }
 
-func doScale(stack map[string]string, stackID, action, microservice string) {
+func doScale(scaleResults chan<- ScaleResult, stack map[string]string, stackID, action, microservice string) {
 	if len(stack) == 0 {
 		scaleResults <- ScaleResult{
 			stackID: stackID,
@@ -207,7 +207,7 @@ func Autoscaling(logger *log.Logger) http.Handler {
 		for _, alert := range scaleAlerts {
 			logger.Printf("OpenStack/Autoscaling - Alert: status=%s,Labels=%v,Annotations=%v", alert.Status, alert.Labels, alert.Annotations)
 			stack := stacksOutputs[alert.Labels["stack_id"]]
-			go doScale(stack, alert.Labels["stack_id"], strings.ToLower(alert.Labels["scale_action"]), alert.Labels["microservice"])
+			go doScale(scaleResults, stack, alert.Labels["stack_id"], strings.ToLower(alert.Labels["scale_action"]), alert.Labels["microservice"])
 		}
 
 		for i := 0; i < len(scaleAlerts); i++ {
