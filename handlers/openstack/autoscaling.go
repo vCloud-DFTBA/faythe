@@ -112,12 +112,10 @@ func UpdateStacksOutputs(logger *log.Logger, wg *sync.WaitGroup) {
 	}
 }
 
-func doScale(alert *template.Alert) {
-	stack := stacksOutputs[alert.Labels["stack_id"]]
-	action := strings.ToLower(alert.Labels["scale_action"])
+func doScale(stack map[string]string, stackID, action, microservice string) {
 	if len(stack) == 0 {
 		scaleResults <- ScaleResult{
-			stackID: alert.Labels["stack_id"],
+			stackID: stackID,
 			action:  action,
 			result:  "failed",
 			reason:  "Couldn't find stack",
@@ -132,7 +130,7 @@ func doScale(alert *template.Alert) {
 	// There are two potential output format.
 	// It might be a simple map with two keys: `scale_down_url` and `scale_up_url`.
 	// It can also be a nested map which its keys are microservice name.
-	if microservice, ok := alert.Labels["microservice"]; ok {
+	if microservice != "" {
 		// Convert output value (JSON string) to Map to able to index
 		stackMap := make(map[string]string)
 		json.Unmarshal([]byte(stack[microservice]), &stackMap)
@@ -143,7 +141,7 @@ func doScale(alert *template.Alert) {
 
 	if scaleURL == "" {
 		scaleResults <- ScaleResult{
-			stackID: alert.Labels["stack_id"],
+			stackID: stackID,
 			action:  action,
 			result:  "failed",
 			reason:  "Couldn't find scale url in stack's output",
@@ -155,7 +153,7 @@ func doScale(alert *template.Alert) {
 	resp, err := http.Post(scaleURL, "application/json", nil)
 	if err != nil {
 		scaleResults <- ScaleResult{
-			stackID: alert.Labels["stack_id"],
+			stackID: stackID,
 			action:  action,
 			result:  "failed",
 			reason:  err.Error(),
@@ -163,7 +161,7 @@ func doScale(alert *template.Alert) {
 		return
 	}
 	scaleResults <- ScaleResult{
-		stackID: alert.Labels["stack_id"],
+		stackID: stackID,
 		action:  action,
 		result:  "success",
 	}
@@ -188,6 +186,7 @@ func Autoscaling(logger *log.Logger) http.Handler {
 		}
 
 		alerts := data.Alerts.Firing()
+		scaleAlerts = make(map[string]template.Alert)
 		// Get alerts with scale action only, ignore the rest
 		// TODO: Could reduce this step by grouping alerts from Prometheus
 		// alertmanager side.
@@ -207,7 +206,8 @@ func Autoscaling(logger *log.Logger) http.Handler {
 
 		for _, alert := range scaleAlerts {
 			logger.Printf("OpenStack/Autoscaling - Alert: status=%s,Labels=%v,Annotations=%v", alert.Status, alert.Labels, alert.Annotations)
-			go doScale(&alert)
+			stack := stacksOutputs[alert.Labels["stack_id"]]
+			go doScale(stack, alert.Labels["stack_id"], strings.ToLower(alert.Labels["scale_action"]), alert.Labels["microservice"])
 		}
 
 		for i := 0; i < len(scaleAlerts); i++ {
