@@ -2,9 +2,47 @@ package config
 
 import "faythe/utils"
 
-/*
-OpenStackConfiguration stores information needed to authenticate to an OpenStack Cloud.
-*/
+// StackListOpts allows the filtering and sorting of paginated collections through
+// the API.
+type StackListOpts struct {
+	// ProjectID is the UUID of the project.
+	ProjectID string `yaml:"projectID,omitempty"`
+
+	// ID filters the stack list by a stack ID.
+	ID string `yaml:"id,omitempty"`
+
+	// Status filters the stack list by a status.
+	Status string `yaml:"status,omitempty"`
+
+	// Name filters the stack list by a name.
+	Name string `yaml:"name,omitempty"`
+
+	// AllTenants is a bool to show all tenants.
+	AllTenants bool `yaml:"allTenants,omitempty"`
+
+	// Tags lists stacks that contain one or more simple string tags.
+	Tags string `yaml:"tags,omitempty"`
+
+	// TagsAny lists stacks that contain one or more simple string tags.
+	TagsAny string `yaml:"tagsAny,omitempty"`
+
+	// NotTags lists stacks that do not contain one or more simple string tags.
+	NotTags string `yaml:"notTags,omitempty"`
+
+	// NotTagsAny lists stacks that do not contain one or more simple string tags.
+	NotTagsAny string `yaml:"notTagsAny,omitempty"`
+}
+
+// StackQuery stores information needed to query Heat stacks.
+type StackQuery struct {
+	// UpdateInterval field is the number of seconds that queries the outputs of stacks
+	// that was filters with a given listOpts periodically.
+	UpdateInterval int `yaml:"updateInterval"`
+
+	ListOpts StackListOpts `yaml:"listOpts,omitempty"`
+}
+
+// OpenStackConfiguration stores information needed to authenticate to an OpenStack Cloud.
 type OpenStackConfiguration struct {
 	// AuthURL specifies the HTTP endpoint that is required to work with
 	// the Identity API of the appropriate version. While it's ultimately needed by
@@ -40,11 +78,5 @@ type OpenStackConfiguration struct {
 	ProjectName string `yaml:"projectId"`
 	ProjectID   string `yaml:"projectName"`
 
-	// UpdateInterval field is the number of seconds that queries the outputs of stacks
-	// that was filters with a given listOpts periodically.
-	UpdateInterval int `yaml:"updateInterval"`
-
-	// StackTags Lists stacks that contain one or more simple string tags. To specify
-	// multiple tags, separate the tags with commas. For example, tag1,tag2
-	StackTags string `yaml:"stackTags,omitempty"`
+	StackQuery StackQuery `yaml:stackQuery.omitempty`
 }
