@@ -8,8 +8,10 @@ openstack:
   username: "admin"
   password: "password"
   projectName: "tenantName"
-  stackTags: "scale"
-  updateInterval: 30
+  stackQuery:
+    updateInterval: 30
+    listOpts:
+      tags: "scale"
 
 # StackStormConfiguration
 # These configs will be overwritten by STACKSTORM_* environment variables.

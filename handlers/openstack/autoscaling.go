@@ -72,7 +72,15 @@ func UpdateStacksOutputs(logger *log.Logger, wg *sync.WaitGroup) {
 	}
 
 	listOpts := stacks.ListOpts{
-		Tags: viper.GetString("openstack.stackTags"),
+		TenantID:   viper.GetString("openstack.stackQuery.listOpts.projectID"),
+		ID:         viper.GetString("openstack.stackQuery.listOpts.id"),
+		Status:     viper.GetString("openstack.stackQuery.listOpts.status"),
+		Name:       viper.GetString("openstack.stackQuery.listOpts.name"),
+		AllTenants: viper.GetBool("openstack.stackQuery.listOpts.allTenants"),
+		Tags:       viper.GetString("openstack.stackQuery.listOpts.tags"),
+		TagsAny:    viper.GetString("openstack.stackQuery.listOpts.tagsAny"),
+		NotTags:    viper.GetString("openstack.stackQuery.listOpts.notTags"),
+		NotTagsAny: viper.GetString("openstack.stackQuery.listOpts.notTagsAny"),
 	}
 
 	for {
@@ -110,7 +118,7 @@ func UpdateStacksOutputs(logger *log.Logger, wg *sync.WaitGroup) {
 			logger.Printf("OpenStack/UpdateStacksOutputs - get stack outputs is failed due to %s", err.Error())
 		}
 
-		time.Sleep(time.Second * time.Duration(viper.GetInt("openstack.updateInterval")))
+		time.Sleep(time.Second * time.Duration(viper.GetInt("openstack.stackQuery.updateInterval")))
 	}
 }
 
