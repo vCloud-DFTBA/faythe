@@ -92,7 +92,9 @@ func UpdateStacksOutputs(logger *log.Logger, wg *sync.WaitGroup) {
 				stack := stacks.Get(orchestractionClient, s.Name, s.ID)
 				stackBody, _ := stack.Extract()
 				for _, v := range stackBody.Outputs {
-					outputValues[v["output_key"].(string)] = v["output_value"].(string)
+					if ov, ok := v["output_value"].(string); ok {
+						outputValues[v["output_key"].(string)] = ov
+					}
 				}
 				if len(outputValues) != 0 {
 					stacksOutputs[s.ID] = outputValues
