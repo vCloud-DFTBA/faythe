@@ -8,7 +8,7 @@
 <details>
     <summary>Who is Faythe</summary>
     <p>
-    *Faythe*: A trusted advisor, courier or intermediary. Faythe is used infrequently, and is associated with Faith and Faithfulness. Faythe may be a repository of key service or courier of shared secrets.)
+    <b>Faythe</b>: A trusted advisor, courier or intermediary. Faythe is used infrequently, and is associated with Faith and Faithfulness. Faythe may be a repository of key service or courier of shared secrets.)
     </p>
 </details>
 
