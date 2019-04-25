@@ -38,21 +38,20 @@ func UpdateStacksOutputs(logger *log.Logger, wg *sync.WaitGroup) {
 	defer wg.Done()
 	sos.Store(make(stack.Outputs))
 
-	for {
-		go func(sos *atomic.Value, mu *sync.Mutex) {
+	go func(sos *atomic.Value, mu *sync.Mutex) {
+		for {
 			mu.Lock()
 			defer mu.Unlock()
 			_ = sos.Load().(stack.Outputs)
 			stacksOp, err := stack.GetOutputs()
 			if err != nil {
 				logger.Println("OpenStack/Autoscaling - Cannot update stacks outputs: ", err)
+			} else {
+				sos.Store(stacksOp)
 			}
-
-			sos.Store(stacksOp)
-		}(&sos, &mu)
-
-		time.Sleep(time.Second * time.Duration(viper.GetInt("openstack.stackQuery.updateInterval")))
-	}
+			time.Sleep(time.Second * time.Duration(viper.GetInt("openstack.stackQuery.updateInterval")))
+		}
+	}(&sos, &mu)
 }
 
 func doScale(scaleResults chan<- ScaleResult, stack map[string]string, stackID, action, microservice string) {
