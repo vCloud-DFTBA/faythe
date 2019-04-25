@@ -2,6 +2,7 @@ package openstack
 
 import (
 	"encoding/json"
+	"faythe/handlers/openstack/stack"
 	"faythe/utils"
 	"fmt"
 	"log"
@@ -11,17 +12,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/gophercloud/gophercloud"
-	"github.com/gophercloud/gophercloud/openstack"
-	"github.com/gophercloud/gophercloud/openstack/orchestration/v1/stacks"
-	"github.com/gophercloud/gophercloud/pagination"
 	"github.com/prometheus/alertmanager/template"
 	"github.com/spf13/viper"
 )
-
-// StacksOutputs represents the outputs of a list of stacks.
-// map[stack_id:map[output_key:output_value]]
-type StacksOutputs map[string]map[string]string
 
 // ScaleResult stores scale request call information.
 type ScaleResult struct {
@@ -32,91 +25,31 @@ type ScaleResult struct {
 }
 
 var (
-	sos           atomic.Value
-	mu            sync.Mutex // used only by writers
-	data          template.Data
-	stacksOutputs StacksOutputs
-	scaleResults  chan ScaleResult
-	scaleAlerts   map[string]template.Alert
-	scaleURLKey   string
-	scaleURL      string
+	sos         atomic.Value
+	mu          sync.Mutex // used only by writers
+	data        template.Data
+	scaleAlerts map[string]template.Alert
+	scaleURLKey string
+	scaleURL    string
 )
 
 // UpdateStacksOutputs queries the outputs of stacks that was filters with a given listOpts periodically.
 func UpdateStacksOutputs(logger *log.Logger, wg *sync.WaitGroup) {
 	defer wg.Done()
-	sos.Store(make(StacksOutputs))
-	opts := gophercloud.AuthOptions{
-		IdentityEndpoint: utils.Getenv("OS_AUTH_URL", viper.GetString("openstack.authURL")),
-		Username:         utils.Getenv("OS_USERNAME", viper.GetString("openstack.username")),
-		Password:         utils.Getenv("OS_PASSWORD", viper.GetString("openstack.password")),
-		DomainName:       utils.Getenv("OS_DOMAIN_NAME", viper.GetString("openstack.domainName")),
-		DomainID:         utils.Getenv("OS_DOMAIN_ID", viper.GetString("openstack.domainID")),
-		TenantID:         utils.Getenv("OS_TENANT_ID", viper.GetString("openstack.projectID")),
-		TenantName:       utils.Getenv("OS_TENANT_NAME", viper.GetString("openstack.projectName")),
-	}
-
-	// Create a general client
-	provider, err := openstack.AuthenticatedClient(opts)
-	if err != nil {
-		logger.Printf("OpenStack/UpdateStacksOutputs - create provider client failed due to %s", err.Error())
-		return
-	}
-
-	orchestractionClient, err := openstack.NewOrchestrationV1(provider, gophercloud.EndpointOpts{
-		Region: utils.Getenv("OS_REGION_NAME", viper.GetString("openstack.regionName")),
-	})
-	if err != nil {
-		logger.Printf("OpenStack/UpdateStacksOutputs - create Orchestraction client failed due to %s", err.Error())
-		return
-	}
-
-	listOpts := stacks.ListOpts{
-		TenantID:   viper.GetString("openstack.stackQuery.listOpts.projectID"),
-		ID:         viper.GetString("openstack.stackQuery.listOpts.id"),
-		Status:     viper.GetString("openstack.stackQuery.listOpts.status"),
-		Name:       viper.GetString("openstack.stackQuery.listOpts.name"),
-		AllTenants: viper.GetBool("openstack.stackQuery.listOpts.allTenants"),
-		Tags:       viper.GetString("openstack.stackQuery.listOpts.tags"),
-		TagsAny:    viper.GetString("openstack.stackQuery.listOpts.tagsAny"),
-		NotTags:    viper.GetString("openstack.stackQuery.listOpts.notTags"),
-		NotTagsAny: viper.GetString("openstack.stackQuery.listOpts.notTagsAny"),
-	}
+	sos.Store(make(stack.Outputs))
 
 	for {
-		// List all stacks with given options
-		pager := stacks.List(orchestractionClient, listOpts)
-		err := pager.EachPage(func(page pagination.Page) (bool, error) {
+		go func(sos *atomic.Value, mu *sync.Mutex) {
 			mu.Lock()
 			defer mu.Unlock()
-			_ = sos.Load().(StacksOutputs)
-			stacksOutputs := make(StacksOutputs)
-			stackList, err := stacks.ExtractStacks(page)
+			_ = sos.Load().(stack.Outputs)
+			stacksOp, err := stack.GetOutputs()
 			if err != nil {
-				return false, err
+				logger.Println("OpenStack/Autoscaling - Cannot update stacks outputs: ", err)
 			}
-			for _, s := range stackList {
-				outputValues := make(map[string]string)
-				stack := stacks.Get(orchestractionClient, s.Name, s.ID)
-				stackBody, _ := stack.Extract()
-				for _, v := range stackBody.Outputs {
-					if ov, ok := v["output_value"].(string); ok {
-						outputValues[v["output_key"].(string)] = ov
-					}
-				}
-				if len(outputValues) != 0 {
-					stacksOutputs[s.ID] = outputValues
-				}
-			}
-			if len(stacksOutputs) != 0 {
-				logger.Println("OpenStack/UpdateStacksOutputs - the stacks outputs: ", stacksOutputs)
-			}
-			sos.Store(stacksOutputs)
-			return true, nil
-		})
-		if err != nil {
-			logger.Printf("OpenStack/UpdateStacksOutputs - get stack outputs is failed due to %s", err.Error())
-		}
+
+			sos.Store(stacksOp)
+		}(&sos, &mu)
 
 		time.Sleep(time.Second * time.Duration(viper.GetInt("openstack.stackQuery.updateInterval")))
 	}
@@ -188,7 +121,7 @@ func Autoscaling(logger *log.Logger) http.Handler {
 		}
 
 		// Get the updated stacksOutputs
-		stacksOutputs := sos.Load().(StacksOutputs)
+		stacksOutputs := sos.Load().(stack.Outputs)
 		if len(stacksOutputs) == 0 {
 			logger.Println("OpenStack/Autoscaling - stacksOutput is empty now!")
 			w.WriteHeader(http.StatusAccepted)

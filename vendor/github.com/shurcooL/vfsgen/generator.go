@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
 	pathpkg "path"
@@ -82,8 +83,8 @@ type dirInfo struct {
 func findAndWriteFiles(buf *bytes.Buffer, fs http.FileSystem, toc *toc) error {
 	walkFn := func(path string, fi os.FileInfo, r io.ReadSeeker, err error) error {
 		if err != nil {
-			// Consider all errors reading the input filesystem as fatal.
-			return err
+			log.Printf("can't stat file %q: %v\n", path, err)
+			return nil
 		}
 
 		switch fi.IsDir() {
