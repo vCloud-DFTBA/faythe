@@ -39,16 +39,16 @@ func UpdateStacksOutputs(logger *log.Logger, wg *sync.WaitGroup) {
 	sos.Store(make(stack.Outputs))
 
 	for {
-		mu.Lock()
-		defer mu.Unlock()
+		mu.Lock() // synchronize with other potential writers
 		_ = sos.Load().(stack.Outputs)
 		stacksOp, err := stack.GetOutputs()
 		if err != nil {
 			logger.Println("OpenStack/Autoscaling - Cannot update stacks outputs: ", err)
 		} else {
-			logger.Println("OpenStack/Autoscaling - Cannot update stacks outputs: ", stacksOp)
+			logger.Println("OpenStack/Autoscaling - Stacks outputs: ", stacksOp)
 			sos.Store(stacksOp)
 		}
+		mu.Unlock()
 		time.Sleep(time.Second * time.Duration(viper.GetInt("openstack.stackQuery.updateInterval")))
 	}
 }
