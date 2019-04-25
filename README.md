@@ -12,6 +12,33 @@
     </p>
 </details>
 
+## Install & Run
+
+1. Use executable file:
+
+```bash
+# Modify etc/config.yml file
+$ vim etc/config.yml
+# Move config file to config directory
+$ cp etc/config.yml /path/to/config/dir
+# Run it
+$ ./bin/faythe -conf /path/to/config/dir
+```
+
+2. Use Docker
+
+* Build Docker image.
+
+```bash
+$ docker build -t faythe:latest .
+```
+
+* Run container from built image.
+
+```
+$ docker run -d --name faythe -p 8600:8600 -v /path/to/config/dir:/etc/faythe/ faythe
+```
+
 ## Features
 
 * Modify the given request headers then forward it!
