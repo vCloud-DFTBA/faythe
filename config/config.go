@@ -2,6 +2,7 @@ package config
 
 import "github.com/spf13/viper"
 
+// GlobalConfig represents all configurations.
 type GlobalConfig struct {
 	OpenStack  OpenStackConfiguration
 	StackStorm StackStormConfiguration
