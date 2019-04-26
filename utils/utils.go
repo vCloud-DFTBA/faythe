@@ -33,7 +33,7 @@ func createFlogger(fname string) *Flogger {
 
 	return &Flogger{
 		file:   fname,
-		Logger: log.New(f, "handlers", log.Lshortfile),
+		Logger: log.New(f, "handlers ", log.Lshortfile),
 	}
 }
 
