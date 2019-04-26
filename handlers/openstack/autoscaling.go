@@ -48,9 +48,9 @@ func UpdateStacksOutputs(wg *sync.WaitGroup) {
 		_ = sos.Load().(stack.Outputs)
 		stacksOp, err := stack.GetOutputs()
 		if err != nil {
-			logger.Println("OpenStack/Autoscaling - Cannot update stacks outputs: ", err)
+			logger.Println("Cannot update stacks outputs: ", err)
 		} else {
-			logger.Println("OpenStack/Autoscaling - Stacks outputs: ", stacksOp)
+			logger.Println("Stacks outputs: ", stacksOp)
 			sos.Store(stacksOp)
 		}
 		mu.Unlock()
@@ -126,7 +126,7 @@ func Autoscaling() http.Handler {
 		// Get the updated stacksOutputs
 		stacksOutputs := sos.Load().(stack.Outputs)
 		if len(stacksOutputs) == 0 {
-			logger.Println("OpenStack/Autoscaling - stacksOutput is empty now!")
+			logger.Println("stacksOutput is empty now!")
 			w.WriteHeader(http.StatusAccepted)
 			return
 		}
@@ -151,14 +151,14 @@ func Autoscaling() http.Handler {
 		scaleResults := make(chan ScaleResult, len(scaleAlerts))
 
 		for _, alert := range scaleAlerts {
-			logger.Printf("OpenStack/Autoscaling - Alert: status=%s,Labels=%v,Annotations=%v", alert.Status, alert.Labels, alert.Annotations)
+			logger.Printf("Alert: status=%s,Labels=%v,Annotations=%v", alert.Status, alert.Labels, alert.Annotations)
 			stack := stacksOutputs[alert.Labels["stack_id"]]
 			go doScale(scaleResults, stack, alert.Labels["stack_id"], strings.ToLower(alert.Labels["scale_action"]), alert.Labels["microservice"])
 		}
 
 		for i := 0; i < len(scaleAlerts); i++ {
 			rs := <-scaleResults
-			msg := fmt.Sprintf("OpenStack/Autoscaling - Send request scale %s to stack %s: %s", rs.action, rs.stackID, rs.result)
+			msg := fmt.Sprintf("Send request scale %s to stack %s: %s", rs.action, rs.stackID, rs.result)
 			if rs.reason != "" {
 				msg += "because " + rs.reason
 			}
