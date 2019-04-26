@@ -5,17 +5,26 @@ import (
 	"crypto/tls"
 	"faythe/utils"
 	"io/ioutil"
-	"log"
 	"net/http"
+	"sync"
 
 	"github.com/gorilla/mux"
 	"github.com/spf13/viper"
 )
 
+var (
+	logger *utils.Flogger
+	once   sync.Once
+)
+
+func init() {
+	logger = utils.NewFlogger(&once, "stackstorm.go")
+}
+
 // TriggerSt2Rule gets Request then create a new request based on it.
 // St2-Api-Key is added to New request's header. New request will
 // be forwarded to Stackstorm host using Golang http client.
-func TriggerSt2Rule(logger *log.Logger) http.Handler {
+func TriggerSt2Rule() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
 		host := utils.Getenv("STACKSTORM_HOST", viper.GetString("stackstorm.host"))

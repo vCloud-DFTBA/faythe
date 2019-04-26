@@ -14,13 +14,13 @@ func newRouter() *mux.Router {
 
 	var wg sync.WaitGroup
 	wg.Add(1)
-	go openstack.UpdateStacksOutputs(Log, &wg)
+	go openstack.UpdateStacksOutputs(&wg)
 
 	// routing
 	router.Handle("/", basic.Index()).Methods("GET")
 	router.Handle("/healthz", basic.Healthz(&healthy)).Methods("GET")
-	router.Handle("/stackstorm/{st-rule}", stackstorm.TriggerSt2Rule(Log)).Methods("POST")
-	router.Handle("/autoscaling", openstack.Autoscaling(Log)).Methods("POST")
+	router.Handle("/stackstorm/{st-rule}", stackstorm.TriggerSt2Rule()).Methods("POST")
+	router.Handle("/autoscaling", openstack.Autoscaling()).Methods("POST")
 
 	return router
 }

@@ -5,7 +5,6 @@ import (
 	"faythe/handlers/openstack/stack"
 	"faythe/utils"
 	"fmt"
-	"log"
 	"net/http"
 	"strings"
 	"sync"
@@ -31,10 +30,16 @@ var (
 	scaleAlerts map[string]template.Alert
 	scaleURLKey string
 	scaleURL    string
+	logger      *utils.Flogger
+	once        sync.Once
 )
 
+func init() {
+	logger = utils.NewFlogger(&once, "autoscaling.log")
+}
+
 // UpdateStacksOutputs queries the outputs of stacks that was filters with a given listOpts periodically.
-func UpdateStacksOutputs(logger *log.Logger, wg *sync.WaitGroup) {
+func UpdateStacksOutputs(wg *sync.WaitGroup) {
 	defer wg.Done()
 	sos.Store(make(stack.Outputs))
 
@@ -110,7 +115,7 @@ func doScale(scaleResults chan<- ScaleResult, stack map[string]string, stackID, 
 }
 
 // Autoscaling get Webhook be trigered from Prometheus Alertmanager.
-func Autoscaling(logger *log.Logger) http.Handler {
+func Autoscaling() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
 		if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
