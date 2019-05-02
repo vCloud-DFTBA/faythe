@@ -54,7 +54,7 @@ func UpdateStacksOutputs(wg *sync.WaitGroup) {
 			sos.Store(stacksOp)
 		}
 		mu.Unlock()
-		time.Sleep(time.Second * time.Duration(viper.GetInt("openstack.stackQuery.updateInterval")))
+		time.Sleep(time.Second * viper.GetDuration("openstack.stackQuery.updateInterval"))
 	}
 }
 

@@ -1,6 +1,9 @@
 package config
 
-import "faythe/utils"
+import (
+	"faythe/utils"
+	"time"
+)
 
 // StackListOpts allows the filtering and sorting of paginated collections through
 // the API.
@@ -37,7 +40,7 @@ type StackListOpts struct {
 type StackQuery struct {
 	// UpdateInterval field is the number of seconds that queries the outputs of stacks
 	// that was filters with a given listOpts periodically.
-	UpdateInterval int `yaml:"updateInterval"`
+	UpdateInterval time.Duration `yaml:"updateInterval"`
 
 	ListOpts StackListOpts `yaml:"listOpts,omitempty"`
 }
