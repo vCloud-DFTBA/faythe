@@ -52,8 +52,15 @@ func TriggerSt2RuleAM() http.Handler {
 		httpClient := http.Client{Transport: tr}
 		frChan := make(chan forwardResult, 0)
 		for _, alert := range alerts {
+			hostname, err := utils.LookupAddr(alert.Labels["instance"])
+			if err != nil {
+				logger.Printf("Get hostname from addr failed because %s", err.Error())
+				continue
+			}
+			alert.Labels["compute"] = hostname
 			body, err := json.Marshal(alert)
 			if err != nil {
+				logger.Printf("Json marshal Alert %s failed because %s.", alert.GeneratorURL, err.Error())
 				continue
 			}
 			go forwardReq(frChan, r, url, apiKey, bytes.NewBuffer(body), &httpClient)
