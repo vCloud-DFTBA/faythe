@@ -20,6 +20,7 @@ func newRouter() *mux.Router {
 	router.Handle("/", basic.Index()).Methods("GET")
 	router.Handle("/healthz", basic.Healthz(&healthy)).Methods("GET")
 	router.Handle("/stackstorm/{st-rule}", stackstorm.TriggerSt2Rule()).Methods("POST")
+	router.Handle("/stackstorm/alertmanager/{st-rule}", stackstorm.TriggerSt2RuleAM()).Methods("POST")
 	router.Handle("/autoscaling", openstack.Autoscaling()).Methods("POST")
 
 	return router
