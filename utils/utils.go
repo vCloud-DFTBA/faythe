@@ -3,9 +3,13 @@ package utils
 import (
 	"crypto/sha1"
 	"log"
+	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
+
+	"github.com/pkg/errors"
 )
 
 // Secret special type for storing secrets.
@@ -74,4 +78,25 @@ func Hash(s string) string {
 	h := sha1.New()
 	h.Write([]byte(s))
 	return string(h.Sum(nil))
+}
+
+// LookupAddr performs a reverse lookup for the network address of the form "host:port"/network address/hostname
+// returning a name mapping to that address.
+func LookupAddr(host string) (string, error) {
+	host, _, err := net.SplitHostPort(host)
+	if err != nil && !strings.Contains("missingPort", err.Error()) {
+		return "", errors.Wrap(err, "parse host from hostport failed")
+	}
+	// Determine whether a given string is an ip or hostname
+	addr := net.ParseIP(host)
+	if addr == nil {
+		return host, nil
+	} else {
+		hostname, err := net.LookupAddr(host)
+		if err != nil {
+			return "", errors.Wrap(err, "lookup adddress failed")
+		}
+		// Force get the first result, ignore the rest.
+		return hostname[0], nil
+	}
 }
