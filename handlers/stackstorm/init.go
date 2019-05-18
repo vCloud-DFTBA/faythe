@@ -23,7 +23,7 @@ var (
 )
 
 func init() {
-	logger = utils.NewFlogger(&once, "stackstorm.go")
+	logger = utils.NewFlogger(&once, "stackstorm.log")
 }
 
 func forwardReq(fResults chan<- forwardResult, r *http.Request, url, apiKey string, body io.Reader, httpClient *http.Client) {
