@@ -18,7 +18,7 @@ var (
 )
 
 func init() {
-	logger = utils.NewFlogger(&once, "stackstorm.go")
+	logger = utils.NewFlogger(&once, "stackstorm.log")
 }
 
 // TriggerSt2Rule gets Request then create a new request based on it.
