@@ -81,5 +81,5 @@ type OpenStackConfiguration struct {
 	ProjectName string `yaml:"projectId"`
 	ProjectID   string `yaml:"projectName"`
 
-	StackQuery StackQuery `yaml:stackQuery.omitempty`
+	StackQuery StackQuery `yaml:"stackQuery,omitempty"`
 }
