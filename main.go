@@ -5,7 +5,6 @@ import (
 	"flag"
 	"log"
 	"os"
-	"runtime"
 	"strconv"
 	"time"
 )
@@ -30,10 +29,6 @@ func init() {
 }
 
 func main() {
-	if os.Getenv("GOMAXPROCS") == "" {
-		runtime.GOMAXPROCS(runtime.NumCPU())
-	}
-
 	// Create nextRequestID
 	nextRequestID := func() string {
 		return strconv.FormatInt(time.Now().UnixNano(), 36)
