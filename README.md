@@ -45,7 +45,7 @@ $ docker build -t faythe:latest .
 * Run container from built image.
 
 ```
-$ docker run -d --name faythe -p 8600:8600 -v /path/to/config/dir:/etc/faythe/ faythe
+$ docker run -d --name faythe -p <port>:<port> -v /path/to/config/dir:/etc/faythe/ faythe
 ```
 
 ## Features
