@@ -37,7 +37,10 @@ func TriggerSt2RuleAM() http.Handler {
 		}
 		url := "https://" + host + "/api/webhooks/" + rule
 		// Get alerts
-		var data template.Data
+		var (
+			data     template.Data
+			computes map[string]bool
+		)
 		if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -57,6 +60,12 @@ func TriggerSt2RuleAM() http.Handler {
 				logger.Printf("Get hostname from addr failed because %s", err.Error())
 				continue
 			}
+
+			// Deduplicate alert from the same host
+			if _, ok := computes[hostname]; ok {
+				continue
+			}
+			computes[hostname] = true // Actually, it can be whatever type.
 			alert.Labels["compute"] = hostname
 			body, err := json.Marshal(alert)
 			if err != nil {
