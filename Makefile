@@ -19,6 +19,6 @@ push:
 push-latest:
 	docker push "$(DOCKER_IMAGE_LATEST)"
 
-run: build
+run:
 	docker rm -f "$(DOCKER_CONTAINER_NAME)" || true
 	docker run -d --restart always --net host --name "$(DOCKER_CONTAINER_NAME)" "$(DOCKER_IMAGE_FULL)"
