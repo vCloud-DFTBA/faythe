@@ -1,11 +1,13 @@
 # Use git tag/git branch to tag Docker image.
+CURRENT_DIR             ?= $(shell pwd)
 DOCKER_IMAGE_TAG        ?= $(subst /,-,$(shell git describe --tags --abbrev=0 || git rev-parse --abbrev-ref HEAD))
 DOCKER_REPO             ?= ntk148v
 DOCKER_IMAGE_NAME       ?= faythe
 DOCKER_IMAGE_FULL       ?= $(DOCKER_REPO)/$(DOCKER_IMAGE_NAME):$(DOCKER_IMAGE_TAG)
 DOCKER_IMAGE_LATEST     ?= $(DOCKER_REPO)/$(DOCKER_IMAGE_NAME):latest
-FAYTHE_PORT             ?= 8600
 DOCKER_CONTAINER_NAME   ?= faythe
+FAYTHE_PORT             ?= 8600
+FAYTHE_CONF_PATH        ?= $(CURRENT_DIR)/etc
 
 build:
 	docker build -t "$(DOCKER_IMAGE_FULL)" .
@@ -21,4 +23,4 @@ push-latest:
 
 run:
 	docker rm -f "$(DOCKER_CONTAINER_NAME)" || true
-	docker run -d --restart always --net host -v faythe-logs:/var/log/faythe --name "$(DOCKER_CONTAINER_NAME)" "$(DOCKER_IMAGE_FULL)"
+	docker run -d --restart always --net host -v "$(FAYTHE_CONF_PATH)":/etc/faythe -v faythe-logs:/var/log/faythe --name "$(DOCKER_CONTAINER_NAME)" "$(DOCKER_IMAGE_FULL)"
