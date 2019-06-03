@@ -37,10 +37,7 @@ func TriggerSt2RuleAM() http.Handler {
 		}
 		url := "https://" + host + "/api/webhooks/" + rule
 		// Get alerts
-		var (
-			data     template.Data
-			computes map[string]bool
-		)
+		var data template.Data
 		if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -54,6 +51,7 @@ func TriggerSt2RuleAM() http.Handler {
 		}
 		httpClient := http.Client{Transport: tr}
 		frChan := make(chan forwardResult, 0)
+		computes := make(map[string]bool)
 		for _, alert := range alerts {
 			hostname, err := utils.LookupAddr(alert.Labels["instance"])
 			if err != nil {
