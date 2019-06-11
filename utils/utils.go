@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/pkg/errors"
 )
@@ -35,9 +36,11 @@ func createFlogger(fname string) *Flogger {
 		os.Exit(1)
 	}
 
+	prefix := "handlers: " + time.Now().String() + " "
+
 	return &Flogger{
 		file:   fname,
-		Logger: log.New(f, "handlers ", log.Lshortfile),
+		Logger: log.New(f, prefix, log.Lshortfile),
 	}
 }
 
