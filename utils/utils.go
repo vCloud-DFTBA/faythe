@@ -1,7 +1,7 @@
 package utils
 
 import (
-	"crypto/sha1"
+	"crypto/sha256"
 	"log"
 	"net"
 	"os"
@@ -78,7 +78,7 @@ func Getenv(key, fallback string) string {
 
 // Hash compute SHA1 hashes of s given input.
 func Hash(s string) string {
-	h := sha1.New()
+	h := sha256.New()
 	h.Write([]byte(s))
 	return string(h.Sum(nil))
 }

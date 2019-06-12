@@ -1,16 +1,39 @@
 package stackstorm
 
 import (
-	"bytes"
 	"crypto/tls"
 	"encoding/json"
 	"faythe/utils"
 	"net/http"
+	"strings"
 
 	"github.com/gorilla/mux"
 	"github.com/prometheus/alertmanager/template"
 	"github.com/spf13/viper"
 )
+
+var (
+	data          template.Data
+	existedAlerts map[string]bool
+)
+
+func updateExistedAlerts(data *template.Data) {
+	if existedAlerts == nil {
+		existedAlerts = make(map[string]bool)
+	}
+
+	resolvedAlerts := data.Alerts.Resolved()
+	for _, alert := range resolvedAlerts {
+		// Generate a simple fingerprint aka signature
+		// that represents for Alert.
+		av := append(alert.Labels.Values(), alert.StartsAt.String())
+		fingerprint := utils.Hash(strings.Join(av, "_"))
+		// Remove Alert if it is already resolved.
+		if _, ok := existedAlerts[fingerprint]; ok {
+			delete(existedAlerts, fingerprint)
+		}
+	}
+}
 
 // TriggerSt2RuleAM gets Request from Prometheus Alertmanager then
 // create new request(s). The new request's body will be
@@ -37,13 +60,13 @@ func TriggerSt2RuleAM() http.Handler {
 		}
 		url := "https://" + host + "/api/webhooks/" + rule
 		// Get alerts
-		var data template.Data
 		if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
-		alerts := data.Alerts.Firing()
+		updateExistedAlerts(&data)
+		firingAlerts := data.Alerts.Firing()
 
 		// Create a httpclient with disabled security checks
 		tr := &http.Transport{
@@ -52,15 +75,25 @@ func TriggerSt2RuleAM() http.Handler {
 		httpClient := http.Client{Transport: tr}
 		frChan := make(chan forwardResult, 0)
 		computes := make(map[string]bool)
-		for _, alert := range alerts {
+		for _, alert := range firingAlerts {
+			// Generate a simple fingerprint aka signature
+			// that represents for Alert.
+			av := append(alert.Labels.Values(), alert.StartsAt.String())
+			fingerprint := utils.Hash(strings.Join(av, "_"))
+			// Check this alert was already received
+			if _, ok := existedAlerts[fingerprint]; ok {
+				logger.Printf("Alert %s from host %s was received, ignore it.", alert.Labels["alertname"], alert.Labels["instance"])
+				continue
+			}
 			hostname, err := utils.LookupAddr(alert.Labels["instance"])
 			if err != nil {
-				logger.Printf("Get hostname from addr failed because %s", err.Error())
+				logger.Printf("Get hostname from addr failed because %s.", err.Error())
 				continue
 			}
 
 			// Deduplicate alert from the same host
 			if _, ok := computes[hostname]; ok {
+				logger.Printf("Alert %s from host %s was received, ignore it.", alert.Labels["alertname"], alert.Labels["instance"])
 				continue
 			}
 			computes[hostname] = true // Actually, it can be whatever type.
@@ -70,15 +103,18 @@ func TriggerSt2RuleAM() http.Handler {
 				logger.Printf("Json marshal Alert %s failed because %s.", alert.GeneratorURL, err.Error())
 				continue
 			}
-			go forwardReq(frChan, r, url, apiKey, bytes.NewBuffer(body), &httpClient)
+			go forwardReq(frChan, r, url, apiKey, body, &httpClient)
+			existedAlerts[fingerprint] = true // Actually, it can be whatever type.
 		}
 
-		for i := 0; i < len(alerts); i++ {
+		for i := 0; i < len(firingAlerts); i++ {
 			frs := <-frChan
+			var bodymap template.Alert
+			_ = json.Unmarshal(frs.body, &bodymap)
 			if frs.err != nil {
-				logger.Printf("Sent request %s failed because %s.", string(frs.reqDump), frs.err)
+				logger.Printf("Sent request from %s failed because %s.", bodymap.Labels["hostname"], frs.err)
 			} else {
-				logger.Printf("Sent request %s successfully.", string(frs.reqDump))
+				logger.Printf("Sent request from %s successfully.", bodymap.Labels["hostname"])
 			}
 		}
 		w.WriteHeader(http.StatusAccepted)

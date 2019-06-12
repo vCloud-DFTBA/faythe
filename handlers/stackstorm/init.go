@@ -1,8 +1,8 @@
 package stackstorm
 
 import (
+	"bytes"
 	"faythe/utils"
-	"io"
 	"net/http"
 	"sync"
 
@@ -10,8 +10,8 @@ import (
 )
 
 type forwardResult struct {
-	reqDump []byte
-	err     error
+	body []byte
+	err  error
 }
 
 var (
@@ -25,10 +25,10 @@ func init() {
 	logger = utils.NewFlogger(&once, "stackstorm.log")
 }
 
-func forwardReq(fResults chan<- forwardResult, r *http.Request, url, apiKey string, body io.Reader, httpClient *http.Client) {
-	proxyReq, err := http.NewRequest(r.Method, url, body)
+func forwardReq(fResults chan<- forwardResult, r *http.Request, url, apiKey string, body []byte, httpClient *http.Client) {
+	proxyReq, err := http.NewRequest(r.Method, url, bytes.NewBuffer(body))
 	if err != nil {
-		fResults <- forwardResult{[]byte(url), errors.Wrap(err, "create a new request failed")}
+		fResults <- forwardResult{body, errors.Wrap(err, "create a new request failed")}
 		return
 	}
 	// Filter some headers, otherwise could just use a shallow copy proxyReq.Header = r.Header
@@ -40,10 +40,10 @@ func forwardReq(fResults chan<- forwardResult, r *http.Request, url, apiKey stri
 	proxyReq.Header.Add("St2-Api-Key", apiKey)
 	resp, err := httpClient.Do(proxyReq)
 	if err != nil {
-		fResults <- forwardResult{[]byte(url), errors.Wrap(err, "send a POST request failed")}
+		fResults <- forwardResult{body, errors.Wrap(err, "send a POST request failed")}
 		return
 	}
-	fResults <- forwardResult{[]byte(url), nil}
+	fResults <- forwardResult{body, nil}
 	defer resp.Body.Close()
 	return
 }
