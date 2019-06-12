@@ -1,7 +1,6 @@
 package stackstorm
 
 import (
-	"bytes"
 	"crypto/tls"
 	"encoding/json"
 	"faythe/utils"
@@ -104,16 +103,18 @@ func TriggerSt2RuleAM() http.Handler {
 				logger.Printf("Json marshal Alert %s failed because %s.", alert.GeneratorURL, err.Error())
 				continue
 			}
-			go forwardReq(frChan, r, url, apiKey, bytes.NewBuffer(body), &httpClient)
+			go forwardReq(frChan, r, url, apiKey, body, &httpClient)
 			existedAlerts[fingerprint] = true // Actually, it can be whatever type.
 		}
 
 		for i := 0; i < len(firingAlerts); i++ {
 			frs := <-frChan
+			var bodymap template.Alert
+			_ = json.Unmarshal(frs.body, &bodymap)
 			if frs.err != nil {
-				logger.Printf("Sent request %s failed because %s.", string(frs.reqDump), frs.err)
+				logger.Printf("Sent request from %s failed because %s.", bodymap.Labels["hostname"], frs.err)
 			} else {
-				logger.Printf("Sent request %s successfully.", string(frs.reqDump))
+				logger.Printf("Sent request from %s successfully.", bodymap.Labels["hostname"])
 			}
 		}
 		w.WriteHeader(http.StatusAccepted)
