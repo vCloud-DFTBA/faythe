@@ -66,7 +66,6 @@ func TriggerSt2RuleAM() http.Handler {
 			return
 		}
 
-		var data template.Data
 		updateExistedAlerts(&data)
 		firingAlerts := data.Alerts.Firing()
 
