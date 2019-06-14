@@ -5,8 +5,6 @@ import (
 	"flag"
 	"log"
 	"os"
-	"strconv"
-	"time"
 )
 
 const (
@@ -29,17 +27,12 @@ func init() {
 }
 
 func main() {
-	// Create nextRequestID
-	nextRequestID := func() string {
-		return strconv.FormatInt(time.Now().UnixNano(), 36)
-	}
-
 	// Create a logger, router and server
 	Log = log.New(os.Stdout, "http: ", log.LstdFlags)
-	router := newRouter()
+	router := newRouter(Log)
 	server := newServer(
 		listenAddr,
-		tracing(nextRequestID)(logging(Log)(router)),
+		router,
 		Log,
 	)
 
