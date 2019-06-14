@@ -6,6 +6,7 @@ import (
 	"faythe/utils"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/prometheus/alertmanager/template"
@@ -72,7 +73,10 @@ func TriggerSt2RuleAM() http.Handler {
 		tr := &http.Transport{
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		}
-		httpClient := http.Client{Transport: tr}
+		httpClient := http.Client{
+			Transport: tr,
+			Timeout:   30 * time.Second,
+		}
 		frChan := make(chan forwardResult, 0)
 		computes := make(map[string]bool)
 		for _, alert := range firingAlerts {
@@ -117,6 +121,7 @@ func TriggerSt2RuleAM() http.Handler {
 				logger.Printf("Sent request from %s successfully.", bodymap.Labels["hostname"])
 			}
 		}
+		defer httpClient.CloseIdleConnections()
 		w.WriteHeader(http.StatusAccepted)
 	})
 }
