@@ -11,7 +11,7 @@ _/ ____\____  ___.__._/  |_|  |__   ____
 
 ## What is Faythe?
 
-* A simple Golang web api.
+* A ~~simple~~ Golang web api.
 * The name is inspired by a character in cryptology.
 
 <details>
