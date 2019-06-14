@@ -19,13 +19,14 @@ var (
 	once   sync.Once
 	host   string
 	apiKey string
+	wg     sync.WaitGroup
 )
 
 func init() {
 	logger = utils.NewFlogger(&once, "stackstorm.log")
 }
 
-func forwardReq(fResults chan<- forwardResult, r *http.Request, url, apiKey string, body []byte, httpClient *http.Client) {
+func forwardReq(fResults chan<- forwardResult, r *http.Request, url, apiKey string, body []byte, httpClient *http.Client, wg *sync.WaitGroup) {
 	proxyReq, err := http.NewRequest(r.Method, url, bytes.NewBuffer(body))
 	if err != nil {
 		fResults <- forwardResult{body, errors.Wrap(err, "create a new request failed")}
@@ -45,5 +46,6 @@ func forwardReq(fResults chan<- forwardResult, r *http.Request, url, apiKey stri
 	}
 	fResults <- forwardResult{body, nil}
 	defer resp.Body.Close()
+	defer wg.Done()
 	return
 }

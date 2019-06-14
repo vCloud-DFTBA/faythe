@@ -80,6 +80,7 @@ func TriggerSt2RuleAM() http.Handler {
 		frChan := make(chan forwardResult, 0)
 		computes := make(map[string]bool)
 		for _, alert := range firingAlerts {
+			wg.Add(1)
 			// Generate a simple fingerprint aka signature
 			// that represents for Alert.
 			av := append(alert.Labels.Values(), alert.StartsAt.String())
@@ -111,7 +112,7 @@ func TriggerSt2RuleAM() http.Handler {
 				logger.Printf("Json marshal Alert %s failed because %s.", alert.GeneratorURL, err.Error())
 				continue
 			}
-			go forwardReq(frChan, r, url, apiKey, body, &httpClient)
+			go forwardReq(frChan, r, url, apiKey, body, &httpClient, &wg)
 			existedAlerts[fingerprint] = true // Actually, it can be whatever type.
 		}
 

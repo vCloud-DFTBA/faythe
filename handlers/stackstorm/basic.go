@@ -46,7 +46,8 @@ func TriggerSt2Rule() http.Handler {
 		}
 		httpClient := http.Client{Transport: tr}
 		frChan := make(chan forwardResult, 1)
-		forwardReq(frChan, r, url, apiKey, body, &httpClient)
+		wg.Add(1)
+		forwardReq(frChan, r, url, apiKey, body, &httpClient, &wg)
 		frs := <-frChan
 		if frs.err != nil {
 			logger.Printf("Sent request %s failed because %s.", string(frs.body), frs.err)
