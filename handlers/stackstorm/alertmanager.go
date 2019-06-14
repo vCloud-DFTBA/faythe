@@ -75,7 +75,7 @@ func TriggerSt2RuleAM() http.Handler {
 		}
 		httpClient := http.Client{
 			Transport: tr,
-			Timeout:   20 * time.Second,
+			Timeout:   30 * time.Second,
 		}
 		frChan := make(chan forwardResult, 0)
 		computes := make(map[string]bool)
