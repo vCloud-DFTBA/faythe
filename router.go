@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/spf13/viper"
 )
 
 func newRouter(logger *log.Logger) *mux.Router {
@@ -33,9 +34,15 @@ func newRouter(logger *log.Logger) *mux.Router {
 	// Routing
 	router.Handle("/", basic.Index()).Methods("GET")
 	router.Handle("/healthz", basic.Healthz(&healthy)).Methods("GET")
-	router.Handle("/stackstorm/{st-rule}", stackstorm.TriggerSt2Rule()).Methods("POST")
-	router.Handle("/stackstorm/alertmanager/{st-rule}", stackstorm.TriggerSt2RuleAM()).Methods("POST")
-	router.Handle("/autoscaling", openstack.Autoscaling()).Methods("POST")
+	router.Handle("/stackstorm/{st-rule}", stackstorm.TriggerSt2Rule()).
+		Methods("POST").
+		Host(viper.GetString("restrictedDomain"))
+	router.Handle("/stackstorm/alertmanager/{st-rule}", stackstorm.TriggerSt2RuleAM()).
+		Methods("POST").
+		Host(viper.GetString("restrictedDomain"))
+	router.Handle("/autoscaling", openstack.Autoscaling()).
+		Methods("POST").
+		Host(viper.GetString("restrictedDomain"))
 
 	// Appends a Middlewarefunc to the chain.
 	router.Use(mw.tracing, mw.logging)
