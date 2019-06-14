@@ -100,11 +100,12 @@ func TriggerSt2RuleAM() http.Handler {
 				// Force add this alert to map(s)
 				existedAlerts[fingerprint] = true // Actually, it can be whatever type.
 				computes[hostname] = true         // Actually, it can be whatever type.
-				return
+				continue
 			}
 
 			computes[hostname] = true // Actually, it can be whatever type.
 			alert.Labels["compute"] = hostname
+			logger.Printf("Processing alert %s from host %s", alert.Labels["alertname"], hostname)
 			body, err := json.Marshal(alert)
 			if err != nil {
 				logger.Printf("Json marshal Alert %s failed because %s.", alert.GeneratorURL, err.Error())
