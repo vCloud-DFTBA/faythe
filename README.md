@@ -30,22 +30,24 @@ _/ ____\____  ___.__._/  |_|  |__   ____
 $ vim etc/config.yml
 # Move config file to config directory
 $ cp etc/config.yml /path/to/config/dir
+# Build it
+$ go build -mod vendor -o /path/to/executable/faythe
 # Run it
-$ ./bin/faythe -conf /path/to/config/dir
+$ /path/to/executable/faythe -conf /path/to/config/dir
 ```
 
 2. Use Docker
 
-* Build Docker image.
+* Build Docker image (use git tag/git branch as Docker image tag):
 
 ```bash
-$ docker build -t faythe:latest .
+$ make build
 ```
 
-* Run container from built image.
+* Run container from built image (For more details & options please check [Makefile](./Makefile)):
 
 ```
-$ docker run -d --name faythe -p <port>:<port> -v /path/to/config/dir:/etc/faythe/ faythe
+$ make run
 ```
 
 ## Features

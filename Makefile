@@ -1,7 +1,7 @@
 # Use git tag/git branch to tag Docker image.
 CURRENT_DIR             ?= $(shell pwd)
 DOCKER_IMAGE_TAG        ?= $(subst /,-,$(shell git describe --tags --abbrev=0 || git rev-parse --abbrev-ref HEAD))
-DOCKER_REPO             ?= ntk148v
+DOCKER_REPO             ?= kiennt26
 DOCKER_IMAGE_NAME       ?= faythe
 DOCKER_IMAGE_FULL       ?= $(DOCKER_REPO)/$(DOCKER_IMAGE_NAME):$(DOCKER_IMAGE_TAG)
 DOCKER_IMAGE_LATEST     ?= $(DOCKER_REPO)/$(DOCKER_IMAGE_NAME):latest
@@ -15,10 +15,10 @@ build:
 build-latest: build
 	docker tag "$(DOCKER_IMAGE_FULL)" "$(DOCKER_IMAGE_LATEST)"
 
-push:
+push: build
 	docker push "$(DOCKER_IMAGE_FULL)"
 
-push-latest:
+push-latest: build-latest
 	docker push "$(DOCKER_IMAGE_LATEST)"
 
 run:
