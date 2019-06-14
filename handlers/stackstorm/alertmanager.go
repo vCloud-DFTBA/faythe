@@ -84,22 +84,25 @@ func TriggerSt2RuleAM() http.Handler {
 			// that represents for Alert.
 			av := append(alert.Labels.Values(), alert.StartsAt.String())
 			fingerprint := utils.Hash(strings.Join(av, "_"))
-			// Check this alert was already received
-			if _, ok := existedAlerts[fingerprint]; ok {
-				logger.Printf("Alert %s from host %s was received, ignore it.", alert.Labels["alertname"], alert.Labels["instance"])
-				continue
-			}
+
+			// Find hostname by ip address
 			hostname, err := utils.LookupAddr(alert.Labels["instance"])
 			if err != nil {
 				logger.Printf("Get hostname from addr failed because %s.", err.Error())
 				continue
 			}
 
-			// Deduplicate alert from the same host
-			if _, ok := computes[hostname]; ok {
-				logger.Printf("Alert %s from host %s was received, ignore it.", alert.Labels["alertname"], alert.Labels["instance"])
-				continue
+			// Check this alert was already received
+			_, ok1 := existedAlerts[fingerprint]
+			_, ok2 := computes[hostname]
+			if ok1 || ok2 {
+				logger.Printf("Alert %s from host %s was received, ignore it.", alert.Labels["alertname"], hostname)
+				// Force add this alert to map(s)
+				existedAlerts[fingerprint] = true // Actually, it can be whatever type.
+				computes[hostname] = true         // Actually, it can be whatever type.
+				return
 			}
+
 			computes[hostname] = true // Actually, it can be whatever type.
 			alert.Labels["compute"] = hostname
 			body, err := json.Marshal(alert)
