@@ -120,9 +120,9 @@ func TriggerSt2RuleAM() http.Handler {
 			var bodymap template.Alert
 			_ = json.Unmarshal(frs.body, &bodymap)
 			if frs.err != nil {
-				logger.Printf("Sent request from %s failed because %s.", bodymap.Labels["hostname"], frs.err)
+				logger.Printf("Sent request from %s failed because %s.", bodymap.Labels["compute"], frs.err)
 			} else {
-				logger.Printf("Sent request from %s successfully.", bodymap.Labels["hostname"])
+				logger.Printf("Sent request from %s successfully.", bodymap.Labels["compute"])
 			}
 		}
 		defer httpClient.CloseIdleConnections()
