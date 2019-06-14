@@ -20,8 +20,12 @@ stackstorm:
   host: "stackstormhost"
   apiKey: "fakestackstomrapikey"
 
-# Example:
-# "www.example.com"
-# "{subdomain}.domain.com"
-# "{subdomain:[a-z]+}.domain.com"
-restrictedDomain: "{subdomain:[a-z]+}.domain.com{port:[:].*}"
+server:
+  # Example:
+  # "www.example.com"
+  # "{subdomain}.domain.com"
+  # "{subdomain:[a-z]+}.domain.com"
+  restrictedDomain: "{subdomain:[a-z]+}.domain.com{port:[:].*}"
+  basicAuth:
+    username: "admin"
+    password: "notverysecurepassword"

@@ -5,6 +5,8 @@ import (
 	"log"
 	"net/http"
 	"time"
+
+	"github.com/spf13/viper"
 )
 
 type key int
@@ -43,5 +45,23 @@ func (mw *middleware) tracing(next http.Handler) http.Handler {
 		ctx := context.WithValue(r.Context(), requestIDKey, requestID)
 		w.Header().Set("X-Request-Id", requestID)
 		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+// authencating verify authentication provided in the request's Authorization header
+// if the request uses HTTP Basic Authentication.
+func (mw *middleware) authenticating(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		user, pass, _ := r.BasicAuth()
+		correctUsr := viper.GetString("server.basicAuth.username")
+		correctPwd := viper.GetString("server.basicAuth.password")
+
+		if correctUsr != user || correctPwd != pass {
+			w.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
+			http.Error(w, "Unauthorized.", http.StatusUnauthorized)
+			return
+		}
+
+		next.ServeHTTP(w, r)
 	})
 }
