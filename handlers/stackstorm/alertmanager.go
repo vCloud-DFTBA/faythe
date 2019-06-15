@@ -6,6 +6,7 @@ import (
 	"faythe/utils"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -13,16 +14,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-var (
-	data          template.Data
-	existedAlerts map[string]bool
-)
-
-func updateExistedAlerts(data *template.Data) {
-	if existedAlerts == nil {
-		existedAlerts = make(map[string]bool)
-	}
-
+func updateExistingAlerts(data *template.Data) {
 	resolvedAlerts := data.Alerts.Resolved()
 	for _, alert := range resolvedAlerts {
 		// Generate a simple fingerprint aka signature
@@ -30,8 +22,8 @@ func updateExistedAlerts(data *template.Data) {
 		av := append(alert.Labels.Values(), alert.StartsAt.String())
 		fingerprint := utils.Hash(strings.Join(av, "_"))
 		// Remove Alert if it is already resolved.
-		if _, ok := existedAlerts[fingerprint]; ok {
-			delete(existedAlerts, fingerprint)
+		if _, ok := existingAlerts.Get(fingerprint); ok {
+			existingAlerts.Delete(fingerprint)
 		}
 	}
 }
@@ -50,7 +42,6 @@ func TriggerSt2RuleAM() http.Handler {
 		// TODO(kiennt): Might get ApiKey directly from Stackstorm instead of configure it.
 		if host == "" || apiKey == "" {
 			logger.Println("Stackstorm host or apikey is missing, please configure these configurations with env or config file.")
-			http.Error(w, "Stackstorm host or apikey is missing", http.StatusInternalServerError)
 			return
 		}
 		rule := vars["st-rule"]
@@ -61,12 +52,16 @@ func TriggerSt2RuleAM() http.Handler {
 		}
 		url := "https://" + host + "/api/webhooks/" + rule
 		// Get alerts
+		var (
+			data template.Data
+			wg   sync.WaitGroup
+		)
 		if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
-		updateExistedAlerts(&data)
+		updateExistingAlerts(&data)
 		firingAlerts := data.Alerts.Firing()
 
 		// Create a httpclient with disabled security checks
@@ -75,12 +70,10 @@ func TriggerSt2RuleAM() http.Handler {
 		}
 		httpClient := http.Client{
 			Transport: tr,
-			Timeout:   30 * time.Second,
+			Timeout:   3 * time.Second,
 		}
-		frChan := make(chan forwardResult, 0)
 		computes := make(map[string]bool)
 		for _, alert := range firingAlerts {
-			wg.Add(1)
 			// Generate a simple fingerprint aka signature
 			// that represents for Alert.
 			av := append(alert.Labels.Values(), alert.StartsAt.String())
@@ -94,17 +87,22 @@ func TriggerSt2RuleAM() http.Handler {
 			}
 
 			// Check this alert was already received
-			_, ok1 := existedAlerts[fingerprint]
+			_, ok1 := existingAlerts.Get(fingerprint)
 			_, ok2 := computes[hostname]
 			if ok1 || ok2 {
 				logger.Printf("Alert %s from host %s was received, ignore it.", alert.Labels["alertname"], hostname)
+				logger.Printf("Ignore alert %s/%s from host %s because Faythe already received another alert from this host.",
+					alert.Labels["alertname"],
+					alert.Labels["instance"],
+					hostname)
 				// Force add this alert to map(s)
-				existedAlerts[fingerprint] = true // Actually, it can be whatever type.
-				computes[hostname] = true         // Actually, it can be whatever type.
+				existingAlerts.Set(fingerprint, true) // Actually, it can be whatever type.
+				computes[hostname] = true             // Actually, it can be whatever type.
 				continue
 			}
 
-			computes[hostname] = true // Actually, it can be whatever type.
+			computes[hostname] = true
+			existingAlerts.Set(fingerprint, true)
 			alert.Labels["compute"] = hostname
 			logger.Printf("Processing alert %s from host %s", alert.Labels["alertname"], hostname)
 			body, err := json.Marshal(alert)
@@ -112,20 +110,10 @@ func TriggerSt2RuleAM() http.Handler {
 				logger.Printf("Json marshal Alert %s failed because %s.", alert.GeneratorURL, err.Error())
 				continue
 			}
-			go forwardReq(frChan, r, url, apiKey, body, &httpClient, &wg)
-			existedAlerts[fingerprint] = true // Actually, it can be whatever type.
+			wg.Add(1)
+			go forwardReq(r, url, apiKey, body, &httpClient, &wg)
 		}
 
-		for i := 0; i < len(firingAlerts); i++ {
-			frs := <-frChan
-			var bodymap template.Alert
-			_ = json.Unmarshal(frs.body, &bodymap)
-			if frs.err != nil {
-				logger.Printf("Sent request from %s failed because %s.", bodymap.Labels["compute"], frs.err)
-			} else {
-				logger.Printf("Sent request from %s successfully.", bodymap.Labels["compute"])
-			}
-		}
 		defer httpClient.CloseIdleConnections()
 		w.WriteHeader(http.StatusAccepted)
 	})

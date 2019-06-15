@@ -6,6 +6,7 @@ import (
 	"faythe/utils"
 	"io/ioutil"
 	"net/http"
+	"sync"
 
 	"github.com/gorilla/mux"
 	"github.com/spf13/viper"
@@ -23,7 +24,6 @@ func TriggerSt2Rule() http.Handler {
 		// TODO(kiennt): Might get ApiKey directly from Stackstorm instead of configure it.
 		if host == "" || apiKey == "" {
 			logger.Println("Stackstorm host or apikey is missing, please configure these configurations with env or config file.")
-			http.Error(w, "Stackstorm host or apikey is missing", http.StatusInternalServerError)
 			return
 		}
 		rule := vars["st-rule"]
@@ -45,15 +45,9 @@ func TriggerSt2Rule() http.Handler {
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		}
 		httpClient := http.Client{Transport: tr}
-		frChan := make(chan forwardResult, 1)
+		var wg sync.WaitGroup
 		wg.Add(1)
-		forwardReq(frChan, r, url, apiKey, body, &httpClient, &wg)
-		frs := <-frChan
-		if frs.err != nil {
-			logger.Printf("Sent request %s failed because %s.", string(frs.body), frs.err)
-		} else {
-			logger.Printf("Sent request %s successfully.", string(frs.body))
-		}
+		forwardReq(r, url, apiKey, body, &httpClient, &wg)
 		w.WriteHeader(http.StatusAccepted)
 	})
 }

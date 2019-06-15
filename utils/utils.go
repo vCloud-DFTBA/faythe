@@ -21,6 +21,30 @@ type Flogger struct {
 	*log.Logger
 }
 
+type SharedValue struct {
+	lock sync.RWMutex
+	Data map[string]interface{}
+}
+
+func (sv *SharedValue) Get(key string) (interface{}, bool) {
+	sv.lock.RLock()
+	defer sv.lock.RUnlock()
+	d, ok := sv.Data[key]
+	return &d, ok
+}
+
+func (sv *SharedValue) Set(key string, d interface{}) {
+	sv.lock.Lock()
+	defer sv.lock.Unlock()
+	sv.Data[key] = d
+}
+
+func (sv *SharedValue) Delete(key string) {
+	sv.lock.Lock()
+	defer sv.lock.Unlock()
+	delete(sv.Data, key)
+}
+
 func createFlogger(fname string) *Flogger {
 	logDir := Getenv("LOG_DIR", "/var/log/faythe")
 	if _, err := os.Stat(logDir); os.IsNotExist(err) {
