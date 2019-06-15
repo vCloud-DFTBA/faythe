@@ -23,6 +23,9 @@ func updateExistingAlerts(data *template.Data) {
 		fingerprint := utils.Hash(strings.Join(av, "_"))
 		// Remove Alert if it is already resolved.
 		if _, ok := existingAlerts.Get(fingerprint); ok {
+			logger.Printf("Alert %s/%s was resolved, delete it from existing alerts list.",
+				alert.Labels["alertname"],
+				alert.Labels["instance"])
 			existingAlerts.Delete(fingerprint)
 		}
 	}
@@ -90,7 +93,6 @@ func TriggerSt2RuleAM() http.Handler {
 			_, ok1 := existingAlerts.Get(fingerprint)
 			_, ok2 := computes[hostname]
 			if ok1 || ok2 {
-				logger.Printf("Alert %s from host %s was received, ignore it.", alert.Labels["alertname"], hostname)
 				logger.Printf("Ignore alert %s/%s from host %s because Faythe already received another alert from this host.",
 					alert.Labels["alertname"],
 					alert.Labels["instance"],
