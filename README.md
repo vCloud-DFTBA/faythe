@@ -52,5 +52,8 @@ $ make run
 
 ## Features
 
-* Modify the given request headers then forward it!
-* Autoscaling OpenStack instance using Heat features.
+* Trigger Heat AutoscalingPolicy & AutoscalingGroup with information from Prometheus alerts instead of OpenStack Telemetry (Aodh, Gnocchi & Ceilometer).
+* Trigger Stackstorm rules with information from Prometheus alerts.
+* Basic authentication.
+* Restrict domains(s).
+* Deduplicate alerts from Prometheus Alertmanager.
