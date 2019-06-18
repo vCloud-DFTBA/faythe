@@ -22,7 +22,7 @@ func Load(cp string) error {
 	// Set default values
 	viper.SetDefault("openstack.updateInterval", 30)
 	// Allows all - not restrict any domains
-	viper.SetDefault("server.restrictedDomain", "{domain:.*}")
+	viper.SetDefault("server.remoteHostPattern", ".*")
 	var cfg GlobalConfig
 	err = viper.Unmarshal(&cfg)
 	return err

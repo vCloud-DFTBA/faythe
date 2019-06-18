@@ -23,9 +23,8 @@ stackstorm:
 server:
   # Example:
   # "www.example.com"
-  # "{subdomain}.domain.com"
-  # "{subdomain:[a-z]+}.domain.com"
-  restrictedDomain: "{subdomain:[a-z]+}.domain.com{port:[:].*}"
+  # "([a-z]+).domain.com"
+  remoteHostPattern: "192.168.(128|129).*"
   basicAuth:
     username: "admin"
     password: "notverysecurepassword"

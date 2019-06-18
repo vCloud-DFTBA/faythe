@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"net/http"
+	"regexp"
 	"time"
 
 	"github.com/spf13/viper"
@@ -18,6 +19,7 @@ const (
 type middleware struct {
 	logger        *log.Logger
 	nextRequestID func() string
+	regexp        *regexp.Regexp
 }
 
 // logging logs all requests with its information and the time it took to process
@@ -59,6 +61,20 @@ func (mw *middleware) authenticating(next http.Handler) http.Handler {
 		if correctUsr != user || correctPwd != pass {
 			w.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
 			http.Error(w, "Unauthorized.", http.StatusUnauthorized)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+// restrictingDomain checks whehter request's remote address was matched
+// a defined host pattern or not.
+func (mw *middleware) restrictingDomain(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		matched := mw.regexp.MatchString(r.RemoteAddr)
+		if !matched {
+			http.Error(w, "Remote address is not matched restricted domain pattern", http.StatusNotFound)
 			return
 		}
 
