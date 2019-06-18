@@ -31,18 +31,20 @@ func newRouter(logger *log.Logger) *mux.Router {
 		nextRequestID: nextRequestID,
 	}
 
+	restrictedDomain := viper.GetString("server.restrictedDomain")
+
 	// Routing
 	router.Handle("/", basic.Index()).Methods("GET")
 	router.Handle("/healthz", basic.Healthz(&healthy)).Methods("GET")
 	router.Handle("/stackstorm/{st-rule}", stackstorm.TriggerSt2Rule()).
 		Methods("POST").
-		Host(viper.GetString("server.restrictedDomain"))
+		Host(restrictedDomain)
 	router.Handle("/stackstorm/alertmanager/{st-rule}", stackstorm.TriggerSt2RuleAM()).
 		Methods("POST").
-		Host(viper.GetString("server.restrictedDomain"))
+		Host(restrictedDomain)
 	router.Handle("/autoscaling", openstack.Autoscaling()).
 		Methods("POST").
-		Host(viper.GetString("server.restrictedDomain"))
+		Host(restrictedDomain)
 
 	// Appends a Middlewarefunc to the chain.
 	router.Use(mw.tracing, mw.logging, mw.authenticating)
