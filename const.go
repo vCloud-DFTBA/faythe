@@ -1,6 +1,6 @@
 package main
 
-const FaytheASCII = `
+const faytheASCII = `
   _____                __  .__            
 _/ ____\____  ___.__._/  |_|  |__   ____  
 \   __\\__  \<   |  |\   __\  |  \_/ __ \ 
