@@ -119,12 +119,11 @@ func LookupAddr(host string) (string, error) {
 	addr := net.ParseIP(host)
 	if addr == nil {
 		return host, nil
-	} else {
-		hostname, err := net.LookupAddr(host)
-		if err != nil {
-			return "", errors.Wrap(err, "lookup adddress failed")
-		}
-		// Force get the first result, ignore the rest.
-		return hostname[0], nil
 	}
+	hostname, err := net.LookupAddr(host)
+	if err != nil {
+		return "", errors.Wrap(err, "lookup adddress failed")
+	}
+	// Force get the first result, ignore the rest.
+	return hostname[0], nil
 }
