@@ -21,11 +21,13 @@ type Flogger struct {
 	*log.Logger
 }
 
+// SharedValue stores a sharable cached value between requests.
 type SharedValue struct {
 	lock sync.RWMutex
 	Data map[string]interface{}
 }
 
+// Get returns the data of SharedValue by a given key.
 func (sv *SharedValue) Get(key string) (interface{}, bool) {
 	sv.lock.RLock()
 	defer sv.lock.RUnlock()
@@ -33,12 +35,14 @@ func (sv *SharedValue) Get(key string) (interface{}, bool) {
 	return &d, ok
 }
 
+// Set inserts/updates the data by a given key.
 func (sv *SharedValue) Set(key string, d interface{}) {
 	sv.lock.Lock()
 	defer sv.lock.Unlock()
 	sv.Data[key] = d
 }
 
+// Delete removes a data from SharedValue by a given key.
 func (sv *SharedValue) Delete(key string) {
 	sv.lock.Lock()
 	defer sv.lock.Unlock()
