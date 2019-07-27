@@ -16,11 +16,6 @@ var (
 	existingAlerts utils.SharedValue
 )
 
-func init() {
-	logger = utils.NewFlogger(&once, "stackstorm.log")
-	existingAlerts = utils.SharedValue{Data: make(map[string]interface{})}
-}
-
 func forwardReq(r *http.Request, url, apiKey string, body []byte, httpClient *http.Client, wg *sync.WaitGroup) {
 	host := r.RemoteAddr
 	var bodymap template.Alert
