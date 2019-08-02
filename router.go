@@ -47,7 +47,7 @@ func newRouter(logger *log.Logger) *mux.Router {
 		Methods("POST")
 	router.Handle("/stackstorm/alertmanager/{st-host}/{st-rule}", stackstorm.TriggerSt2RuleAM()).
 		Methods("POST")
-	router.Handle("/autoscaling", openstack.Autoscaling()).
+	router.Handle("/openstack/autoscaling", openstack.Autoscaling()).
 		Methods("POST")
 
 	// Appends a Middlewarefunc to the chain.
