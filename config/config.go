@@ -3,7 +3,10 @@ package config
 import (
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
+	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
@@ -19,6 +22,8 @@ type Manager struct {
 
 	config         *Config
 	onConfigChange func(fsnotify.Event)
+	mtx            sync.RWMutex
+	log            *log.Logger
 }
 
 // Secret special type for storing secrets.
@@ -55,7 +60,6 @@ type BasicAuthentication struct {
 // StackStormConfig stores information needed to forward
 // request to an StackStorm instance.
 type StackStormConfig struct {
-	Name   string `yaml:"name"`
 	Host   string `yaml:"host"`
 	APIKey string `yaml:"api_key"`
 }
@@ -257,9 +261,6 @@ func (c *StackStormConfig) UnmarshalYAML(unmarshal func(interface{}) error) erro
 	if err != nil {
 		return err
 	}
-	if c.Name == "" {
-		return errors.New("stackstorm configuration requires a name")
-	}
 	if c.Host == "" {
 		return errors.New("stackstorm configuration requires host address/host name")
 	}
@@ -280,6 +281,7 @@ func NewManager() *Manager {
 	m := new(Manager)
 	m.configPermissions = os.FileMode(0644)
 	m.config = &DefaultConfig
+	m.log = log.New(os.Stdout, "config: ", log.LstdFlags)
 	return m
 }
 
@@ -300,6 +302,16 @@ func SetConfigPermissions(perm os.FileMode) {
 	m.SetConfigPermissions(perm)
 }
 
+// SetLog sets the manager's log instance.
+func SetLog(log *log.Logger) {
+	m.SetLog(log)
+}
+
+// SetLog sets the manager's log instance.
+func (m *Manager) SetLog(log *log.Logger) {
+	m.log = log
+}
+
 // SetConfigPermissions sets the permissions for the config file.
 func (m *Manager) SetConfigPermissions(perm os.FileMode) {
 	m.configPermissions = perm.Perm()
@@ -312,6 +324,10 @@ func Load(in string) error {
 
 // Load parses the YAML input s into a Config
 func (m *Manager) Load(in string) error {
+	m.mtx.Lock()
+	defer m.mtx.Unlock()
+	// Force reinit config
+	m.config = new(Config)
 	err := yaml.UnmarshalStrict([]byte(in), m.config)
 	if err != nil {
 		return err
@@ -340,5 +356,92 @@ func (m *Manager) LoadFile(in string) error {
 
 // Get returns Config instance.
 func Get() *Config {
-	return m.config
+	return m.Get()
+}
+
+// Get returns Config instance.
+func (m *Manager) Get() *Config {
+	m.mtx.RLock()
+	conf := m.config
+	m.mtx.RUnlock()
+	return conf
+}
+
+// ShowString returns string represent of Config.
+func ShowString() {
+	m.ShowString()
+}
+
+// ShowString returns string represent of Config.
+func (m *Manager) ShowString() {
+	m.log.Println(m.config.String())
+}
+
+// OnConfigChange defines the function be called when config file was change.
+func OnConfigChange(run func(in fsnotify.Event)) {
+	m.OnConfigChange(run)
+}
+
+// OnConfigChange defines the function be called when config file was change.
+func (m *Manager) OnConfigChange(run func(in fsnotify.Event)) {
+	m.onConfigChange = run
+}
+
+// WatchConfig detects file changes and reloads config.
+func WatchConfig() {
+	m.WatchConfig()
+}
+
+// WatchConfig detects file changes and reloads config.
+func (m *Manager) WatchConfig() {
+	initWG := sync.WaitGroup{}
+	initWG.Add(1)
+	go func() {
+		watcher, err := fsnotify.NewWatcher()
+		if err != nil {
+			m.log.Fatal(err)
+		}
+		defer watcher.Close()
+
+		eventsWG := sync.WaitGroup{}
+		eventsWG.Add(1)
+		go func() {
+			for {
+				select {
+				case event, ok := <-watcher.Events:
+					if !ok { // 'Event' channel is closed
+						eventsWG.Done()
+						return
+					}
+					const writeOrCreateMask = fsnotify.Write | fsnotify.Create
+					if filepath.Clean(event.Name) == m.configPath &&
+						event.Op&writeOrCreateMask != 0 {
+						m.log.Printf("Config file %s is changeding...\n", m.configPath)
+						err := m.LoadFile(m.configPath)
+						if err != nil {
+							m.log.Printf("error reading config file: %v\n", err)
+						}
+						if m.onConfigChange != nil {
+							m.onConfigChange(event)
+						}
+					} else if filepath.Clean(event.Name) == m.configPath &&
+						event.Op&fsnotify.Remove != 0 {
+						eventsWG.Done()
+						return
+					}
+
+				case err, ok := <-watcher.Errors:
+					if ok { // 'Errors' channel is not closed
+						m.log.Printf("watcher error: %v\n", err)
+					}
+					eventsWG.Done()
+					return
+				}
+			}
+		}()
+		watcher.Add(m.configPath)
+		initWG.Done()
+		eventsWG.Wait()
+	}()
+	initWG.Wait()
 }

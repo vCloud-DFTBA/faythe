@@ -30,7 +30,7 @@ openstack_configs:
 # These configs will be overwritten by STACKSTORM_* environment variables.
 # Check handlers/stackstorm/.env.example for details.
 stackstorm_configs:
-  - name: "stackstorm-1f"
+  stackstorm-1f:
     host: "stackstormhost"
     api_key: "fakestackstomrapikey"
 
