@@ -1,6 +1,4 @@
 # OpenStackConfiguration.
-# These configs will be overwritten by OS_* environment variables.
-# Check handlers/openstack/.env.example for details.
 openstack_configs:
   openstack-1f:
     region_name: "RegionOne"
@@ -27,8 +25,6 @@ openstack_configs:
         tags: "scale"
 
 # StackStormConfiguration
-# These configs will be overwritten by STACKSTORM_* environment variables.
-# Check handlers/stackstorm/.env.example for details.
 stackstorm_configs:
   stackstorm-1f:
     host: "stackstormhost"
