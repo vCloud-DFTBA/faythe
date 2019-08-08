@@ -170,7 +170,7 @@ func (m *Manager) WatchConfig() {
 					const writeOrCreateMask = fsnotify.Write | fsnotify.Create
 					if filepath.Clean(event.Name) == m.configPath &&
 						event.Op&writeOrCreateMask != 0 {
-						m.log.Printf("Config file %s is changeding...\n", m.configPath)
+						m.log.Printf("Config file %s is changeing...\n", m.configPath)
 						err := m.LoadFile(m.configPath)
 						if err != nil {
 							m.log.Printf("error reading config file: %v\n", err)
