@@ -1,46 +1,45 @@
 package stack
 
 import (
-	"faythe/handlers/openstack/auth"
-	"faythe/utils"
 	"github.com/gophercloud/gophercloud/pagination"
 
 	"github.com/gophercloud/gophercloud"
 	"github.com/gophercloud/gophercloud/openstack"
 	"github.com/gophercloud/gophercloud/openstack/orchestration/v1/stacks"
 	"github.com/pkg/errors"
-	"github.com/spf13/viper"
+
+	"faythe/config"
+	"faythe/handlers/openstack/auth"
 )
 
 // Outputs represents the outputs of stacks.
 // map[stack_id:map[output_key:output_value]]
 type Outputs map[string]map[string]string
 
-func createClient() (*gophercloud.ServiceClient, error) {
-	provider, err := auth.CreateProvider()
+func createClient(opsConf config.OpenStackConfig) (*gophercloud.ServiceClient, error) {
+	provider, err := auth.CreateProvider(opsConf)
 	if err != nil {
 		return nil, err
 	}
-	return openstack.NewOrchestrationV1(provider, gophercloud.EndpointOpts{
-		Region: utils.Getenv("OS_REGION_NAME", viper.GetString("openstack.regionName")),
-	})
+	return openstack.NewOrchestrationV1(provider, gophercloud.EndpointOpts{Region: opsConf.RegionName})
 }
 
 // GetOutputs return Outputs
-func GetOutputs() (Outputs, error) {
+func GetOutputs(opsConf config.OpenStackConfig) (Outputs, error) {
+	filterOpts := opsConf.StackQuery.ListOpts
 	listOpts := stacks.ListOpts{
-		TenantID:   viper.GetString("openstack.stackQuery.listOpts.projectID"),
-		ID:         viper.GetString("openstack.stackQuery.listOpts.id"),
-		Status:     viper.GetString("openstack.stackQuery.listOpts.status"),
-		Name:       viper.GetString("openstack.stackQuery.listOpts.name"),
-		AllTenants: viper.GetBool("openstack.stackQuery.listOpts.allTenants"),
-		Tags:       viper.GetString("openstack.stackQuery.listOpts.tags"),
-		TagsAny:    viper.GetString("openstack.stackQuery.listOpts.tagsAny"),
-		NotTags:    viper.GetString("openstack.stackQuery.listOpts.notTags"),
-		NotTagsAny: viper.GetString("openstack.stackQuery.listOpts.notTagsAny"),
+		TenantID:   filterOpts.ProjectID,
+		ID:         filterOpts.ID,
+		Status:     filterOpts.Status,
+		Name:       filterOpts.Name,
+		AllTenants: filterOpts.AllTenants,
+		Tags:       filterOpts.Tags,
+		TagsAny:    filterOpts.TagsAny,
+		NotTags:    filterOpts.NotTags,
+		NotTagsAny: filterOpts.NotTagsAny,
 	}
 
-	client, err := createClient()
+	client, err := createClient(opsConf)
 	if err != nil {
 		return nil, err
 	}

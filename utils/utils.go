@@ -10,10 +10,9 @@ import (
 	"sync"
 
 	"github.com/pkg/errors"
-)
 
-// Secret special type for storing secrets.
-type Secret string
+	"faythe/config"
+)
 
 // Flogger represents a file logger.
 type Flogger struct {
@@ -50,7 +49,7 @@ func (sv *SharedValue) Delete(key string) {
 }
 
 func createFlogger(fname string) *Flogger {
-	logDir := Getenv("LOG_DIR", "/var/log/faythe")
+	logDir := config.Get().ServerConfig.LogDir
 	if _, err := os.Stat(logDir); os.IsNotExist(err) {
 		if err := os.MkdirAll(logDir, os.ModePerm); err != nil {
 			panic(err)
@@ -76,20 +75,6 @@ func NewFlogger(once *sync.Once, fname string) *Flogger {
 		logger = createFlogger(fname)
 	})
 	return logger
-}
-
-// MarshalYAML implements the yaml.Marshaler interface for Secrets.
-func (s Secret) MarshalYAML() (interface{}, error) {
-	if s != "" {
-		return "<secret>", nil
-	}
-	return nil, nil
-}
-
-//UnmarshalYAML implements the yaml.Unmarshaler interface for Secrets.
-func (s *Secret) UnmarshalYAML(unmarshal func(interface{}) error) error {
-	type plain Secret
-	return unmarshal((*plain)(s))
 }
 
 // Getenv returns default value if environment variable

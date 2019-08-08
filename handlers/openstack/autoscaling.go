@@ -2,8 +2,6 @@ package openstack
 
 import (
 	"encoding/json"
-	"faythe/handlers/openstack/stack"
-	"faythe/utils"
 	"fmt"
 	"net/http"
 	"strings"
@@ -12,7 +10,10 @@ import (
 	"time"
 
 	"github.com/prometheus/alertmanager/template"
-	"github.com/spf13/viper"
+
+	"faythe/config"
+	"faythe/handlers/openstack/stack"
+	"faythe/utils"
 )
 
 // ScaleResult stores scale request call information.
@@ -34,19 +35,19 @@ var (
 	once        sync.Once
 )
 
-func init() {
-	logger = utils.NewFlogger(&once, "autoscaling.log")
-}
-
 // UpdateStacksOutputs queries the outputs of stacks that was filters with a given listOpts periodically.
-func UpdateStacksOutputs(wg *sync.WaitGroup) {
+func UpdateStacksOutputs(opsConf config.OpenStackConfig, wg *sync.WaitGroup) {
+	if logger == nil {
+		logger = utils.NewFlogger(&once, "autoscaling.log")
+	}
 	defer wg.Done()
 	sos.Store(make(stack.Outputs))
 
 	for {
 		mu.Lock() // synchronize with other potential writers
 		_ = sos.Load().(stack.Outputs)
-		stacksOp, err := stack.GetOutputs()
+		// TODO(kiennt): Restruct stacksOp later. By now, key is the stack id.
+		stacksOp, err := stack.GetOutputs(opsConf)
 		if err != nil {
 			logger.Println("Cannot update stacks outputs: ", err)
 		} else {
@@ -54,7 +55,7 @@ func UpdateStacksOutputs(wg *sync.WaitGroup) {
 			sos.Store(stacksOp)
 		}
 		mu.Unlock()
-		time.Sleep(time.Second * viper.GetDuration("openstack.stackQuery.updateInterval"))
+		time.Sleep(opsConf.StackQuery.UpdateInterval)
 	}
 }
 
@@ -117,6 +118,9 @@ func doScale(scaleResults chan<- ScaleResult, stack map[string]string, stackID, 
 // Autoscaling get Webhook be trigered from Prometheus Alertmanager.
 func Autoscaling() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if logger == nil {
+			logger = utils.NewFlogger(&once, "autoscaling.log")
+		}
 		defer r.Body.Close()
 		if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)

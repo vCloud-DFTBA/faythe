@@ -3,7 +3,7 @@ package stackstorm
 import (
 	"crypto/tls"
 	"encoding/json"
-	"faythe/utils"
+	"fmt"
 	"net/http"
 	"strings"
 	"sync"
@@ -11,7 +11,9 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/prometheus/alertmanager/template"
-	"github.com/spf13/viper"
+
+	"faythe/config"
+	"faythe/utils"
 )
 
 func updateExistingAlerts(data *template.Data) {
@@ -40,8 +42,15 @@ func TriggerSt2RuleAM() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
 		vars := mux.Vars(r)
-		host := utils.Getenv("STACKSTORM_HOST", viper.GetString("stackstorm.host"))
-		apiKey := utils.Getenv("STACKSTORM_API_KEY", viper.GetString("stackstorm.apiKey"))
+		conf, ok := config.Get().StackStormConfigs[vars["st-host"]]
+		if !ok {
+			msg := fmt.Sprintf("Cannot find the configuration of host %s, please check it again", vars["st-host"])
+			logger.Println(msg)
+			http.Error(w, msg, http.StatusBadRequest)
+			return
+		}
+		host := utils.Getenv("STACKSTORM_HOST", conf.Host)
+		apiKey := utils.Getenv("STACKSTORM_API_KEY", conf.Host)
 		// TODO(kiennt): Might get ApiKey directly from Stackstorm instead of configure it.
 		if host == "" || apiKey == "" {
 			logger.Println("Stackstorm host or apikey is missing, please configure these configurations with env or config file.")

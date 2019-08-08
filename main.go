@@ -8,8 +8,8 @@ import (
 )
 
 const (
-	defaultConfigFilePath = "./etc/"
-	configFilePathUsage   = "config file directory (eg. '/etc/faythe/'). Config file must be named 'config.yml'."
+	defaultConfigFilePath = "/etc/faythe/config.yml"
+	configFilePathUsage   = "config file path."
 )
 
 var (
@@ -23,7 +23,9 @@ func init() {
 	flag.StringVar(&configFilePath, "conf", defaultConfigFilePath, configFilePathUsage)
 	flag.StringVar(&listenAddr, "listen-addr", ":8600", "server listen address.")
 	flag.Parse()
-	config.Load(configFilePath)
+	// Log = log.New(os.Stdout, "http: ", log.LstdFlags)
+	config.LoadFile(configFilePath)
+	config.WatchConfig()
 }
 
 func main() {
