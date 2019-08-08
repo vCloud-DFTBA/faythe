@@ -7,7 +7,7 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/spf13/viper"
+	"faythe/config"
 )
 
 type key int
@@ -55,8 +55,9 @@ func (mw *middleware) tracing(next http.Handler) http.Handler {
 func (mw *middleware) authenticating(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user, pass, _ := r.BasicAuth()
-		correctUsr := viper.GetString("server.basicAuth.username")
-		correctPwd := viper.GetString("server.basicAuth.password")
+		basicAuth := config.Get().ServerConfig.BasicAuthentication
+		correctUsr := basicAuth.Username
+		correctPwd := string(basicAuth.Password)
 
 		if correctUsr != user || correctPwd != pass {
 			w.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)

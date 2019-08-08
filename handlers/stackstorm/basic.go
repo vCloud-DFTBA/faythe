@@ -3,13 +3,15 @@ package stackstorm
 import (
 	"bytes"
 	"crypto/tls"
-	"faythe/utils"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"sync"
 
 	"github.com/gorilla/mux"
-	"github.com/spf13/viper"
+
+	"faythe/config"
+	"faythe/utils"
 )
 
 // TriggerSt2Rule gets Request then create a new request based on it.
@@ -18,9 +20,21 @@ import (
 // be forwarded to Stackstorm host using Golang http client.
 func TriggerSt2Rule() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if logger == nil {
+			logger = utils.NewFlogger(&once, "stackstorm.log")
+		}
+
 		vars := mux.Vars(r)
-		host := utils.Getenv("STACKSTORM_HOST", viper.GetString("stackstorm.host"))
-		apiKey := utils.Getenv("STACKSTORM_API_KEY", viper.GetString("stackstorm.apiKey"))
+		conf, ok := config.Get().StackStormConfigs[vars["st-host"]]
+		if !ok {
+			msg := fmt.Sprintf("Cannot find the configuration of host %s, please check it again", vars["st-host"])
+			logger.Println(msg)
+			http.Error(w, msg, http.StatusBadRequest)
+			return
+		}
+
+		host := utils.Getenv("STACKSTORM_HOST", conf.Host)
+		apiKey := utils.Getenv("STACKSTORM_API_KEY", conf.APIKey)
 		// TODO(kiennt): Might get ApiKey directly from Stackstorm instead of configure it.
 		if host == "" || apiKey == "" {
 			logger.Println("Stackstorm host or apikey is missing, please configure these configurations with env or config file.")
