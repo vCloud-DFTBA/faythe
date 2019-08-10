@@ -100,14 +100,14 @@ type OpenStackConfig struct {
 	// control panel to discover your account's username. In Identity V3, either
 	// UserID or a combination of Username and DomainID or DomainName are needed.
 	Username string `yaml:"username"`
-	UserID   string `yaml:"userid"`
+	UserID   string `yaml:"userid,omitempty"`
 
 	Password Secret `yaml:"password"`
 
 	// At most one of DomainID and DomainName must be provided if using Username
 	// with Identity V3. Otherwise, either are optional.
 	DomainName string `yaml:"domain_name"`
-	DomainID   string `yaml:"domain_id"`
+	DomainID   string `yaml:"domain_id,omitempty"`
 
 	// The ProjectID and ProjectName fields are optional for the Identity V2 API.
 	// The same fields are known as project_id and project_name in the Identity
@@ -120,10 +120,22 @@ type OpenStackConfig struct {
 	// and scope to a Project in a different Domain by using ProjectName. To
 	// accomplish that, the ProjectID will need to be provided as the ProjectID
 	// option.
-	ProjectName string `yaml:"project_id"`
+	ProjectName string `yaml:"project_id,omitempty"`
 	ProjectID   string `yaml:"project_name"`
 
-	StackQuery StackQuery `yaml:"stack_query"`
+	StackQuery StackQuery `yaml:"stack_query,omitempty"`
+
+	// Endpoints describes a slice of OpenStack Endpoint.
+	Endpoints []Endpoint `yaml:"endpoints,omitempty"`
+}
+
+// Endpoint describes the entry point for OpenStack service's API.
+type Endpoint struct {
+	// Name is the name of the Endpoint, for example heat/nova/cinder...
+	Name string `yaml:"name"`
+
+	// URL is the url of the Endpoint.
+	URL string `yaml:"url"`
 }
 
 var (

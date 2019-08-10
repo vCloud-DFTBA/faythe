@@ -199,3 +199,35 @@ func (m *Manager) WatchConfig() {
 	}()
 	initWG.Wait()
 }
+
+// Set updates the value of configuration. newConf should be a copy
+// of m.config instance.
+func Set(newConf *Config) {
+	m.Set(newConf)
+}
+
+// Set updates the value of configuration. newConf should be a copy
+// of m.config instance.
+func (m *Manager) Set(newConf *Config) {
+	m.mtx.Lock()
+	defer m.mtx.Unlock()
+	m.config = newConf
+}
+
+// Write writes the current configuration to a file.
+func Write() error {
+	return m.Write()
+}
+
+// Write writes the current configuration to a file.
+func (m *Manager) Write() error {
+	m.log.Println("Attempting to write configuration to file")
+
+	raw, _ := yaml.Marshal(m.Get())
+	err := ioutil.WriteFile(m.configPath, raw, m.configPermissions)
+	if err != nil {
+		return err
+	}
+	m.log.Println("Configuration file was updated")
+	return nil
+}
