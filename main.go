@@ -23,8 +23,10 @@ func init() {
 	flag.StringVar(&configFilePath, "conf", defaultConfigFilePath, configFilePathUsage)
 	flag.StringVar(&listenAddr, "listen-addr", ":8600", "server listen address.")
 	flag.Parse()
-	// Log = log.New(os.Stdout, "http: ", log.LstdFlags)
-	config.LoadFile(configFilePath)
+	err := config.LoadFile(configFilePath)
+	if err != nil {
+		panic(err)
+	}
 	config.WatchConfig()
 }
 
