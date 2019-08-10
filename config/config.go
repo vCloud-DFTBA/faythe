@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"net/url"
 	"time"
 
 	"github.com/pkg/errors"
@@ -206,6 +207,9 @@ func (c *OpenStackConfig) UnmarshalYAML(unmarshal func(interface{}) error) error
 	err := unmarshal((*plain)(c))
 	if err != nil {
 		return err
+	}
+	if _, err := url.Parse(c.AuthURL); err != nil {
+		return errors.New("openstack auth url is invalid")
 	}
 	if c.RegionName == "" {
 		return errors.New("openstack configration requires a region")
