@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"github.com/pkg/errors"
+	"github.com/prometheus/alertmanager/template"
 
 	"faythe/config"
 )
@@ -111,4 +112,23 @@ func LookupAddr(host string) (string, error) {
 	}
 	// Force get the first result, ignore the rest.
 	return hostname[0], nil
+}
+
+// UpdateExistingAlerts stores a set of existing alerts and updates
+// these by removing resolved alerts from list.
+func UpdateExistingAlerts(existingAlerts *SharedValue, data *template.Data, logger *Flogger) {
+	resolvedAlerts := data.Alerts.Resolved()
+	for _, alert := range resolvedAlerts {
+		// Generate a simple fingerprint aka signature
+		// that represents for Alert.
+		av := append(alert.Labels.Values(), alert.StartsAt.String())
+		fingerprint := Hash(strings.Join(av, "_"))
+		// Remove Alert if it is already resolved.
+		if _, ok := existingAlerts.Get(fingerprint); ok {
+			logger.Printf("Alert %s/%s was resolved, delete it from existing alerts list.",
+				alert.Labels["alertname"],
+				alert.Labels["instance"])
+			existingAlerts.Delete(fingerprint)
+		}
+	}
 }

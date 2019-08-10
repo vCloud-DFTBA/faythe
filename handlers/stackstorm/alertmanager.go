@@ -16,23 +16,6 @@ import (
 	"faythe/utils"
 )
 
-func updateExistingAlerts(data *template.Data) {
-	resolvedAlerts := data.Alerts.Resolved()
-	for _, alert := range resolvedAlerts {
-		// Generate a simple fingerprint aka signature
-		// that represents for Alert.
-		av := append(alert.Labels.Values(), alert.StartsAt.String())
-		fingerprint := utils.Hash(strings.Join(av, "_"))
-		// Remove Alert if it is already resolved.
-		if _, ok := existingAlerts.Get(fingerprint); ok {
-			logger.Printf("Alert %s/%s was resolved, delete it from existing alerts list.",
-				alert.Labels["alertname"],
-				alert.Labels["instance"])
-			existingAlerts.Delete(fingerprint)
-		}
-	}
-}
-
 // TriggerSt2RuleAM gets Request from Prometheus Alertmanager then
 // create new request(s). The new request's body will be
 // generated based on Alertmanager's request body.
@@ -73,7 +56,7 @@ func TriggerSt2RuleAM() http.Handler {
 			return
 		}
 
-		updateExistingAlerts(&data)
+		utils.UpdateExistingAlerts(&existingAlerts, &data, logger)
 		firingAlerts := data.Alerts.Firing()
 
 		// Create a httpclient with disabled security checks
