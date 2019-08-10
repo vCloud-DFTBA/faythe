@@ -126,16 +126,7 @@ type OpenStackConfig struct {
 	StackQuery StackQuery `yaml:"stack_query,omitempty"`
 
 	// Endpoints describes a slice of OpenStack Endpoint.
-	Endpoints []Endpoint `yaml:"endpoints,omitempty"`
-}
-
-// Endpoint describes the entry point for OpenStack service's API.
-type Endpoint struct {
-	// Name is the name of the Endpoint, for example heat/nova/cinder...
-	Name string `yaml:"name"`
-
-	// URL is the url of the Endpoint.
-	URL string `yaml:"url"`
+	Endpoints map[string]string `yaml:"endpoints,omitempty"`
 }
 
 var (
