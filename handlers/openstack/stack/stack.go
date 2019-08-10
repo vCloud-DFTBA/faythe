@@ -16,7 +16,7 @@ import (
 // map[stack_id:map[output_key:output_value]]
 type Outputs map[string]map[string]string
 
-func createClient(opsConf config.OpenStackConfig) (*gophercloud.ServiceClient, error) {
+func createClient(opsConf *config.OpenStackConfig) (*gophercloud.ServiceClient, error) {
 	provider, err := auth.CreateProvider(opsConf)
 	if err != nil {
 		return nil, err
@@ -25,7 +25,7 @@ func createClient(opsConf config.OpenStackConfig) (*gophercloud.ServiceClient, e
 }
 
 // GetOutputs return Outputs
-func GetOutputs(opsConf config.OpenStackConfig) (Outputs, error) {
+func GetOutputs(opsConf *config.OpenStackConfig) (Outputs, error) {
 	filterOpts := opsConf.StackQuery.ListOpts
 	listOpts := stacks.ListOpts{
 		TenantID:   filterOpts.ProjectID,

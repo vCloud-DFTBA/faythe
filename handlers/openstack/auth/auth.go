@@ -9,7 +9,7 @@ import (
 )
 
 // CreateProvider gets configuration and returns a ProviderClient
-func CreateProvider(conf config.OpenStackConfig) (*gophercloud.ProviderClient, error) {
+func CreateProvider(conf *config.OpenStackConfig) (*gophercloud.ProviderClient, error) {
 	opts := gophercloud.AuthOptions{
 		IdentityEndpoint: conf.AuthURL,
 		Username:         conf.Username,
@@ -26,4 +26,14 @@ func CreateProvider(conf config.OpenStackConfig) (*gophercloud.ProviderClient, e
 		return nil, errors.Wrap(err, "create OpenStack provider failed")
 	}
 	return provider, nil
+}
+
+// CreateClient creates a ServiceClient that may be used to access the v3
+// identity service.
+func CreateClient(opsConf *config.OpenStackConfig) (*gophercloud.ServiceClient, error) {
+	provider, err := CreateProvider(opsConf)
+	if err != nil {
+		return nil, err
+	}
+	return openstack.NewIdentityV3(provider, gophercloud.EndpointOpts{Region: opsConf.RegionName})
 }

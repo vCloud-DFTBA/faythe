@@ -14,9 +14,9 @@ type Secret string
 
 // Config is the top-level configuration for Faythe's config file.
 type Config struct {
-	ServerConfig      ServerConfig                `yaml:"server_config"`
-	OpenStackConfigs  map[string]OpenStackConfig  `yaml:"openstack_configs,omitempty"`
-	StackStormConfigs map[string]StackStormConfig `yaml:"stackstorm_configs,omitempty"`
+	ServerConfig      *ServerConfig                `yaml:"server_config"`
+	OpenStackConfigs  map[string]*OpenStackConfig  `yaml:"openstack_configs,omitempty"`
+	StackStormConfigs map[string]*StackStormConfig `yaml:"stackstorm_configs,omitempty"`
 }
 
 // ServerConfig configures values that are used to config Faythe HTTP server
@@ -85,7 +85,7 @@ type StackQuery struct {
 	UpdateInterval time.Duration `yaml:"update_interval"`
 
 	// ListOpts field is the list of Stack list options.
-	ListOpts StackListOpts `yaml:"list_opts,omitempty"`
+	ListOpts *StackListOpts `yaml:"list_opts,omitempty"`
 }
 
 // OpenStackConfig stores information needed to authenticate to an OpenStack Cloud.
@@ -101,14 +101,14 @@ type OpenStackConfig struct {
 	// control panel to discover your account's username. In Identity V3, either
 	// UserID or a combination of Username and DomainID or DomainName are needed.
 	Username string `yaml:"username"`
-	UserID   string `yaml:"userid,omitempty"`
+	UserID   string `yaml:"userid"`
 
 	Password Secret `yaml:"password"`
 
 	// At most one of DomainID and DomainName must be provided if using Username
 	// with Identity V3. Otherwise, either are optional.
 	DomainName string `yaml:"domain_name"`
-	DomainID   string `yaml:"domain_id,omitempty"`
+	DomainID   string `yaml:"domain_id"`
 
 	// The ProjectID and ProjectName fields are optional for the Identity V2 API.
 	// The same fields are known as project_id and project_name in the Identity
@@ -121,10 +121,10 @@ type OpenStackConfig struct {
 	// and scope to a Project in a different Domain by using ProjectName. To
 	// accomplish that, the ProjectID will need to be provided as the ProjectID
 	// option.
-	ProjectName string `yaml:"project_id,omitempty"`
-	ProjectID   string `yaml:"project_name"`
+	ProjectName string `yaml:"project_name"`
+	ProjectID   string `yaml:"project_id"`
 
-	StackQuery StackQuery `yaml:"stack_query,omitempty"`
+	StackQuery *StackQuery `yaml:"stack_query,omitempty"`
 
 	// Endpoints describes a slice of OpenStack Endpoint.
 	Endpoints map[string]string `yaml:"endpoints,omitempty"`
@@ -133,7 +133,7 @@ type OpenStackConfig struct {
 var (
 	// DefaultConfig is the default top-level configuration.
 	DefaultConfig = Config{
-		ServerConfig: DefaultServerConfig,
+		ServerConfig: &DefaultServerConfig,
 	}
 
 	// DefaultServerConfig is the default server configuration.
@@ -150,9 +150,7 @@ var (
 	}
 
 	// DefaultOpenStackConfig is the default OpenStack configuration.
-	DefaultOpenStackConfig = OpenStackConfig{
-		StackQuery: DefaultStackQuery,
-	}
+	DefaultOpenStackConfig = OpenStackConfig{}
 )
 
 // MarshalYAML implements the yaml.Marshaler interface for Secrets.

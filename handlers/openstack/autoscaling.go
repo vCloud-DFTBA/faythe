@@ -6,168 +6,145 @@ import (
 	"net/http"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
+	"github.com/gorilla/mux"
 	"github.com/prometheus/alertmanager/template"
 
 	"faythe/config"
-	"faythe/handlers/openstack/stack"
+	"faythe/handlers/openstack/auth"
 	"faythe/utils"
 )
 
-// ScaleResult stores scale request call information.
-type ScaleResult struct {
-	stackID string
-	action  string
-	result  string
-	reason  string
+var heatSvc = service{
+	name:    "heat",
+	port:    "8004",
+	version: "v1",
 }
 
-var (
-	sos         atomic.Value
-	mu          sync.Mutex // used only by writers
-	data        template.Data
-	scaleAlerts map[string]template.Alert
-	scaleURLKey string
-	scaleURL    string
-	logger      *utils.Flogger
-	once        sync.Once
-)
-
-// UpdateStacksOutputs queries the outputs of stacks that was filters with a given listOpts periodically.
-func UpdateStacksOutputs(opsConf config.OpenStackConfig, wg *sync.WaitGroup) {
-	if logger == nil {
-		logger = utils.NewFlogger(&once, "autoscaling.log")
-	}
-	defer wg.Done()
-	sos.Store(make(stack.Outputs))
-
-	for {
-		mu.Lock() // synchronize with other potential writers
-		_ = sos.Load().(stack.Outputs)
-		// TODO(kiennt): Restruct stacksOp later. By now, key is the stack id.
-		stacksOp, err := stack.GetOutputs(opsConf)
-		if err != nil {
-			logger.Println("Cannot update stacks outputs: ", err)
-		} else {
-			logger.Println("Stacks outputs: ", stacksOp)
-			sos.Store(stacksOp)
-		}
-		mu.Unlock()
-		time.Sleep(opsConf.StackQuery.UpdateInterval)
-	}
+// Scaler does scale action with input attributes.
+type Scaler struct {
+	Conf       *config.OpenStackConfig
+	Alert      template.Alert
+	HTTPClient *http.Client
+	WaitGroup  *sync.WaitGroup
+	Logger     *utils.Flogger
 }
 
-func doScale(scaleResults chan<- ScaleResult, stack map[string]string, stackID, action, microservice string) {
-	if len(stack) == 0 {
-		scaleResults <- ScaleResult{
-			stackID: stackID,
-			action:  action,
-			result:  "failed",
-			reason:  "Couldn't find stack",
-		}
+func (s *Scaler) genSignalURL() string {
+	// TODO(kiennt): Check key in labels.
+	labels := s.Alert.Labels
+	signalURL := fmt.Sprintf("%s/%s/stacks/%s/%s/resources/%s/signal",
+		s.Conf.Endpoints[heatSvc.name],
+		labels["project_id"],
+		labels["stack_asg_name"],
+		labels["stack_asg_id"],
+		labels["stack_scale_resource"])
+	return signalURL
+}
+
+func (s *Scaler) printLog(format string, a ...interface{}) {
+	msg := fmt.Sprintf(format, a)
+	s.Logger.Printf("Stack %s/%s - %s\n",
+		s.Alert.Labels["stack_asg_name"],
+		s.Alert.Labels["stack_scale_resource"],
+		msg)
+}
+
+func (s *Scaler) doScale() {
+	defer s.WaitGroup.Done()
+	labels := s.Alert.Labels
+	// Generate a simple fingerprint aka signature
+	// that represents for Alert.
+	av := append(labels.Values(), s.Alert.StartsAt.String())
+	fingerprint := utils.Hash(strings.Join(av, "_"))
+
+	// Check this alert was already received
+	if _, ok := existingAlerts.Get(fingerprint); ok {
+		s.printLog("Ignore existing alert %s from host %s",
+			labels["alertname"], labels["instance"])
 		return
 	}
 
-	// scale_action must be one of two values: `up` and `down`.
-	// TODO: add check format later.
-	scaleURLKey = strings.Join([]string{"scale", action, "url"}, "_")
-
-	// There are two potential output format.
-	// It might be a simple map with two keys: `scale_down_url` and `scale_up_url`.
-	// It can also be a nested map which its keys are microservice name.
-	if microservice != "" {
-		// Convert output value (JSON string) to Map to able to index
-		stackMap := make(map[string]string)
-		json.Unmarshal([]byte(stack[microservice]), &stackMap)
-		scaleURL = stackMap[scaleURLKey]
-	} else {
-		scaleURL = stack[scaleURLKey]
-	}
-
-	if scaleURL == "" {
-		scaleResults <- ScaleResult{
-			stackID: stackID,
-			action:  action,
-			result:  "failed",
-			reason:  "Couldn't find scale url in stack's output",
-		}
-		return
-	}
-
-	// Good now, create a POST request to scale URL
-	resp, err := http.Post(scaleURL, "application/json", nil)
+	signalURL := s.genSignalURL()
+	authPC, err := auth.CreateProvider(s.Conf)
 	if err != nil {
-		scaleResults <- ScaleResult{
-			stackID: stackID,
-			action:  action,
-			result:  "failed",
-			reason:  err.Error(),
-		}
+		s.printLog("Invalid OpenStack configuration: %s", err)
 		return
 	}
-	scaleResults <- ScaleResult{
-		stackID: stackID,
-		action:  action,
-		result:  "success",
+	req, err := http.NewRequest("POST", signalURL, nil)
+	if err != nil {
+		s.printLog("Create request for url %s failed: ", err)
+		return
+	}
+	// Good now, create a POST request to scale URL
+	if token, ok := authPC.AuthenticatedHeaders()["X-Auth-Token"]; ok {
+		req.Header.Set("X-Auth-Token", token)
+	}
+	resp, err := s.HTTPClient.Do(req)
+	if err != nil {
+		s.printLog("Send POST request %s  to %s failed: %s\n",
+			signalURL, labels["stack_asg_name"], err)
+		return
 	}
 	defer resp.Body.Close()
 }
 
-// Autoscaling get Webhook be trigered from Prometheus Alertmanager.
-func Autoscaling() http.Handler {
+// AutoScaling get information from Prometheus Alertmanager webhook to trigger
+// OpenStack autoscale action.
+func AutoScaling() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if logger == nil {
 			logger = utils.NewFlogger(&once, "autoscaling.log")
 		}
+
+		// Generate Endpoints if not be confiured.
+		generateEndpoints(heatSvc)
+
 		defer r.Body.Close()
+		var data template.Data
 		if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
-		// Get the updated stacksOutputs
-		stacksOutputs := sos.Load().(stack.Outputs)
-		if len(stacksOutputs) == 0 {
-			logger.Println("stacksOutput is empty now!")
-			w.WriteHeader(http.StatusAccepted)
+		vars := mux.Vars(r)
+		confs := config.Get().OpenStackConfigs
+		conf, ok := confs[vars["ops-name"]]
+		if !ok {
+			supported := make([]string, len(confs))
+			for k := range confs {
+				supported = append(supported, k)
+			}
+
+			err := UnknownOpenStackError{
+				correct: supported,
+				wrong:   vars["ops-name"],
+			}
+			logger.Println(err.Error())
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
-		alerts := data.Alerts.Firing()
-		scaleAlerts = make(map[string]template.Alert)
-		// Get alerts with scale action only, ignore the rest
-		// TODO: Could reduce this step by grouping alerts from Prometheus
-		// alertmanager side.
-		for _, alert := range alerts {
-			if _, ok := alert.Labels["scale_action"]; ok {
-				// Deduce alerts. If alerts which is firing by multiple instances
-				// with the same stack_id, microservice, scale_action, use just one.
-				key := utils.Hash(strings.Join([]string{alert.Labels["stack_id"], alert.Labels["microservice"], alert.Labels["scale_action"]}, "_"))
-				if _, ok := scaleAlerts[key]; ok {
-					continue
-				}
-				scaleAlerts[key] = alert
+		// Get information from alerts
+		utils.UpdateExistingAlerts(&existingAlerts, &data, logger)
+		// Create client & set timeout
+		firingAlerts := data.Alerts.Firing()
+		client := &http.Client{}
+		client.Timeout = time.Second * 15
+		var wg sync.WaitGroup
+		for _, alert := range firingAlerts {
+			s := Scaler{
+				Conf:       conf,
+				Alert:      alert,
+				HTTPClient: client,
+				WaitGroup:  &wg,
+				Logger:     logger,
 			}
+			wg.Add(1)
+			go s.doScale()
 		}
-
-		scaleResults := make(chan ScaleResult, len(scaleAlerts))
-
-		for _, alert := range scaleAlerts {
-			logger.Printf("Alert: status=%s,Labels=%v,Annotations=%v", alert.Status, alert.Labels, alert.Annotations)
-			stack := stacksOutputs[alert.Labels["stack_id"]]
-			go doScale(scaleResults, stack, alert.Labels["stack_id"], strings.ToLower(alert.Labels["scale_action"]), alert.Labels["microservice"])
-		}
-
-		for i := 0; i < len(scaleAlerts); i++ {
-			rs := <-scaleResults
-			msg := fmt.Sprintf("Send request scale %s to stack %s: %s", rs.action, rs.stackID, rs.result)
-			if rs.reason != "" {
-				msg += "because " + rs.reason
-			}
-			logger.Printf(msg)
-		}
+		wg.Wait()
 		w.WriteHeader(http.StatusAccepted)
 	})
 }
