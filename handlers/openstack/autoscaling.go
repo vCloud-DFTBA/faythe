@@ -10,17 +10,24 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/prometheus/alertmanager/template"
+	"github.com/prometheus/common/model"
 
 	"faythe/config"
 	"faythe/handlers/openstack/auth"
 	"faythe/utils"
 )
 
-var heatSvc = service{
-	name:    "heat",
-	port:    "8004",
-	version: "v1",
-}
+// ScalePolicy describes the name of service (type OS::Heat::ScalingPolicy)
+// that is defined in template.
+type ScalePolicy string
+
+const (
+	heatSvcName ServiceName    = "heat"
+	heatSvcPort ServicePort    = "8004"
+	heatSvcVer  ServiceVersion = "v1"
+	scaleOut    ScalePolicy    = "scaleout_policy"
+	scaleIn     ScalePolicy    = "scalein_policy"
+)
 
 // Scaler does scale action with input attributes.
 type Scaler struct {
@@ -29,17 +36,26 @@ type Scaler struct {
 	HTTPClient *http.Client
 	WaitGroup  *sync.WaitGroup
 	Logger     *utils.Flogger
+	Policy     ScalePolicy
+}
+
+func (s *Scaler) defineAction() {
+	if s.Alert.Status == string(model.AlertFiring) {
+		s.Policy = scaleOut
+	} else {
+		s.Policy = scaleIn
+	}
 }
 
 func (s *Scaler) genSignalURL() string {
 	// TODO(kiennt): Check key in labels.
 	labels := s.Alert.Labels
 	signalURL := fmt.Sprintf("%s/%s/stacks/%s/%s/resources/%s/signal",
-		s.Conf.Endpoints[heatSvc.name],
+		s.Conf.Endpoints[string(heatSvcName)],
 		labels["project_id"],
 		labels["stack_asg_name"],
 		labels["stack_asg_id"],
-		labels["stack_scale_resource"])
+	)
 	return signalURL
 }
 
@@ -47,11 +63,11 @@ func (s *Scaler) printLog(format string, a ...interface{}) {
 	msg := fmt.Sprintf(format, a)
 	s.Logger.Printf("Stack %s/%s - %s\n",
 		s.Alert.Labels["stack_asg_name"],
-		s.Alert.Labels["stack_scale_resource"],
+		s.Policy,
 		msg)
 }
 
-func (s *Scaler) doScale() {
+func (s *Scaler) do() {
 	defer s.WaitGroup.Done()
 	labels := s.Alert.Labels
 	// Generate a simple fingerprint aka signature
@@ -61,11 +77,19 @@ func (s *Scaler) doScale() {
 
 	// Check this alert was already received
 	if _, ok := existingAlerts.Get(fingerprint); ok {
-		s.printLog("Ignore existing alert %s from host %s",
-			labels["alertname"], labels["instance"])
-		return
+		if s.Alert.Status == string(model.AlertFiring) {
+			s.printLog("Ignore existing alert %s from host %s",
+				labels["alertname"], labels["instance"])
+			return
+		} else if s.Alert.Status == string(model.AlertResolved) {
+			s.printLog("Alert %s/%s was resolved, delete it from existing alerts list.",
+				labels["alertname"],
+				labels["instance"])
+			existingAlerts.Delete(fingerprint)
+		}
 	}
 
+	s.defineAction()
 	signalURL := s.genSignalURL()
 	authPC, err := auth.CreateProvider(s.Conf)
 	if err != nil {
@@ -99,7 +123,7 @@ func AutoScaling() http.Handler {
 		}
 
 		// Generate Endpoints if not be confiured.
-		generateEndpoints(heatSvc)
+		generateEndpoints(heatSvcName, heatSvcPort, heatSvcVer)
 
 		defer r.Body.Close()
 		var data template.Data
@@ -126,14 +150,12 @@ func AutoScaling() http.Handler {
 			return
 		}
 
-		// Get information from alerts
-		utils.UpdateExistingAlerts(&existingAlerts, &data, logger)
+		alerts := data.Alerts
 		// Create client & set timeout
-		firingAlerts := data.Alerts.Firing()
 		client := &http.Client{}
 		client.Timeout = time.Second * 15
 		var wg sync.WaitGroup
-		for _, alert := range firingAlerts {
+		for _, alert := range alerts {
 			s := Scaler{
 				Conf:       conf,
 				Alert:      alert,
@@ -142,7 +164,7 @@ func AutoScaling() http.Handler {
 				Logger:     logger,
 			}
 			wg.Add(1)
-			go s.doScale()
+			go s.do()
 		}
 		wg.Wait()
 		w.WriteHeader(http.StatusAccepted)

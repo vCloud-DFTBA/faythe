@@ -9,6 +9,7 @@ require (
 	github.com/gorilla/mux v1.7.1
 	github.com/pkg/errors v0.0.0-20170316201538-ff09b135c25a
 	github.com/prometheus/alertmanager v0.16.2
+	github.com/prometheus/common v0.0.0-20181126121408-4724e9255275
 	github.com/stretchr/testify v1.2.2 // indirect
 	gopkg.in/yaml.v2 v2.2.2
 )
