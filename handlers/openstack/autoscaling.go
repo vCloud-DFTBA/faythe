@@ -111,6 +111,8 @@ func (s *Scaler) do() {
 			signalURL, labels["stack_asg_name"], err)
 		return
 	}
+	s.printLog("Send POST request %s  to %s success\n",
+		signalURL, labels["stack_asg_name"])
 	defer resp.Body.Close()
 }
 
