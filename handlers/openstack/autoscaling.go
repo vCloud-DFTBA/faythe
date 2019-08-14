@@ -55,7 +55,7 @@ func (s *Scaler) genSignalURL() string {
 		labels["project_id"],
 		labels["stack_asg_name"],
 		labels["stack_asg_id"],
-	)
+		s.Policy)
 	return signalURL
 }
 
