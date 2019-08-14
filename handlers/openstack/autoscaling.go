@@ -107,12 +107,10 @@ func (s *Scaler) do() {
 	}
 	resp, err := s.HTTPClient.Do(req)
 	if err != nil {
-		s.printLog("Send POST request %s  to %s failed: %s\n",
-			signalURL, labels["stack_asg_name"], err)
+		s.printLog("Send POST request %s failed: %s\n", signalURL, err)
 		return
 	}
-	s.printLog("Send POST request %s  to %s success\n",
-		signalURL, labels["stack_asg_name"])
+	s.printLog("Send POST request %s success\n", signalURL)
 	defer resp.Body.Close()
 }
 
