@@ -58,7 +58,7 @@ The _another service_ is [Prometheus stack](https://prometheus.io/). The questio
 - Nice query language: Prometheus provides a functional query language called PromQL (Prometheus Query Language) that lets the user select and aggregate time series data in real time.
 - A wide range of exporter: The more exporter the more metrics I can collect and evaluate.
 - Flexibile: Beside the system factor like CPU/Memory usage, I can evaluate any metrics I can collect, for example: JVM metrics.
-- <Take time to investigate about Prometheus and fill it here by yourself>
+- // Take time to investigate about Prometheus and fill it here by yourself
 
 ### 2.2. The implementation
 
