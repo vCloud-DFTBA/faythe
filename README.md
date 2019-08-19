@@ -58,3 +58,7 @@ $ make run
 * Basic authentication.
 * Restrict domains(s).
 * Deduplicate alerts from Prometheus Alertmanager.
+
+## Documentation
+
+Check out [documentation directory](./docs).
