@@ -32,8 +32,6 @@ For more details, you could check [IBM help documentation](https://ibm-blue-box-
 
 ### 1.3. Drawbacks
 
-> NOTE(kiennt): Add reference links.
-
 - Ceilometer, Aodh are lacking of contribution. Ceilometer API was [deprecated](https://review.opendev.org/#/c/512286/). Either Transform and pipeline was [the same state](https://review.opendev.org/#/c/560854/), it means cpu_util will be unusable soon. In the commit message, @sileht - Ceilometer Core reviewer wrote that "Also backend like Gnocchi offers a better alternative to compute them". But Aodh still [deprecated Gnocchi aggregation API](https://github.com/openstack/aodh/blob/master/aodh/evaluator/gnocchi.py#L140) which doesn't support `rate:mean`. For more details, you can follow the [issue I've opened before](https://github.com/gnocchixyz/gnocchi/issues/999). Be honest, I was gave up on it - 3 projects which was tightly related together, one change might cause a sequence and break the whole stack, how can I handle that?
 - Aodh has its own formula to define rule based on Ceilometer metrics (that were stored in Gnocchi). But it isn't correct sometimes cause the wrong scaling action.
 - In reality, I face the case that Rabbitmq was under heavy load due to Ceilometer workload.
@@ -104,7 +102,7 @@ It's a piece of cake, right? But _where is Faythe, I don't see it?_ Let's talk a
 
 We need a 3rd service to solve these problems - `Faythe does some magic`.
 
-<center><iframe src="https://giphy.com/embed/12NUbkX6p4xOO4" width="480" height="440" frameBorder="0" class="giphy-embed" allowFullScreen></iframe><p><a href="https://giphy.com/gifs/shia-labeouf-12NUbkX6p4xOO4">via GIPHY</a></p></center>
+![](http://gph.is/1KjihQe)
 
 **The reality architecture**
 
@@ -307,7 +305,7 @@ server_config:
 - Prometheus alertmanager.
 - Faythe.
 
-<center><iframe src="https://giphy.com/embed/cLlVn5zC5UOSmQZKJ7" width="480" height="270" frameBorder="0" class="giphy-embed" allowFullScreen></iframe><p><a href="https://giphy.com/gifs/RobertEBlackmon-bye-go-away-anna-wintour-cLlVn5zC5UOSmQZKJ7">via GIPHY</a></p></center>
+![](https://gph.is/g/ZW7bqLZ)
 
 ### 2.4. Drawbacks and TODO
 
