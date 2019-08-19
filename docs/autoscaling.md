@@ -102,7 +102,7 @@ It's a piece of cake, right? But _where is Faythe, I don't see it?_ Let's talk a
 
 We need a 3rd service to solve these problems - `Faythe does some magic`.
 
-![](http://gph.is/1KjihQe)
+![](https://media.giphy.com/media/12NUbkX6p4xOO4/source.gif)
 
 **The reality architecture**
 
@@ -305,7 +305,7 @@ server_config:
 - Prometheus alertmanager.
 - Faythe.
 
-![](https://gph.is/g/ZW7bqLZ)
+![](https://media.giphy.com/media/cLlVn5zC5UOSmQZKJ7/source.gif)
 
 ### 2.4. Drawbacks and TODO
 
