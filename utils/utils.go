@@ -27,6 +27,11 @@ type SharedValue struct {
 	Data map[string]interface{}
 }
 
+// NewSharedValue returns a new instance SharedValue.
+func NewSharedValue() *SharedValue {
+	return &SharedValue{Data: make(map[string]interface{})}
+}
+
 // Get returns the data of SharedValue by a given key.
 func (sv *SharedValue) Get(key string) (interface{}, bool) {
 	sv.lock.RLock()

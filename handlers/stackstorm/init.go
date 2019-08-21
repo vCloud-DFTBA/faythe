@@ -4,21 +4,26 @@ import (
 	"bytes"
 	"crypto/tls"
 	"encoding/json"
-	"faythe/config"
-	"faythe/utils"
 	"fmt"
 	"net/http"
 	"sync"
 	"time"
 
 	"github.com/prometheus/alertmanager/template"
+
+	"faythe/config"
+	"faythe/utils"
 )
 
 var (
 	logger         *utils.Flogger
 	once           sync.Once
-	existingAlerts utils.SharedValue
+	existingAlerts *utils.SharedValue
 )
+
+func init() {
+	existingAlerts = utils.NewSharedValue()
+}
 
 // St2Ruler processes StackStorm requests.
 type St2Ruler struct {

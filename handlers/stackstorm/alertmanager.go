@@ -55,7 +55,7 @@ func TriggerSt2RuleAM() http.Handler {
 			return
 		}
 
-		utils.UpdateExistingAlerts(&existingAlerts, &data, logger)
+		utils.UpdateExistingAlerts(existingAlerts, &data, logger)
 		firingAlerts := data.Alerts.Firing()
 
 		httpClient := newHTTPClient(conf.Scheme)
