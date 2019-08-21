@@ -2,8 +2,6 @@ package stackstorm
 
 import (
 	"bytes"
-	"crypto/tls"
-	"fmt"
 	"io/ioutil"
 	"net/http"
 	"sync"
@@ -20,30 +18,28 @@ import (
 // be forwarded to Stackstorm host using Golang http client.
 func TriggerSt2Rule() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var wg sync.WaitGroup
+		defer r.Body.Close()
+		// Init logger if not initilized yet
 		if logger == nil {
 			logger = utils.NewFlogger(&once, "stackstorm.log")
 		}
 
 		vars := mux.Vars(r)
-		conf, ok := config.Get().StackStormConfigs[vars["st-host"]]
+		confs := config.Get().StackStormConfigs
+		conf, ok := confs[vars["st-name"]]
 		if !ok {
-			msg := fmt.Sprintf("Cannot find the configuration of host %s, please check it again", vars["st-host"])
-			logger.Println(msg)
-			http.Error(w, msg, http.StatusBadRequest)
-			return
-		}
+			supported := make([]string, len(confs))
+			for k := range confs {
+				supported = append(supported, k)
+			}
 
-		host := utils.Getenv("STACKSTORM_HOST", conf.Host)
-		apiKey := utils.Getenv("STACKSTORM_API_KEY", conf.APIKey)
-		// TODO(kiennt): Might get ApiKey directly from Stackstorm instead of configure it.
-		if host == "" || apiKey == "" {
-			logger.Println("Stackstorm host or apikey is missing, please configure these configurations with env or config file.")
-			return
-		}
-		rule := vars["st-rule"]
-		if rule == "" {
-			logger.Println("Stackstorm rule is missing in request query.")
-			http.Error(w, "Stackstorm rule is missing in request query", http.StatusBadRequest)
+			err := UnknownStackStormError{
+				correct: supported,
+				wrong:   vars["st-name"],
+			}
+			logger.Println(err.Error())
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 		body, err := ioutil.ReadAll(r.Body)
@@ -53,15 +49,18 @@ func TriggerSt2Rule() http.Handler {
 			return
 		}
 		r.Body = ioutil.NopCloser(bytes.NewReader(body))
-		url := "https://" + host + "/api/webhooks/" + rule
-		// Create a httpclient with disabled security checks
-		tr := &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		httpClient := newHTTPClient(conf.Scheme)
+		ruler := St2Ruler{
+			Rule:       vars["st-rule"],
+			Conf:       conf,
+			Body:       body,
+			HTTPClient: httpClient,
+			Req:        r,
+			WaitGroup:  &wg,
+			Logger:     logger,
 		}
-		httpClient := http.Client{Transport: tr}
-		var wg sync.WaitGroup
 		wg.Add(1)
-		forwardReq(r, url, apiKey, body, &httpClient, &wg)
+		ruler.forward()
 		w.WriteHeader(http.StatusAccepted)
 	})
 }
