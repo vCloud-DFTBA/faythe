@@ -32,12 +32,12 @@ type St2Ruler struct {
 }
 
 func (r *St2Ruler) genWebhookURL() string {
-	return fmt.Sprintf("%s/%s/api/webhooks/%s", r.Conf.Scheme,
+	return fmt.Sprintf("%s://%s/api/webhooks/%s", r.Conf.Scheme,
 		r.Conf.Host, r.Rule)
 }
 
 func (r *St2Ruler) printLog(format string, a ...interface{}) {
-	msg := fmt.Sprintf(format, a)
+	msg := fmt.Sprintf(format, a...)
 	r.Logger.Printf("Stackstorm %s - %s\n",
 		r.Conf.Host,
 		msg)
