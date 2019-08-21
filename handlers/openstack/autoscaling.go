@@ -60,7 +60,7 @@ func (s *Scaler) genSignalURL() string {
 }
 
 func (s *Scaler) printLog(format string, a ...interface{}) {
-	msg := fmt.Sprintf(format, a)
+	msg := fmt.Sprintf(format, a...)
 	s.Logger.Printf("Stack %s/%s - %s\n",
 		s.Alert.Labels["stack_asg_name"],
 		s.Policy,
