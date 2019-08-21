@@ -43,6 +43,7 @@ type BasicAuthentication struct {
 // StackStormConfig stores information needed to forward
 // request to an StackStorm instance.
 type StackStormConfig struct {
+	Scheme string `yaml:"scheme"`
 	Host   string `yaml:"host"`
 	APIKey string `yaml:"api_key"`
 }
@@ -247,6 +248,9 @@ func (c *StackStormConfig) UnmarshalYAML(unmarshal func(interface{}) error) erro
 	err := unmarshal((*plain)(c))
 	if err != nil {
 		return err
+	}
+	if c.Scheme == "" {
+		c.Scheme = "https"
 	}
 	if c.Host == "" {
 		return errors.New("stackstorm configuration requires host address/host name")
