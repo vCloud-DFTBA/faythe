@@ -48,7 +48,7 @@ func (r *St2Ruler) forward() {
 	host := r.Req.RemoteAddr
 	var bodymap template.Alert
 	err := json.Unmarshal(r.Body, &bodymap)
-	if err == nil {
+	if _, ok := bodymap.Labels["compute"]; ok && err == nil {
 		host = bodymap.Labels["compute"]
 	}
 
