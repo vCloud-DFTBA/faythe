@@ -13,14 +13,11 @@ _/ ____\____  ___.__._/  |_|  |__   ____
 ## What is Faythe?
 
 * A ~~simple~~ Golang web api.
-* The name is inspired by a character in cryptology.
+* The name is inspired by a character in cryptology. Check [wiki - section Cast of character](https://en.wikipedia.org/wiki/Alice_and_Bob) for more details.
 
-<details>
-    <summary>Who is Faythe</summary>
-    <p>
-    <b>Faythe</b>: A trusted advisor, courier or intermediary. Faythe is used infrequently, and is associated with Faith and Faithfulness. Faythe may be a repository of key service or courier of shared secrets.)
-    </p>
-</details>
+> **TL;DR**:
+> * Q: What is Faythe?
+> * A: A trusted advisor, courier or intermediary. Faythe is used infrequently, and is associated with Faith and Faithfulness. Faythe may be a repository of key service or courier of shared secrets.
 
 ## Install & Run
 
