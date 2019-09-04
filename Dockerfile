@@ -15,4 +15,4 @@ COPY --from=builder /bin/faythe /bin/faythe
 RUN chmod +x /bin/faythe && \
     mkdir /etc/faythe
 ENTRYPOINT ["/bin/faythe"]
-CMD ["-conf", "/etc/faythe"]
+CMD ["-conf", "/etc/faythe/config.yml"]
