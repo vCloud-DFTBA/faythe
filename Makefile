@@ -7,7 +7,7 @@ DOCKER_IMAGE_FULL       ?= $(DOCKER_REPO)/$(DOCKER_IMAGE_NAME):$(DOCKER_IMAGE_TA
 DOCKER_IMAGE_LATEST     ?= $(DOCKER_REPO)/$(DOCKER_IMAGE_NAME):latest
 DOCKER_CONTAINER_NAME   ?= faythe
 FAYTHE_PORT             ?= 8600
-FAYTHE_CONF_PATH        ?= $(CURRENT_DIR)/etc
+FAYTHE_CONF_PATH        ?= $(CURRENT_DIR)/etc/config.yml
 
 build:
 	docker build -t "$(DOCKER_IMAGE_FULL)" .
@@ -23,4 +23,4 @@ push-latest: build-latest
 
 run:
 	docker rm -f "$(DOCKER_CONTAINER_NAME)" || true
-	docker run -d --restart always --net host -v "$(FAYTHE_CONF_PATH)":/etc/faythe -v faythe-logs:/var/log/faythe --name "$(DOCKER_CONTAINER_NAME)" "$(DOCKER_IMAGE_FULL)"
+	docker run -d --restart always --net host -v "$(FAYTHE_CONF_PATH)":/etc/faythe/config.yml -v faythe-logs:/var/log/faythe --name "$(DOCKER_CONTAINER_NAME)" "$(DOCKER_IMAGE_FULL)"
