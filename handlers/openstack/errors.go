@@ -14,5 +14,5 @@ type UnknownOpenStackError struct {
 
 func (e *UnknownOpenStackError) Error() string {
 	return fmt.Sprintf("Unknow openstack %s, please check your webhook url. It has to contain OpenStack name like configuration (%s)",
-		e.wrong, strings.Join(e.correct, ", "))
+		e.wrong, strings.Join(e.correct, ","))
 }

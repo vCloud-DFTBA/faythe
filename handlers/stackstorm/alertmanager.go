@@ -35,7 +35,7 @@ func TriggerSt2RuleAM() http.Handler {
 		confs := config.Get().StackStormConfigs
 		conf, ok := confs[vars["st-name"]]
 		if !ok {
-			supported := make([]string, len(confs))
+			supported := make([]string, 0)
 			for k := range confs {
 				supported = append(supported, k)
 			}
