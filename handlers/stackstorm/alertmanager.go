@@ -51,7 +51,9 @@ func TriggerSt2RuleAM() http.Handler {
 
 		// Get alerts
 		if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			bodyErr := WrongBodyError{err}
+			logger.Println(bodyErr.Error())
+			http.Error(w, bodyErr.Error(), http.StatusInternalServerError)
 			return
 		}
 
