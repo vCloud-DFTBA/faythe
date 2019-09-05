@@ -2,6 +2,7 @@ package stackstorm
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 	"sync"
@@ -22,8 +23,9 @@ func TriggerSt2RuleAM() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Declare
 		var (
-			data template.Data
-			wg   sync.WaitGroup
+			data   template.Data
+			wg     sync.WaitGroup
+			ignore bool
 		)
 
 		defer r.Body.Close()
@@ -59,6 +61,13 @@ func TriggerSt2RuleAM() http.Handler {
 
 		utils.UpdateExistingAlerts(existingAlerts, &data, logger)
 		firingAlerts := data.Alerts.Firing()
+		if conf.LimitNumAlerts > 0 && conf.LimitNumAlerts < len(firingAlerts) {
+			msg := fmt.Sprintf("The number of firing alerts (%d) is over the limit (%d). It might be network problem.",
+				len(firingAlerts), conf.LimitNumAlerts)
+			logger.Println(msg)
+			fmt.Fprintln(w, msg)
+			ignore = true
+		}
 
 		httpClient := newHTTPClient(conf.Scheme)
 		computes := make(map[string]bool)
@@ -91,6 +100,12 @@ func TriggerSt2RuleAM() http.Handler {
 
 			computes[hostname] = true
 			existingAlerts.Set(fingerprint, true)
+			// Ignore process alert step.
+			if ignore {
+				continue
+			}
+
+			// Process alert
 			alert.Labels["compute"] = hostname
 			logger.Printf("Processing alert %s from host %s", alert.Labels["alertname"], hostname)
 			body, _ := json.Marshal(alert)
