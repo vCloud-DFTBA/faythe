@@ -27,7 +27,11 @@ openstack_configs:
 # StackStormConfiguration
 stackstorm_configs:
   stackstorm-1f:
-    host: "stackstormhost"
+    host: "stackstormhost1"
+    api_key: "fakestackstomrapikey"
+  
+  stackstorm-2f:
+    host: "stackstormhost2"
     api_key: "fakestackstomrapikey"
 
 server_config:
