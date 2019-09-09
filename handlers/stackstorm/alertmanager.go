@@ -1,13 +1,11 @@
 package stackstorm
 
 import (
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/prometheus/alertmanager/template"
@@ -23,50 +21,55 @@ import (
 // be forwarded to Stackstorm host using Golang http client.
 func TriggerSt2RuleAM() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		defer r.Body.Close()
-		vars := mux.Vars(r)
-		conf, ok := config.Get().StackStormConfigs[vars["st-host"]]
-		if !ok {
-			msg := fmt.Sprintf("Cannot find the configuration of host %s, please check it again", vars["st-host"])
-			logger.Println(msg)
-			http.Error(w, msg, http.StatusBadRequest)
-			return
-		}
-		host := utils.Getenv("STACKSTORM_HOST", conf.Host)
-		apiKey := utils.Getenv("STACKSTORM_API_KEY", conf.Host)
-		// TODO(kiennt): Might get ApiKey directly from Stackstorm instead of configure it.
-		if host == "" || apiKey == "" {
-			logger.Println("Stackstorm host or apikey is missing, please configure these configurations with env or config file.")
-			return
-		}
-		rule := vars["st-rule"]
-		if rule == "" {
-			logger.Println("Stackstorm rule is missing in request query.")
-			http.Error(w, "Stackstorm rule is missing in request query", http.StatusBadRequest)
-			return
-		}
-		url := "https://" + host + "/api/webhooks/" + rule
-		// Get alerts
+		// Declare
 		var (
-			data template.Data
-			wg   sync.WaitGroup
+			data   template.Data
+			wg     sync.WaitGroup
+			ignore bool
 		)
-		if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+
+		defer r.Body.Close()
+		// Init logger if not initilized yet
+		if logger == nil {
+			logger = utils.NewFlogger(&once, "stackstorm.log")
+		}
+		vars := mux.Vars(r)
+		confs := config.Get().StackStormConfigs
+		conf, ok := confs[vars["st-name"]]
+		if !ok {
+			supported := make([]string, 0)
+			for k := range confs {
+				supported = append(supported, k)
+			}
+
+			err := UnknownStackStormError{
+				correct: supported,
+				wrong:   vars["st-name"],
+			}
+			logger.Println(err.Error())
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
-		utils.UpdateExistingAlerts(&existingAlerts, &data, logger)
-		firingAlerts := data.Alerts.Firing()
+		// Get alerts
+		if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
+			bodyErr := WrongBodyError{err}
+			logger.Println(bodyErr.Error())
+			http.Error(w, bodyErr.Error(), http.StatusInternalServerError)
+			return
+		}
 
-		// Create a httpclient with disabled security checks
-		tr := &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		utils.UpdateExistingAlerts(existingAlerts, &data, logger)
+		firingAlerts := data.Alerts.Firing()
+		if conf.LimitNumAlerts > 0 && conf.LimitNumAlerts < len(firingAlerts) {
+			msg := fmt.Sprintf("The number of firing alerts (%d) is over the limit (%d). It might be network problem.",
+				len(firingAlerts), conf.LimitNumAlerts)
+			logger.Println(msg)
+			fmt.Fprintln(w, msg)
+			ignore = true
 		}
-		httpClient := http.Client{
-			Transport: tr,
-			Timeout:   3 * time.Second,
-		}
+
+		httpClient := newHTTPClient(conf.Scheme)
 		computes := make(map[string]bool)
 		for _, alert := range firingAlerts {
 			// Generate a simple fingerprint aka signature
@@ -97,15 +100,26 @@ func TriggerSt2RuleAM() http.Handler {
 
 			computes[hostname] = true
 			existingAlerts.Set(fingerprint, true)
-			alert.Labels["compute"] = hostname
-			logger.Printf("Processing alert %s from host %s", alert.Labels["alertname"], hostname)
-			body, err := json.Marshal(alert)
-			if err != nil {
-				logger.Printf("Json marshal Alert %s failed because %s.", alert.GeneratorURL, err.Error())
+			// Ignore process alert step.
+			if ignore {
 				continue
 			}
+
+			// Process alert
+			alert.Labels["compute"] = hostname
+			logger.Printf("Processing alert %s from host %s", alert.Labels["alertname"], hostname)
+			body, _ := json.Marshal(alert)
+			ruler := St2Ruler{
+				Rule:       vars["st-rule"],
+				Conf:       conf,
+				Body:       body,
+				HTTPClient: httpClient,
+				Req:        r,
+				WaitGroup:  &wg,
+				Logger:     logger,
+			}
 			wg.Add(1)
-			go forwardReq(r, url, apiKey, body, &httpClient, &wg)
+			go ruler.forward()
 		}
 
 		defer httpClient.CloseIdleConnections()

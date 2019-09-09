@@ -60,7 +60,7 @@ func (s *Scaler) genSignalURL() string {
 }
 
 func (s *Scaler) printLog(format string, a ...interface{}) {
-	msg := fmt.Sprintf(format, a)
+	msg := fmt.Sprintf(format, a...)
 	s.Logger.Printf("Stack %s/%s - %s\n",
 		s.Alert.Labels["stack_asg_name"],
 		s.Policy,
@@ -136,7 +136,7 @@ func AutoScaling() http.Handler {
 		confs := config.Get().OpenStackConfigs
 		conf, ok := confs[vars["ops-name"]]
 		if !ok {
-			supported := make([]string, len(confs))
+			supported := make([]string, 0)
 			for k := range confs {
 				supported = append(supported, k)
 			}

@@ -27,8 +27,14 @@ openstack_configs:
 # StackStormConfiguration
 stackstorm_configs:
   stackstorm-1f:
-    host: "stackstormhost"
+    host: "stackstormhost1"
     api_key: "fakestackstomrapikey"
+    limit_num_alerts: 5
+
+  stackstorm-2f:
+    host: "stackstormhost2"
+    api_key: "fakestackstomrapikey"
+    limit_num_alerts: 5
 
 server_config:
   # Example:

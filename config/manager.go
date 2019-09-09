@@ -193,7 +193,10 @@ func (m *Manager) WatchConfig() {
 				}
 			}
 		}()
-		watcher.Add(m.configPath)
+		err = watcher.Add(m.configPath)
+		if err != nil {
+			m.log.Fatal(err)
+		}
 		initWG.Done()
 		eventsWG.Wait()
 	}()

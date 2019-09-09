@@ -43,8 +43,15 @@ type BasicAuthentication struct {
 // StackStormConfig stores information needed to forward
 // request to an StackStorm instance.
 type StackStormConfig struct {
+	Scheme string `yaml:"scheme"`
 	Host   string `yaml:"host"`
 	APIKey string `yaml:"api_key"`
+	// LimitNumAlerts presents number of alerts Faythe will process
+	// If there is network problems, a lot of alerts will be sent to
+	// Faythe to execute Stackstorm action. It might be a temporary
+	// solution at this time.
+	// if LimitNumAlerts = -1, it means there is no limit
+	LimitNumAlerts int `yaml:"limit_num_alerts"`
 }
 
 // StackListOpts allows the filtering and sorting of paginated collections through
@@ -248,11 +255,17 @@ func (c *StackStormConfig) UnmarshalYAML(unmarshal func(interface{}) error) erro
 	if err != nil {
 		return err
 	}
+	if c.Scheme == "" {
+		c.Scheme = "https"
+	}
 	if c.Host == "" {
 		return errors.New("stackstorm configuration requires host address/host name")
 	}
 	if c.APIKey == "" {
 		return errors.New("stackstorm configuration requires api key")
+	}
+	if c.LimitNumAlerts == 0 {
+		c.LimitNumAlerts = -1
 	}
 	return nil
 }
