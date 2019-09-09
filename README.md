@@ -11,6 +11,8 @@ _/ ____\____  ___.__._/  |_|  |__   ____
             \/\/                \/     \/
 ```
 
+> **NOTE**: The current version v0.1.0 just works and won't be updated in the future. A completly new version is coming soon.
+
 ## What is Faythe?
 
 * A ~~simple~~ Golang web api.
