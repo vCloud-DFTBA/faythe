@@ -1,0 +1,19 @@
+# github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751
+github.com/alecthomas/template
+github.com/alecthomas/template/parse
+# github.com/alecthomas/units v0.0.0-20190717042225-c3de453c63f4
+github.com/alecthomas/units
+# github.com/go-kit/kit v0.9.0
+github.com/go-kit/kit/log/level
+github.com/go-kit/kit/log
+# github.com/go-logfmt/logfmt v0.4.0
+github.com/go-logfmt/logfmt
+# github.com/kr/logfmt v0.0.0-20140226030751-b84e30acd515
+github.com/kr/logfmt
+# github.com/pkg/errors v0.8.0
+github.com/pkg/errors
+# github.com/prometheus/common v0.6.0
+github.com/prometheus/common/promlog
+github.com/prometheus/common/promlog/flag
+# gopkg.in/alecthomas/kingpin.v2 v2.2.6
+gopkg.in/alecthomas/kingpin.v2
