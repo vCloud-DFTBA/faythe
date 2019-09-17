@@ -16,7 +16,6 @@ package prometheus
 
 import (
 	"context"
-	"net/url"
 	"strings"
 	"time"
 
@@ -39,19 +38,13 @@ const (
 )
 
 // New returns a new client for talking to a Prometheus Backend, or an error
-func New(address url.URL, logger log.Logger) (*Backend, error) {
+func New(address string, logger log.Logger) (*Backend, error) {
 	if logger == nil {
 		logger = log.NewNopLogger()
 	}
-	if address.String() == "" {
-		// Under the hood, prometheusclient uses url.Parse() which allows
-		// relative URLs, etc. Empty would be allowed, so disallow it
-		// explicitly here.
-		return nil, errors.New("address must not be empty")
-	}
 
 	client, err := prometheusclient.NewClient(prometheusclient.Config{
-		Address: address.String(),
+		Address: address,
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "instantiating prometheus client")

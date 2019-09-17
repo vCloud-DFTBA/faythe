@@ -44,10 +44,10 @@ func NewManager(logger log.Logger, options ...func(*Manager)) *Manager {
 	return mgr
 }
 
-func (m *Manager) initBackend(btype string, address url.URL) (Backend, error) {
+func (m *Manager) initBackend(btype string, address string) (Backend, error) {
 	switch btype {
 	case "promtheus":
-		return prometheus.New(address, log.With(m.logger, fmt.Sprintf("%s-%s", btype, address.String())))
+		return prometheus.New(address, log.With(m.logger, fmt.Sprintf("%s-%s", btype, address)))
 	default:
 		return nil, errors.Errorf("unknown backend type %q", btype)
 	}
@@ -55,8 +55,12 @@ func (m *Manager) initBackend(btype string, address url.URL) (Backend, error) {
 
 // Register inits Backend with input Type and address, puts the instantiated
 // backend to registry.
-func (m *Manager) Register(btype string, address url.URL) error {
-	name := fmt.Sprintf("%s-%s", btype, address.String())
+func (m *Manager) Register(btype, address string) error {
+	name := fmt.Sprintf("%s-%s", btype, address)
+	_, err := url.ParseRequestURI(address)
+	if err != nil {
+		return errors.Wrap(err, "the input address has to be a valid URI")
+	}
 	// If the instantiated metrics backend already exists, let's just
 	// ignore it.
 	if _, err := m.rgt.Get(name); err == nil {
