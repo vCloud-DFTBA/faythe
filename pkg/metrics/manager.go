@@ -15,19 +15,17 @@ import (
 // Manager maintains a set of Backends.
 type Manager struct {
 	logger log.Logger
-	ctx    context.Context
 	rgt    RegistryInterface
 }
 
 // NewManager is the MetricsManager constructor.
-func NewManager(ctx context.Context, logger log.Logger, options ...func(*Manager)) *Manager {
+func NewManager(logger log.Logger, options ...func(*Manager)) *Manager {
 	if logger == nil {
 		logger = log.NewNopLogger()
 	}
 
 	mgr := &Manager{
 		logger: logger,
-		ctx:    ctx,
 		rgt:    Registry(),
 	}
 	return mgr

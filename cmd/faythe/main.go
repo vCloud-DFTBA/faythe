@@ -22,11 +22,14 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
-	log "github.com/prometheus/common/promlog"
+	"github.com/prometheus/common/promlog"
 	logflag "github.com/prometheus/common/promlog/flag"
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
+
+	"github.com/ntk148v/faythe/pkg/metrics"
 )
 
 func main() {
@@ -35,9 +38,9 @@ func main() {
 		listenAddress string
 		url           string
 		externalURL   *url.URL
-		logConfig     log.Config
+		logConfig     promlog.Config
 	}{
-		logConfig: log.Config{},
+		logConfig: promlog.Config{},
 	}
 
 	a := kingpin.New(filepath.Base(os.Args[0]), "The Faythe server")
@@ -58,9 +61,15 @@ func main() {
 		os.Exit(2)
 	}
 
-	logger := log.New(&cfg.logConfig)
+	logger := promlog.New(&cfg.logConfig)
 	cfg.externalURL, err = computeExternalURL(cfg.url, cfg.listenAddress)
 	level.Info(logger).Log("msg", "Staring Faythe")
+
+	var (
+		metricsManager = metrics.NewManager(log.With(logger, "component", "metric backend manager"))
+	)
+	// To ignore error
+	fmt.Println(metricsManager)
 }
 
 // A clone of Prometheus computeExternalURL, because it is a internal function:
