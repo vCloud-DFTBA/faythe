@@ -15,7 +15,6 @@
 package metrics
 
 import (
-	"context"
 	"fmt"
 	"net/url"
 
@@ -48,7 +47,7 @@ func NewManager(logger log.Logger, options ...func(*Manager)) *Manager {
 func (m *Manager) initBackend(btype string, address url.URL) (Backend, error) {
 	switch btype {
 	case "promtheus":
-		return prometheus.NewClient(address, log.With(m.logger, fmt.Sprintf("%s-%s", btype, address.String())))
+		return prometheus.New(address, log.With(m.logger, fmt.Sprintf("%s-%s", btype, address.String())))
 	default:
 		return nil, errors.Errorf("unknown backend type %q", btype)
 	}
@@ -67,7 +66,7 @@ func (m *Manager) Register(btype string, address url.URL) error {
 	level.Info(m.logger).Log("msg", "Instantiating backend client for MetricsBackend", btype)
 	b, err := m.initBackend(btype, address)
 	if err != nil {
-		return errors.Wrap(err, "instantiating backend client for MetricsBackend %q", btype)
+		return errors.Wrapf(err, "instantiating backend client for MetricsBackend %q", btype)
 	}
 	m.rgt.Put(name, b)
 	level.Info(m.logger).Log("msg", "Backend", name, "instantiated successfully")

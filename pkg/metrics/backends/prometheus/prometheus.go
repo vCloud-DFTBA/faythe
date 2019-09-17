@@ -16,6 +16,7 @@ package prometheus
 
 import (
 	"context"
+	"net/url"
 	"strings"
 	"time"
 
@@ -25,8 +26,6 @@ import (
 	prometheusclient "github.com/prometheus/client_golang/api"
 	prometheus "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
-
-	"github.com/ntk148v/faythe/pkg/metrics"
 )
 
 // Backend implements a metric backend for Prometheus.
@@ -39,12 +38,12 @@ const (
 	prometheusRequestTimeout = 10 * time.Second
 )
 
-// NewClient returns a new client for talking to a Prometheus Backend, or an error
-func NewClient(address string, logger log.Logger) (metrics.Backend, error) {
+// New returns a new client for talking to a Prometheus Backend, or an error
+func New(address url.URL, logger log.Logger) (*Backend, error) {
 	if logger == nil {
 		logger = log.NewNopLogger()
 	}
-	if address == "" {
+	if address.String() == "" {
 		// Under the hood, prometheusclient uses url.Parse() which allows
 		// relative URLs, etc. Empty would be allowed, so disallow it
 		// explicitly here.
@@ -52,21 +51,21 @@ func NewClient(address string, logger log.Logger) (metrics.Backend, error) {
 	}
 
 	client, err := prometheusclient.NewClient(prometheusclient.Config{
-		Address: address,
+		Address: address.String(),
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "instantiating prometheus client")
 	}
 
 	api := prometheus.NewAPI(client)
-	return Backend{
+	return &Backend{
 		prometheus: api,
 		logger:     logger,
 	}, nil
 }
 
 // QueryInstant performs instant query and returns results in model.Vector type.
-func (b Backend) QueryInstant(ctx context.Context, query string, ts time.Time) (model.Vector, error) {
+func (b *Backend) QueryInstant(ctx context.Context, query string, ts time.Time) (model.Vector, error) {
 	level.Debug(b.logger).Log("msg", "querying instant", "query", query)
 	val, warns, err := b.prometheus.Query(ctx, query, ts)
 	if err != nil {
