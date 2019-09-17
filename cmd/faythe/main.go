@@ -17,28 +17,37 @@ package main
 import (
 	"fmt"
 	"net"
+	"net/http"
 	"net/url"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
+	"syscall"
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
+	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
 	"github.com/prometheus/common/promlog"
 	logflag "github.com/prometheus/common/promlog/flag"
+	etcdv3 "go.etcd.io/etcd/clientv3"
+	etcdv3config "go.etcd.io/etcd/clientv3/yaml"
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 
+	"github.com/ntk148v/faythe/api"
+	"github.com/ntk148v/faythe/middleware"
 	"github.com/ntk148v/faythe/pkg/metrics"
 )
 
 func main() {
 	cfg := struct {
-		configFile    string
-		listenAddress string
-		url           string
-		externalURL   *url.URL
-		logConfig     promlog.Config
+		configFile     string
+		listenAddress  string
+		url            string
+		externalURL    *url.URL
+		logConfig      promlog.Config
+		etcdConfigFile string
 	}{
 		logConfig: promlog.Config{},
 	}
@@ -52,6 +61,9 @@ func main() {
 	a.Flag("external-url",
 		"The URL under which Faythe is externally reachable.").
 		PlaceHolder("<URL>").StringVar(&cfg.url)
+	// etcdv3 flags - To minize effort, pass just a config file path.
+	a.Flag("etcd-config.file", "Etcd configuration file path.").
+		Default("etcd.yml").StringVar(&cfg.etcdConfigFile)
 
 	logflag.AddFlags(a, &cfg.logConfig)
 	_, err := a.Parse(os.Args[1:])
@@ -65,11 +77,70 @@ func main() {
 	cfg.externalURL, err = computeExternalURL(cfg.url, cfg.listenAddress)
 	level.Info(logger).Log("msg", "Staring Faythe")
 
+	// Init etcdclientv3 with the given config file.
+	etcdConf, err := etcdv3config.NewConfig(cfg.etcdConfigFile)
+	if err != nil {
+		level.Error(logger).Log("err", errors.Wrapf(err, "Error parsing Etcd config file."))
+		os.Exit(2)
+	}
+
+	etcdCli, err := etcdv3.New(etcdv3.Config(*etcdConf))
+
+	if err != nil {
+		level.Error(logger).Log("err", errors.Wrapf(err, "Error instantiating Etcd client."))
+		os.Exit(2)
+	}
+
+	defer etcdCli.Close()
+
 	var (
 		metricsManager = metrics.NewManager(log.With(logger, "component", "metric backend manager"))
+		middleware     = middleware.New(log.With(logger, "transport middleware"))
+		api            = api.New(log.With(logger, "component", "api"), etcdCli)
+		mux            = mux.NewRouter()
 	)
+
 	// To ignore error
 	fmt.Println(metricsManager)
+
+	api.Register(mux)
+	mux.Use(middleware.Logging)
+	srv := http.Server{Addr: cfg.listenAddress, Handler: mux}
+	srvc := make(chan struct{})
+
+	go func() {
+		level.Info(logger).Log("msg", "Listening", "address", cfg.listenAddress)
+		if err := srv.ListenAndServe(); err != http.ErrServerClosed {
+			level.Error(logger).Log("msg", "Listen error", "err", err)
+			close(srvc)
+		}
+		defer func() {
+			if err := srv.Close(); err != nil {
+				level.Error(logger).Log("msg", "Error on closing the server", "err", err)
+			}
+		}()
+	}()
+
+	var (
+		hup      = make(chan os.Signal, 1)
+		hupReady = make(chan bool)
+		term     = make(chan os.Signal, 1)
+	)
+	signal.Notify(hup, syscall.SIGHUP)
+	signal.Notify(term, os.Interrupt, syscall.SIGTERM)
+
+	// Wait for reload or termination signals.
+	close(hupReady) // Unblock SIGHUP handler.
+
+	for {
+		select {
+		case <-term:
+			level.Info(logger).Log("msg", "Received SIGTERM, exiting gracefully...")
+			os.Exit(0)
+		case <-srvc:
+			os.Exit(1)
+		}
+	}
 }
 
 // A clone of Prometheus computeExternalURL, because it is a internal function:
