@@ -6,7 +6,7 @@ import (
 	"net/url"
 
 	"github.com/go-kit/kit/log"
-	level "github.com/go-kit/kit/log/level"
+	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
 
 	"github.com/ntk148v/faythe/pkg/metrics/backends/prometheus"
