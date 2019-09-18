@@ -42,6 +42,8 @@ github.com/golang/protobuf/ptypes/duration
 github.com/golang/protobuf/ptypes/timestamp
 # github.com/google/uuid v1.1.1
 github.com/google/uuid
+# github.com/gophercloud/gophercloud v0.4.0
+github.com/gophercloud/gophercloud
 # github.com/gorilla/mux v1.7.3
 github.com/gorilla/mux
 # github.com/jinzhu/copier v0.0.0-20190625015134-976e0346caa8
