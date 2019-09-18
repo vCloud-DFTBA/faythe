@@ -18,23 +18,32 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httputil"
+	"regexp"
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
+
+	"github.com/ntk148v/faythe/config"
 )
 
 // Middleware represents middleware handlers.
 type Middleware struct {
 	logger log.Logger
+	auth   config.BasicAuthentication
+	regexp *regexp.Regexp
 }
 
 // New returns a new Middleware.
-func New(l log.Logger) *Middleware {
+func New(l log.Logger, a config.BasicAuthentication, r *regexp.Regexp) *Middleware {
 	if l == nil {
 		l = log.NewNopLogger()
 	}
 
-	return &Middleware{logger: l}
+	return &Middleware{
+		logger: l,
+		auth:   a,
+		regexp: r,
+	}
 }
 
 // Logging logs all requests with its information and the time it took to process
@@ -48,6 +57,37 @@ func (m *Middleware) Logging(next http.Handler) http.Handler {
 			}
 			level.Info(m.logger).Log("req", fmt.Sprintf("%s", dump))
 		}()
+		next.ServeHTTP(w, req)
+	})
+}
+
+// Authenticate verifies authentication provided in the request's Authorization
+// header if the request uses HTTP Basic Authentication.
+func (m *Middleware) Authenticate(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		user, pass, _ := req.BasicAuth()
+		if m.auth.Username != user || string(m.auth.Password) != pass {
+			level.Error(m.logger).Log("msg", "Unauthorized request")
+			w.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
+			http.Error(w, "Unauthorized.", http.StatusUnauthorized)
+			return
+		}
+
+		next.ServeHTTP(w, req)
+	})
+}
+
+// RestrictDomain checks whehter request's remote address was matched
+// a defined host pattern or not.
+func (m *Middleware) RestrictDomain(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		matched := m.regexp.MatchString(req.RemoteAddr)
+		if !matched {
+			level.Error(m.logger).Log("msg", "Remote address is not matched restricted domain pattern")
+			http.Error(w, "Remote address is not matched restricted domain pattern", http.StatusNotFound)
+			return
+		}
+
 		next.ServeHTTP(w, req)
 	})
 }

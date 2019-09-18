@@ -22,6 +22,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"syscall"
 
@@ -75,29 +76,30 @@ func main() {
 	level.Info(logger).Log("msg", "Staring Faythe")
 
 	var (
-		metricsManager = metrics.NewManager(log.With(logger, "component", "metric backend manager"))
-		configManager  = config.NewManager(log.With(logger, "component", "config manager"), cfg.configFile)
-		middleware     = middleware.New(log.With(logger, "transport middleware"))
-		mux            = mux.NewRouter()
-		fapi           = &api.API{}
-		etcdv3Config   = etcdv3.Config{}
+		etcdConf = etcdv3.Config{}
+		etcdCli  = &etcdv3.Client{}
+		mux      = mux.NewRouter()
+		fmtrMgr  = metrics.NewManager(log.With(logger, "component", "metric backend manager"))
+		fconfMgr = config.NewManager(log.With(logger, "component", "config manager"), cfg.configFile)
+		fmw      = &middleware.Middleware{}
+		fapi     = &api.API{}
 	)
 
 	// To ignore error
-	fmt.Println(metricsManager)
+	fmt.Println(fmtrMgr)
 
 	// Load configurations from file
-	err = configManager.LoadFile()
+	err = fconfMgr.LoadFile()
 	if err != nil {
 		level.Error(logger).Log("msg", "Error loading configuration file", "err", err)
 		os.Exit(2)
 	}
 
-	configManager.WatchConfig()
+	fconfMgr.WatchConfig()
 
 	// Init Etcdv3 client
-	copier.Copy(&etcdv3Config, configManager.Config.EtcdConfig)
-	etcdCli, err := etcdv3.New(etcdv3Config)
+	copier.Copy(&etcdConf, fconfMgr.Config.EtcdConfig)
+	etcdCli, err = etcdv3.New(etcdConf)
 
 	if err != nil {
 		level.Error(logger).Log("err", errors.Wrapf(err, "Error instantiating Etcd client."))
@@ -106,9 +108,15 @@ func main() {
 
 	defer etcdCli.Close()
 
+	r, _ := regexp.Compile(fconfMgr.Config.GlobalConfig.RemoteHostPattern)
+	fmw = middleware.New(log.With(logger, "transport middleware"),
+		fconfMgr.Config.GlobalConfig.BasicAuthentication, r)
+
 	fapi = api.New(log.With(logger, "component", "api"), etcdCli)
 	fapi.Register(mux)
-	mux.Use(middleware.Logging)
+	mux.Use(fmw.Logging, fmw.RestrictDomain, fmw.Authenticate)
+
+	// Init HTTP server
 	srv := http.Server{Addr: cfg.listenAddress, Handler: mux}
 	srvc := make(chan struct{})
 
