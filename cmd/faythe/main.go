@@ -28,26 +28,26 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/gorilla/mux"
+	"github.com/jinzhu/copier"
 	"github.com/pkg/errors"
 	"github.com/prometheus/common/promlog"
 	logflag "github.com/prometheus/common/promlog/flag"
 	etcdv3 "go.etcd.io/etcd/clientv3"
-	etcdv3config "go.etcd.io/etcd/clientv3/yaml"
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 
 	"github.com/ntk148v/faythe/api"
+	"github.com/ntk148v/faythe/config"
 	"github.com/ntk148v/faythe/middleware"
 	"github.com/ntk148v/faythe/pkg/metrics"
 )
 
 func main() {
 	cfg := struct {
-		configFile     string
-		listenAddress  string
-		url            string
-		externalURL    *url.URL
-		logConfig      promlog.Config
-		etcdConfigFile string
+		configFile    string
+		listenAddress string
+		url           string
+		externalURL   *url.URL
+		logConfig     promlog.Config
 	}{
 		logConfig: promlog.Config{},
 	}
@@ -55,15 +55,12 @@ func main() {
 	a := kingpin.New(filepath.Base(os.Args[0]), "The Faythe server")
 	a.HelpFlag.Short('h')
 	a.Flag("config.file", "Faythe configuration file path.").
-		Default("faythe.yml").StringVar(&cfg.configFile)
+		Default("/etc/faythe/config.yml").StringVar(&cfg.configFile)
 	a.Flag("listen-address", "Address to listen on for API.").
 		Default("0.0.0.0:8600").StringVar(&cfg.listenAddress)
 	a.Flag("external-url",
 		"The URL under which Faythe is externally reachable.").
 		PlaceHolder("<URL>").StringVar(&cfg.url)
-	// etcdv3 flags - To minize effort, pass just a config file path.
-	a.Flag("etcd-config.file", "Etcd configuration file path.").
-		Default("etcd.yml").StringVar(&cfg.etcdConfigFile)
 
 	logflag.AddFlags(a, &cfg.logConfig)
 	_, err := a.Parse(os.Args[1:])
@@ -77,14 +74,30 @@ func main() {
 	cfg.externalURL, err = computeExternalURL(cfg.url, cfg.listenAddress)
 	level.Info(logger).Log("msg", "Staring Faythe")
 
-	// Init etcdclientv3 with the given config file.
-	etcdConf, err := etcdv3config.NewConfig(cfg.etcdConfigFile)
+	var (
+		metricsManager = metrics.NewManager(log.With(logger, "component", "metric backend manager"))
+		configManager  = config.NewManager(log.With(logger, "component", "config manager"), cfg.configFile)
+		middleware     = middleware.New(log.With(logger, "transport middleware"))
+		mux            = mux.NewRouter()
+		fapi           = &api.API{}
+		etcdv3Config   = etcdv3.Config{}
+	)
+
+	// To ignore error
+	fmt.Println(metricsManager)
+
+	// Load configurations from file
+	err = configManager.LoadFile()
 	if err != nil {
-		level.Error(logger).Log("err", errors.Wrapf(err, "Error parsing Etcd config file."))
+		level.Error(logger).Log("msg", "Error loading configuration file", "err", err)
 		os.Exit(2)
 	}
 
-	etcdCli, err := etcdv3.New(etcdv3.Config(*etcdConf))
+	configManager.WatchConfig()
+
+	// Init Etcdv3 client
+	copier.Copy(&etcdv3Config, configManager.Config.EtcdConfig)
+	etcdCli, err := etcdv3.New(etcdv3Config)
 
 	if err != nil {
 		level.Error(logger).Log("err", errors.Wrapf(err, "Error instantiating Etcd client."))
@@ -93,17 +106,8 @@ func main() {
 
 	defer etcdCli.Close()
 
-	var (
-		metricsManager = metrics.NewManager(log.With(logger, "component", "metric backend manager"))
-		middleware     = middleware.New(log.With(logger, "transport middleware"))
-		api            = api.New(log.With(logger, "component", "api"), etcdCli)
-		mux            = mux.NewRouter()
-	)
-
-	// To ignore error
-	fmt.Println(metricsManager)
-
-	api.Register(mux)
+	fapi = api.New(log.With(logger, "component", "api"), etcdCli)
+	fapi.Register(mux)
 	mux.Use(middleware.Logging)
 	srv := http.Server{Addr: cfg.listenAddress, Handler: mux}
 	srvc := make(chan struct{})

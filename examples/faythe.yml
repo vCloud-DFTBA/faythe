@@ -1,0 +1,16 @@
+# Global configuration
+global:
+  # Example:
+  # "www.example.com"
+  # "([a-z]+).domain.com"
+  # The regex has to follow Golang regex convention
+  remote_host_pattern: "192.168.(128|129).*"
+  basic_auth:
+    username: "admin"
+    password: "notverysecurepassword"
+
+# Etcd configuration
+etcd:
+  endpoints: ["192.168.1.2:2379", "192.168.1.3:2379", "192.168.1.4:2379"]
+  username: "etcdadmin"
+  password: "etcdsuperpassword"
