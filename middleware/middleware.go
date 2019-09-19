@@ -56,7 +56,7 @@ func (m *Middleware) Logging(next http.Handler) http.Handler {
 		defer func() {
 			dump, err := httputil.DumpRequest(req, true)
 			if err != nil {
-				http.Error(w, fmt.Sprint(err), http.StatusInternalServerError)
+				level.Error(m.logger).Log("msg", "Error dumping request", "err", err)
 				return
 			}
 			level.Info(m.logger).Log("req", fmt.Sprintf("%s", dump))
