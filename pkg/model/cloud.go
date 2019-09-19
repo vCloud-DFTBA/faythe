@@ -18,8 +18,9 @@ import (
 	"encoding/json"
 
 	"github.com/gophercloud/gophercloud"
-	"github.com/ntk148v/faythe/pkg/utils"
 	"github.com/pkg/errors"
+
+	"github.com/ntk148v/faythe/pkg/utils"
 )
 
 // OpenStack represents OpenStack information.
