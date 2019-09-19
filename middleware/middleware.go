@@ -34,10 +34,14 @@ type Middleware struct {
 }
 
 // New returns a new Middleware.
-func New(l log.Logger, a config.BasicAuthentication, r *regexp.Regexp) *Middleware {
+func New(l log.Logger) *Middleware {
 	if l == nil {
 		l = log.NewNopLogger()
 	}
+
+	cfg := config.Get().GlobalConfig
+	a := cfg.BasicAuthentication
+	r, _ := regexp.Compile(cfg.RemoteHostPattern)
 
 	return &Middleware{
 		logger: l,

@@ -22,7 +22,6 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"syscall"
 
@@ -80,7 +79,6 @@ func main() {
 		etcdCli  = &etcdv3.Client{}
 		mux      = mux.NewRouter()
 		fmtrMgr  = metrics.NewManager(log.With(logger, "component", "metric backend manager"))
-		fconfMgr = config.NewManager(log.With(logger, "component", "config manager"), cfg.configFile)
 		fmw      = &middleware.Middleware{}
 		fapi     = &api.API{}
 	)
@@ -89,16 +87,16 @@ func main() {
 	fmt.Println(fmtrMgr)
 
 	// Load configurations from file
-	err = fconfMgr.LoadFile()
+	err = config.Set(cfg.configFile, log.With(logger, "component", "config manager"))
 	if err != nil {
 		level.Error(logger).Log("msg", "Error loading configuration file", "err", err)
 		os.Exit(2)
 	}
 
-	fconfMgr.WatchConfig()
+	config.WatchConfig()
 
 	// Init Etcdv3 client
-	copier.Copy(&etcdConf, fconfMgr.Config.EtcdConfig)
+	copier.Copy(&etcdConf, config.Get().EtcdConfig)
 	etcdCli, err = etcdv3.New(etcdConf)
 
 	if err != nil {
@@ -108,9 +106,7 @@ func main() {
 
 	defer etcdCli.Close()
 
-	r, _ := regexp.Compile(fconfMgr.Config.GlobalConfig.RemoteHostPattern)
-	fmw = middleware.New(log.With(logger, "transport middleware"),
-		fconfMgr.Config.GlobalConfig.BasicAuthentication, r)
+	fmw = middleware.New(log.With(logger, "transport middleware"))
 
 	fapi = api.New(log.With(logger, "component", "api"), etcdCli)
 	fapi.Register(mux)
