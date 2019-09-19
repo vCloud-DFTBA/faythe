@@ -15,49 +15,83 @@
 package model
 
 import (
-	"encoding/json"
+	"strings"
 
-	"github.com/gophercloud/gophercloud"
 	"github.com/pkg/errors"
 
 	"github.com/ntk148v/faythe/pkg/utils"
 )
 
+var (
+	// DefaultCloudPrefix is the default etcd prefix for Cloud data
+	DefaultCloudPrefix = "/cloud"
+	// DefaultOpenStackPrefix is the default etcd prefix for OpenStack data
+	DefaultOpenStackPrefix = strings.Join([]string{DefaultCloudPrefix, "openstack"}, "/")
+)
+
 // OpenStack represents OpenStack information.
 type OpenStack struct {
-	Endpoints map[string]URL          `json:"endpoints"`
-	Signature uint64                  `json:"signature,omitempty"`
-	Auth      gophercloud.AuthOptions `json:"auth"`
+	Endpoints map[string]URL `json:"endpoints"`
+	Signature uint64         `json:"signature,omitempty"`
+	Auth      Auth           `json:"auth"`
 }
 
-// MarshalJSON implements the json.Marshaler interface
-func (op *OpenStack) MarshalJSON() ([]byte, error) {
-	return json.Marshal(op)
+// Auth stores information needed to authenticate to an OpenStack Cloud.
+type Auth struct {
+	// AuthURL specifies the HTTP endpoint that is required to work with
+	// the Identity API of the appropriate version. While it's ultimately needed by
+	// all of the identity services, it will often be populated by a provider-level
+	// function.
+	AuthURL    string `json:"auth_url"`
+	RegionName string `json:"region_name"`
+
+	// Username is required if using Identity V2 API. Consult with your provider's
+	// control panel to discover your account's username. In Identity V3, either
+	// UserID or a combination of Username and DomainID or DomainName are needed.
+	Username string `json:"username"`
+	UserID   string `json:"userid"`
+
+	Password string `json:"password"`
+
+	// At most one of DomainID and DomainName must be provided if using Username
+	// with Identity V3. Otherwise, either are optional.
+	DomainName string `json:"domain_name"`
+	DomainID   string `json:"domain_id"`
+
+	// The ProjectID and ProjectName fields are optional for the Identity V2 API.
+	// The same fields are known as project_id and project_name in the Identity
+	// V3 API, but are collected as ProjectID and ProjectName here in both cases.
+	// Some providers allow you to specify a ProjectName instead of the ProjectId.
+	// Some require both. Your provider's authentication policies will determine
+	// how these fields influence authentication.
+	// If DomainID or DomainName are provided, they will also apply to ProjectName.
+	// It is not currently possible to authenticate with Username and a Domain
+	// and scope to a Project in a different Domain by using ProjectName. To
+	// accomplish that, the ProjectID will need to be provided as the ProjectID
+	// option.
+	ProjectName string `json:"project_name"`
+	ProjectID   string `json:"project_id"`
 }
 
-// UnmarshalJSON implements the json.Unmarshaler interface.
-func (op *OpenStack) UnmarshalJSON(b []byte) error {
-	var o = OpenStack{}
-	if err := json.Unmarshal(b, &o); err != nil {
-		return err
-	}
-	for _, e := range o.Endpoints {
+// Validate returns true iff all fields of the OpenStack have valid values.
+func (op *OpenStack) Validate() error {
+	for _, e := range op.Endpoints {
 		if !e.IsValid() {
 			return errors.Errorf("invalid endpoint %s", e.String())
 		}
 	}
 
 	// Require Prometheus URL as prometheus endpoint
-	if _, ok := o.Endpoints["prometheus"]; !ok {
+	if _, ok := op.Endpoints["prometheus"]; !ok {
 		return errors.New("missing `prometheus` endpoint")
 	}
 
 	// Require at least auth_url
-	if o.Auth.IdentityEndpoint == "" {
+	if op.Auth.AuthURL == "" {
 		return errors.New("missing `IdentityEndpoint` in OpenStack AuthOpts")
 	}
 
-	o.Signature = utils.Hash(o.Auth.IdentityEndpoint)
+	op.Signature = utils.Hash(op.Auth.AuthURL)
 
 	return nil
 }
