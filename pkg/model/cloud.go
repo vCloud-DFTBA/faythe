@@ -37,7 +37,7 @@ const (
 // OpenStack represents OpenStack information.
 type OpenStack struct {
 	Endpoints map[string]URL `json:"endpoints"`
-	Id        uint64         `json:"-,omitempty"`
+	ID        uint64         `json:"-,omitempty"`
 	Auth      Auth           `json:"auth"`
 }
 
@@ -96,7 +96,7 @@ func (op *OpenStack) Validate() error {
 		return errors.New("missing `IdentityEndpoint` in OpenStack AuthOpts")
 	}
 
-	op.Id = utils.Hash(op.Auth.AuthURL)
+	op.ID = utils.Hash(op.Auth.AuthURL)
 
 	return nil
 }
