@@ -26,11 +26,8 @@ func (u URL) String() string {
 	return fmt.Sprintf("%s", string(u))
 }
 
-// IsValid validates the raw url is the valid net.URL
-func (u URL) IsValid() bool {
+// Validate validates the raw url is the valid net.URL
+func (u URL) Validate() error {
 	_, err := url.ParseRequestURI(u.String())
-	if err != nil {
-		return false
-	}
-	return true
+	return err
 }
