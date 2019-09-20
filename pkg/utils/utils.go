@@ -14,12 +14,23 @@
 
 package utils
 
-import "hash/fnv"
+import (
+	"crypto/sha256"
+	"hash/fnv"
+)
 
-// Hash generates a new 64-bit number from a given string
+// HashFNV generates a new 64-bit number from a given string
 // using 64-bit FNV-1a hash function.
-func Hash(s string) uint64 {
+func HashFNV(s string) string {
 	h := fnv.New64a()
 	h.Write([]byte(s))
-	return h.Sum64()
+	return string(h.Sum64())
+}
+
+// HashSHA generates a new string hash from a given string
+// using SHA256 hash algorithms.
+func HashSHA(s string) string {
+	h := sha256.New()
+	h.Write([]byte(s))
+	return string(h.Sum(nil))
 }
