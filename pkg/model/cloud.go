@@ -95,9 +95,8 @@ func (op *OpenStack) Validate() error {
 	if op.Auth.AuthURL == "" {
 		return errors.New("missing `IdentityEndpoint` in OpenStack AuthOpts")
 	}
-	// Generate ID from URL - Username - Projectname
-	op.ID = utils.HashSHA(strings.Join(
-		[]string{op.Auth.AuthURL, op.Auth.Username, op.Auth.ProjectName}, "-"))
+
+	op.ID = utils.HashSHA(op.Auth.AuthURL)
 
 	return nil
 }
