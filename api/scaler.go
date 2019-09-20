@@ -14,10 +14,62 @@
 
 package api
 
-import "net/http"
+import (
+	"encoding/json"
+	"fmt"
+	"net/http"
+
+	"github.com/gorilla/mux"
+	etcdv3 "go.etcd.io/etcd/clientv3"
+
+	"github.com/ntk148v/faythe/pkg/model"
+)
 
 func (a *API) createScaler(w http.ResponseWriter, req *http.Request) {
 	// Save a Scaler object in etcd3
+	var (
+		s    *model.Scaler
+		path string
+		vars map[string]string
+		v    []byte
+	)
+	vars = mux.Vars(req)
+	path = fmt.Sprintf("%s/%s", model.DefaultOpenStackPrefix, vars["provider_id"])
+	resp, _ := a.etcdclient.Get(req.Context(), path, etcdv3.WithPrefix())
+	if len(resp.Kvs) == 0 {
+		err := fmt.Errorf("Unknown provider id: %s", vars["provider_id"])
+		a.respondError(w, apiError{
+			code: http.StatusBadRequest,
+			err:  err,
+		})
+	}
+	if err := a.receive(req, &s); err != nil {
+		a.respondError(w, apiError{
+			code: http.StatusBadRequest,
+			err:  err,
+		})
+		return
+	}
+	if err := s.Validate(); err != nil {
+		a.respondError(w, apiError{
+			code: http.StatusBadRequest,
+			err:  err,
+		})
+		return
+	}
+	path = fmt.Sprintf("%s/%s", path, s.ID)
+	v, _ = json.Marshal(&s)
+	_, err := a.etcdclient.Put(req.Context(), path, string(v))
+	if err != nil {
+		err = fmt.Errorf("Error putting a key-value pair into etcd: %s", err.Error())
+		a.respondError(w, apiError{
+			code: http.StatusInternalServerError,
+			err:  err,
+		})
+		return
+	}
+
+	a.respondSuccess(w, http.StatusOK, nil)
 }
 
 func (a *API) listScalers(w http.ResponseWriter, req *http.Request) {
