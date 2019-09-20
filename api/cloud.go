@@ -51,7 +51,7 @@ func (a *API) registerCloud(w http.ResponseWriter, req *http.Request) {
 			})
 			return
 		}
-		k = fmt.Sprintf("%s/%d", model.DefaultOpenStackPrefix, ops.ID)
+		k = fmt.Sprintf("%s/%s", model.DefaultOpenStackPrefix, ops.ID)
 		v, _ = json.Marshal(&ops)
 		_, err := a.etcdclient.Put(req.Context(), k, string(v))
 		if err != nil {
