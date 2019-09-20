@@ -21,17 +21,19 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
+	etcdv3 "go.etcd.io/etcd/clientv3"
 
 	"github.com/ntk148v/faythe/pkg/model"
 )
 
 func (a *API) registerCloud(w http.ResponseWriter, req *http.Request) {
 	var (
-		vars map[string]string
-		p    string
-		ops  *model.OpenStack
-		k    string
-		v    []byte
+		vars  map[string]string
+		p     string
+		ops   *model.OpenStack
+		k     string
+		v     []byte
+		force bool
 	)
 	vars = mux.Vars(req)
 	p = strings.ToLower(vars["provider"])
@@ -52,6 +54,19 @@ func (a *API) registerCloud(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 		k = fmt.Sprintf("%s/%s", model.DefaultOpenStackPrefix, ops.ID)
+		if strings.ToLower(req.URL.Query().Get("force")) == "true" {
+			force = true
+		}
+		resp, _ := a.etcdclient.Get(req.Context(), k, etcdv3.WithCountOnly())
+		if resp.Count > 0 && !force {
+			err := fmt.Errorf("The provider with id %s is existed", ops.ID)
+			a.respondError(w, apiError{
+				code: http.StatusBadRequest,
+				err:  err,
+			})
+			return
+		}
+
 		v, _ = json.Marshal(&ops)
 		_, err := a.etcdclient.Put(req.Context(), k, string(v))
 		if err != nil {

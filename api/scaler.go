@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/gorilla/mux"
 	etcdv3 "go.etcd.io/etcd/clientv3"
@@ -28,15 +29,16 @@ import (
 func (a *API) createScaler(w http.ResponseWriter, req *http.Request) {
 	// Save a Scaler object in etcd3
 	var (
-		s    *model.Scaler
-		path string
-		vars map[string]string
-		v    []byte
+		s     *model.Scaler
+		path  string
+		vars  map[string]string
+		v     []byte
+		force bool
 	)
 	vars = mux.Vars(req)
 	path = fmt.Sprintf("%s/%s", model.DefaultOpenStackPrefix, vars["provider_id"])
-	resp, _ := a.etcdclient.Get(req.Context(), path, etcdv3.WithPrefix())
-	if len(resp.Kvs) == 0 {
+	resp, _ := a.etcdclient.Get(req.Context(), path, etcdv3.WithCountOnly())
+	if resp.Count == 0 {
 		err := fmt.Errorf("Unknown provider id: %s", vars["provider_id"])
 		a.respondError(w, apiError{
 			code: http.StatusBadRequest,
@@ -58,6 +60,18 @@ func (a *API) createScaler(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	path = fmt.Sprintf("%s/%s", path, s.ID)
+	if strings.ToLower(req.URL.Query().Get("force")) == "true" {
+		force = true
+	}
+	resp, _ = a.etcdclient.Get(req.Context(), path, etcdv3.WithCountOnly())
+	if resp.Count > 0 && !force {
+		err := fmt.Errorf("The provider with id %s is existed", s.ID)
+		a.respondError(w, apiError{
+			code: http.StatusBadRequest,
+			err:  err,
+		})
+		return
+	}
 	v, _ = json.Marshal(&s)
 	_, err := a.etcdclient.Put(req.Context(), path, string(v))
 	if err != nil {
