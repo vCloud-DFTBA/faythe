@@ -33,7 +33,7 @@ type Scaler struct {
 	Interval    string            `json:"interval"`
 	Actions     map[string]URL    `json:"actions"`
 	Metadata    map[string]string `json:"metadata"`
-	Signature   uint64            `json:"-,omitempty"`
+	Id   uint64            `json:"-,omitempty"`
 }
 
 // Validate returns nil if all fields of the Scaler have valid values.
@@ -65,7 +65,7 @@ func (s *Scaler) Validate() error {
 		return errors.Errorf("required field %+v is missing or invalid: %s", s.Interval, err.Error())
 	}
 
-	s.Signature = utils.Hash(strings.Join(as, ""))
+	s.Id = utils.Hash(strings.Join(as, ""))
 
 	return nil
 }
