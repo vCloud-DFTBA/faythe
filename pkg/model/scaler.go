@@ -26,13 +26,14 @@ import (
 
 // Scaler represents a Scaler object
 type Scaler struct {
-	Backend     string         `json:"backend"`
-	Query       string         `json:"query"`
-	Duration    string         `json:"duration"`
-	Description string         `json:"description,omitempty"`
-	Interval    string         `json:"interval"`
-	Actions     map[string]URL `json:"actions"`
-	Signature   uint64         `json:"-,omitempty"`
+	Backend     string            `json:"backend"`
+	Query       string            `json:"query"`
+	Duration    string            `json:"duration"`
+	Description string            `json:"description,omitempty"`
+	Interval    string            `json:"interval"`
+	Actions     map[string]URL    `json:"actions"`
+	Metadata    map[string]string `json:"metadata"`
+	Signature   uint64            `json:"-,omitempty"`
 }
 
 // Validate returns nil if all fields of the Scaler have valid values.
