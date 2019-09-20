@@ -76,14 +76,16 @@ func (a *API) Register(r *mux.Router) {
 	// Cloud endpoints
 	r.Handle("/cloud/{provider}", wrap(a.registerCloud)).Methods("POST")
 	r.Handle("/cloud/", wrap(a.listClouds)).Methods("GET")
-	r.Handle("/cloud/{provider}/{id:[0-9]+}", wrap(a.unregisterCloud)).Methods("DELETE")
-	r.Handle("/cloud/{provider}/{id:[0-9]+}", wrap(a.updateCloud)).Methods("PUT")
+	r.Handle("/cloud/{provider}/{id:[a-z 0-9]+}", wrap(a.unregisterCloud)).Methods("DELETE")
+	r.Handle("/cloud/{provider}/{id:[a-z 0-9]+}", wrap(a.updateCloud)).Methods("PUT")
 
 	// Scaler endpoints
-	r.Handle("/cloud/{provider_id:[0-9]+}/scaler", wrap(a.createScaler)).Methods("POST")
-	r.Handle("/cloud/{provider_id:[0-9]+}/scaler", wrap(a.listScalers)).Methods("GET")
-	r.Handle("/cloud/{provider_id:[0-9]+}/scaler/{id:[0-9]+}", wrap(a.deleteScaler)).Methods("DELETE")
-	r.Handle("/cloud/{provider_id:[0-9]+}/scaler/{id:[0-9]+}", wrap(a.updateScaler)).Methods("PUT")
+	r.Handle("/cloud/{provider_id:[a-z 0-9]+}/scaler", wrap(a.createScaler)).Methods("POST")
+	r.Handle("/cloud/{provider_id:[a-z 0-9]+}/scaler", wrap(a.listScalers)).Methods("GET")
+	r.Handle("/cloud/{provider_id:[a-z 0-9]+}/scaler/{id:[a-z 0-9]+}",
+		wrap(a.deleteScaler)).Methods("DELETE")
+	r.Handle("/cloud/{provider_id:[a-z 0-9]+}/scaler/{id:[a-z 0-9]+}",
+		wrap(a.updateScaler)).Methods("PUT")
 }
 
 func (a *API) receive(req *http.Request, v interface{}) error {
