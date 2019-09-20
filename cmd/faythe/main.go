@@ -106,7 +106,7 @@ func main() {
 
 	defer etcdCli.Close()
 
-	fmw = middleware.New(log.With(logger, "transport middleware"))
+	fmw = middleware.New(log.With(logger, "component", "transport middleware"))
 
 	fapi = api.New(log.With(logger, "component", "api"), etcdCli)
 	fapi.Register(mux)
