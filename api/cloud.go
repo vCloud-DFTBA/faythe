@@ -73,3 +73,15 @@ func (a *API) registerCloud(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 }
+
+func (a *API) listClouds(w http.ResponseWriter, req *http.Request) {
+	// Get all current clouds information from etcd3
+}
+
+func (a *API) unregisterCloud(w http.ResponseWriter, req *http.Request) {
+	// Remove the cloud information from etcd3
+}
+
+func (a *API) updateCloud(w http.ResponseWriter, req *http.Request) {
+	// Update the existing cloud information
+}

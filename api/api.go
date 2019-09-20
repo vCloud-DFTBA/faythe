@@ -73,7 +73,11 @@ func (a *API) Register(r *mux.Router) {
 	}
 	r.Handle("/", wrap(a.index)).Methods("GET")
 	r.Handle("/status", wrap(a.status)).Methods("GET")
+	// Cloud endpoints
 	r.Handle("/cloud/{provider}", wrap(a.registerCloud)).Methods("POST")
+	r.Handle("/cloud/", wrap(a.listClouds)).Methods("GET")
+	r.Handle("/cloud/{provider}", wrap(a.unregisterCloud)).Methods("DELETE")
+	r.Handle("/cloud/{provider}", wrap(a.updateCloud)).Methods("PUT")
 }
 
 func (a *API) receive(req *http.Request, v interface{}) error {
