@@ -29,10 +29,15 @@ var (
 	DefaultOpenStackPrefix = strings.Join([]string{DefaultCloudPrefix, "openstack"}, "/")
 )
 
+const (
+	// OpenStackType represents a OpenStack type
+	OpenStackType string = "openstack"
+)
+
 // OpenStack represents OpenStack information.
 type OpenStack struct {
 	Endpoints map[string]URL `json:"endpoints"`
-	Signature uint64         `json:"signature,omitempty"`
+	Signature uint64         `json:"-,omitempty"`
 	Auth      Auth           `json:"auth"`
 }
 
@@ -73,10 +78,10 @@ type Auth struct {
 	ProjectID   string `json:"project_id"`
 }
 
-// Validate returns true iff all fields of the OpenStack have valid values.
+// Validate returns nil if all fields of the OpenStack have valid values.
 func (op *OpenStack) Validate() error {
 	for _, e := range op.Endpoints {
-		if !e.IsValid() {
+		if err := e.Validate(); err != nil {
 			return errors.Errorf("invalid endpoint %s", e.String())
 		}
 	}

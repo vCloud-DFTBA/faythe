@@ -36,7 +36,7 @@ func (a *API) registerCloud(w http.ResponseWriter, req *http.Request) {
 	vars = mux.Vars(req)
 	p = strings.ToLower(vars["provider"])
 	switch p {
-	case "openstack":
+	case model.OpenStackType:
 		if err := a.receive(req, &ops); err != nil {
 			a.respondError(w, apiError{
 				code: http.StatusBadRequest,
