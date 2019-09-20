@@ -15,6 +15,7 @@
 package model
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -37,7 +38,7 @@ const (
 // OpenStack represents OpenStack information.
 type OpenStack struct {
 	Endpoints map[string]URL `json:"endpoints"`
-	ID        string         `json:"-,omitempty"`
+	ID        string         `json:"id,omitempty"`
 	Auth      Auth           `json:"auth"`
 }
 
@@ -96,7 +97,7 @@ func (op *OpenStack) Validate() error {
 		return errors.New("missing `IdentityEndpoint` in OpenStack AuthOpts")
 	}
 
-	op.ID = utils.HashSHA(op.Auth.AuthURL)
+	op.ID = fmt.Sprintf("%x", utils.HashSHA(op.Auth.AuthURL))
 
 	return nil
 }

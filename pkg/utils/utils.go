@@ -27,10 +27,10 @@ func HashFNV(s string) string {
 	return string(h.Sum64())
 }
 
-// HashSHA generates a new string hash from a given string
+// HashSHA generates a new slice of byte hash from a given string
 // using SHA256 hash algorithms.
-func HashSHA(s string) string {
+func HashSHA(s string) []byte {
 	h := sha256.New()
 	h.Write([]byte(s))
-	return string(h.Sum(nil))
+	return h.Sum(nil)
 }
