@@ -15,10 +15,9 @@
 package middleware
 
 import (
-	"fmt"
 	"net/http"
-	"net/http/httputil"
 	"regexp"
+	"time"
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
@@ -54,12 +53,11 @@ func New(l log.Logger) *Middleware {
 func (m *Middleware) Logging(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		defer func() {
-			dump, err := httputil.DumpRequest(req, true)
-			if err != nil {
-				level.Error(m.logger).Log("msg", "Error dumping request", "err", err)
-				return
-			}
-			level.Info(m.logger).Log("req", fmt.Sprintf("%s", dump))
+			start := time.Now()
+			level.Info(m.logger).Log("msg", "Receiving request", "method", req.Method, "url",
+				req.URL, "remote-addr", req.RemoteAddr,
+				"user-agent", req.UserAgent(),
+				"time", time.Since(start))
 		}()
 		next.ServeHTTP(w, req)
 	})
