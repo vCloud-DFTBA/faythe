@@ -38,6 +38,7 @@ type Scaler struct {
 	Interval    string            `json:"interval"`
 	Actions     map[string]URL    `json:"actions"`
 	Metadata    map[string]string `json:"metadata"`
+	IsActive    bool              `json:"is_active"`
 	ID          string            `json:"id,omitempty"`
 }
 
