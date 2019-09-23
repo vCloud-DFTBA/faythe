@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/go-kit/kit/log/level"
+	"github.com/ntk148v/faythe/pkg/utils"
 	"net/http"
 	"strings"
 
@@ -54,7 +55,7 @@ func (a *API) registerCloud(w http.ResponseWriter, req *http.Request) {
 			})
 			return
 		}
-		k = fmt.Sprintf("%s/%s", model.DefaultOpenStackPrefix, ops.ID)
+		k = utils.Path(model.DefaultOpenStackPrefix, ops.ID)
 		if strings.ToLower(req.URL.Query().Get("force")) == "true" {
 			force = true
 		}
@@ -148,7 +149,7 @@ func (a *API) unregisterCloud(w http.ResponseWriter, req *http.Request) {
 	pid = strings.ToLower(vars["id"])
 	switch p {
 	case "openstack":
-		path = fmt.Sprintf("%s/%s", model.DefaultOpenStackPrefix, pid)
+		path = utils.Path(model.DefaultOpenStackPrefix, pid)
 	default:
 		err := fmt.Errorf("The provider %s is unsupported", p)
 		a.respondError(w, apiError{
@@ -166,7 +167,7 @@ func (a *API) unregisterCloud(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	scalerPath := fmt.Sprintf("%s/%s", model.DefaultScalerPrefix, pid)
+	scalerPath := utils.Path(model.DefaultScalerPrefix, pid)
 	_, err = a.etcdclient.Delete(req.Context(), scalerPath, etcdv3.WithPrefix())
 	if err != nil {
 		a.respondError(w, apiError{

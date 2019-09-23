@@ -16,8 +16,6 @@ package model
 
 import (
 	"fmt"
-	"strings"
-
 	"github.com/pkg/errors"
 
 	"github.com/ntk148v/faythe/pkg/utils"
@@ -27,11 +25,10 @@ var (
 	// DefaultCloudPrefix is the default etcd prefix for Cloud data
 	DefaultCloudPrefix = "/clouds"
 	// DefaultOpenStackPrefix is the default etcd prefix for OpenStack data
-	DefaultOpenStackPrefix = strings.Join([]string{DefaultCloudPrefix, "openstack"}, "/")
+	DefaultOpenStackPrefix = utils.Path(DefaultCloudPrefix, "openstack")
 )
 
-const (
-	// OpenStackType represents a OpenStack type
+const ( // OpenStackType represents a OpenStack type
 	OpenStackType string = "openstack"
 )
 

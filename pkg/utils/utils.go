@@ -17,6 +17,7 @@ package utils
 import (
 	"crypto/sha256"
 	"hash/fnv"
+	"strings"
 )
 
 // HashFNV generates a new 64-bit number from a given string
@@ -33,4 +34,9 @@ func HashSHA(s string) []byte {
 	h := sha256.New()
 	h.Write([]byte(s))
 	return h.Sum(nil)
+}
+
+// Path returns a etcd key path.
+func Path(keys ...string) string {
+	return strings.Join(append([]string{}, keys...), "/")
 }

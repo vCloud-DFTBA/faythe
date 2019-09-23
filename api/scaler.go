@@ -17,6 +17,7 @@ package api
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/ntk148v/faythe/pkg/utils"
 	"net/http"
 	"strings"
 
@@ -36,7 +37,7 @@ func (a *API) createScaler(w http.ResponseWriter, req *http.Request) {
 		force bool
 	)
 	vars = mux.Vars(req)
-	path = fmt.Sprintf("%s/%s", model.DefaultOpenStackPrefix, vars["provider_id"])
+	path = utils.Path(model.DefaultOpenStackPrefix, vars["provider_id"])
 	resp, _ := a.etcdclient.Get(req.Context(), path, etcdv3.WithCountOnly())
 	if resp.Count == 0 {
 		err := fmt.Errorf("Unknown provider id: %s", vars["provider_id"])
@@ -60,11 +61,11 @@ func (a *API) createScaler(w http.ResponseWriter, req *http.Request) {
 		})
 		return
 	}
-	path = fmt.Sprintf("%s/%s/%s", model.DefaultScalerPrefix, vars["provider_id"], s.ID)
+	path = utils.Path(model.DefaultScalerPrefix, vars["provider_id"], s.ID)
 	if strings.ToLower(req.URL.Query().Get("force")) == "true" {
 		force = true
 	}
-	resp, _ = a.etcdclient.Get(req.Context(), path+"/scaler", etcdv3.WithCountOnly())
+	resp, _ = a.etcdclient.Get(req.Context(), utils.Path(path, "scaler"), etcdv3.WithCountOnly())
 	if resp.Count > 0 && !force {
 		err := fmt.Errorf("The provider with id %s is existed", s.ID)
 		a.respondError(w, apiError{
