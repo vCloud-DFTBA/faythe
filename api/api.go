@@ -74,17 +74,17 @@ func (a *API) Register(r *mux.Router) {
 	r.Handle("/", wrap(a.index)).Methods("GET")
 	r.Handle("/status", wrap(a.status)).Methods("GET")
 	// Cloud endpoints
-	r.Handle("/cloud/{provider}", wrap(a.registerCloud)).Methods("POST")
-	r.Handle("/cloud/", wrap(a.listClouds)).Methods("GET")
-	r.Handle("/cloud/{provider}/{id:[a-z 0-9]+}", wrap(a.unregisterCloud)).Methods("DELETE")
-	r.Handle("/cloud/{provider}/{id:[a-z 0-9]+}", wrap(a.updateCloud)).Methods("PUT")
+	r.Handle("/clouds/{provider}", wrap(a.registerCloud)).Methods("POST")
+	r.Handle("/clouds/{provider}", wrap(a.listClouds)).Methods("GET")
+	r.Handle("/clouds/{provider}/{id:[a-z 0-9]+}", wrap(a.unregisterCloud)).Methods("DELETE")
+	r.Handle("/clouds/{provider}/{id:[a-z 0-9]+}", wrap(a.updateCloud)).Methods("PUT")
 
 	// Scaler endpoints
-	r.Handle("/cloud/{provider_id:[a-z 0-9]+}/scaler", wrap(a.createScaler)).Methods("POST")
-	r.Handle("/cloud/{provider_id:[a-z 0-9]+}/scaler", wrap(a.listScalers)).Methods("GET")
-	r.Handle("/cloud/{provider_id:[a-z 0-9]+}/scaler/{id:[a-z 0-9]+}",
+	r.Handle("/scalers/{provider_id:[a-z 0-9]+}", wrap(a.createScaler)).Methods("POST")
+	r.Handle("/scalers/{provider_id:[a-z 0-9]+}", wrap(a.listScalers)).Methods("GET")
+	r.Handle("/scalers/{provider_id:[a-z 0-9]+}/{id:[a-z 0-9]+}",
 		wrap(a.deleteScaler)).Methods("DELETE")
-	r.Handle("/cloud/{provider_id:[a-z 0-9]+}/scaler/{id:[a-z 0-9]+}",
+	r.Handle("/scalers/{provider_id:[a-z 0-9]+}/{id:[a-z 0-9]+}",
 		wrap(a.updateScaler)).Methods("PUT")
 }
 
