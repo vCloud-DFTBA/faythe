@@ -13,3 +13,23 @@
 // limitations under the License.
 
 package autoscaler
+
+import "github.com/go-kit/kit/log"
+
+// Manager manages a set of Scaler instances.
+type Manager struct {
+	logger   log.Logger
+	scalers  map[string]Scaler
+	stopChan chan struct{}
+}
+
+// NewManager returns a Autoscale Manager
+func NewManager(l log.Logger, stopChan chan struct{}) *Manager {
+	mgr := Manager{
+		logger:   l,
+		scalers:  make(map[string]Scaler),
+		stopChan: stopChan,
+	}
+	// Init scaler here.
+	return &mgr
+}
