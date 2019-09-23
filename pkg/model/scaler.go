@@ -25,6 +25,10 @@ import (
 	"github.com/ntk148v/faythe/pkg/utils"
 )
 
+const (
+	DefaultScalerPrefix string = "/scalers"
+)
+
 // Scaler represents a Scaler object
 type Scaler struct {
 	Backend     string            `json:"backend"`

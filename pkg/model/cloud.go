@@ -25,7 +25,7 @@ import (
 
 var (
 	// DefaultCloudPrefix is the default etcd prefix for Cloud data
-	DefaultCloudPrefix = "/cloud"
+	DefaultCloudPrefix = "/clouds"
 	// DefaultOpenStackPrefix is the default etcd prefix for OpenStack data
 	DefaultOpenStackPrefix = strings.Join([]string{DefaultCloudPrefix, "openstack"}, "/")
 )
