@@ -17,6 +17,7 @@ package api
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/go-kit/kit/log/level"
 	"github.com/ntk148v/faythe/pkg/utils"
 	"net/http"
 	"strings"
@@ -65,9 +66,9 @@ func (a *API) createScaler(w http.ResponseWriter, req *http.Request) {
 	if strings.ToLower(req.URL.Query().Get("force")) == "true" {
 		force = true
 	}
-	resp, _ = a.etcdclient.Get(req.Context(), utils.Path(path, "scaler"), etcdv3.WithCountOnly())
+	resp, _ = a.etcdclient.Get(req.Context(), path, etcdv3.WithCountOnly())
 	if resp.Count > 0 && !force {
-		err := fmt.Errorf("The provider with id %s is existed", s.ID)
+		err := fmt.Errorf("The scaler with id %s is existed", s.ID)
 		a.respondError(w, apiError{
 			code: http.StatusBadRequest,
 			err:  err,
@@ -86,14 +87,68 @@ func (a *API) createScaler(w http.ResponseWriter, req *http.Request) {
 	}
 
 	a.respondSuccess(w, http.StatusOK, nil)
+	return
 }
 
+// List all current Scalers from etcd3
 func (a *API) listScalers(w http.ResponseWriter, req *http.Request) {
-	// List all current Scalers from etcd3
+	var (
+		vars    map[string]string
+		pid     string
+		path    string
+		scalers map[string]model.Scaler
+	)
+
+	pid = strings.ToLower(vars["provider_id"])
+	path = utils.Path(model.DefaultScalerPrefix, pid)
+	resp, err := a.etcdclient.Get(req.Context(), path, etcdv3.WithPrefix())
+	if err != nil {
+		a.respondError(w, apiError{
+			code: http.StatusInternalServerError,
+			err:  err,
+		})
+		return
+	}
+
+	scalers = make(map[string]model.Scaler, len(resp.Kvs))
+	for _, ev := range resp.Kvs {
+		var s model.Scaler
+		err = json.Unmarshal(ev.Value, &s)
+		if err != nil {
+			level.Error(a.logger).Log("msg", "Error getting scaler from etcd",
+				"scaler", ev.Key, "err", err)
+			continue
+		}
+		scalers[string(ev.Key)] = s
+	}
+	a.respondSuccess(w, http.StatusOK, scalers)
+	return
 }
 
+// Delete a Scaler from etcd3
 func (a *API) deleteScaler(w http.ResponseWriter, req *http.Request) {
-	// Delete a Scaler from etcd3
+	var (
+		vars map[string]string
+		pid  string
+		sid  string
+		path string
+	)
+
+	vars = mux.Vars(req)
+	pid = strings.ToLower(vars["provider_id"])
+	sid = strings.ToLower(vars["id"])
+	path = utils.Path(model.DefaultScalerPrefix, pid, sid)
+	resp, err := a.etcdclient.Delete(req.Context(), path, etcdv3.WithPrefix())
+	if err != nil {
+		a.respondError(w, apiError{
+			code: http.StatusInternalServerError,
+			err:  err,
+		})
+		return
+	}
+	fmt.Printf("%+v", resp)
+	a.respondSuccess(w, http.StatusOK, nil)
+	return
 }
 
 func (a *API) updateScaler(w http.ResponseWriter, req *http.Request) {
