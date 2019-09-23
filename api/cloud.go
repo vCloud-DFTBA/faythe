@@ -90,8 +90,8 @@ func (a *API) registerCloud(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
+// Get all current clouds information from etcd3
 func (a *API) listClouds(w http.ResponseWriter, req *http.Request) {
-	// Get all current clouds information from etcd3
 	var (
 		vars   map[string]string
 		p      string
@@ -135,8 +135,47 @@ func (a *API) listClouds(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
+// Remove the cloud information from etcd3
 func (a *API) unregisterCloud(w http.ResponseWriter, req *http.Request) {
-	// Remove the cloud information from etcd3
+	var (
+		vars map[string]string
+		p    string
+		pid  string
+		path string
+	)
+	vars = mux.Vars(req)
+	p = strings.ToLower(vars["provider"])
+	pid = strings.ToLower(vars["id"])
+	switch p {
+	case "openstack":
+		path = fmt.Sprintf("%s/%s", model.DefaultOpenStackPrefix, pid)
+	default:
+		err := fmt.Errorf("The provider %s is unsupported", p)
+		a.respondError(w, apiError{
+			code: http.StatusBadRequest,
+			err:  err,
+		})
+		return
+	}
+	_, err := a.etcdclient.Delete(req.Context(), path, etcdv3.WithPrefix())
+	if err != nil {
+		a.respondError(w, apiError{
+			code: http.StatusInternalServerError,
+			err:  err,
+		})
+		return
+	}
+
+	scalerPath := fmt.Sprintf("%s/%s", model.DefaultScalerPrefix, pid)
+	_, err = a.etcdclient.Delete(req.Context(), scalerPath, etcdv3.WithPrefix())
+	if err != nil {
+		a.respondError(w, apiError{
+			code: http.StatusInternalServerError,
+			err:  err,
+		})
+		return
+	}
+	a.respondSuccess(w, http.StatusOK, nil)
 }
 
 func (a *API) updateCloud(w http.ResponseWriter, req *http.Request) {
