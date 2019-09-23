@@ -44,6 +44,7 @@ func (a *API) createScaler(w http.ResponseWriter, req *http.Request) {
 			code: http.StatusBadRequest,
 			err:  err,
 		})
+		return
 	}
 	if err := a.receive(req, &s); err != nil {
 		a.respondError(w, apiError{
@@ -59,11 +60,11 @@ func (a *API) createScaler(w http.ResponseWriter, req *http.Request) {
 		})
 		return
 	}
-	path = fmt.Sprintf("%s/%s", path, s.ID)
+	path = fmt.Sprintf("%s/%s/%s", model.DefaultScalerPrefix, vars["provider_id"], s.ID)
 	if strings.ToLower(req.URL.Query().Get("force")) == "true" {
 		force = true
 	}
-	resp, _ = a.etcdclient.Get(req.Context(), path, etcdv3.WithCountOnly())
+	resp, _ = a.etcdclient.Get(req.Context(), path+"/scaler", etcdv3.WithCountOnly())
 	if resp.Count > 0 && !force {
 		err := fmt.Errorf("The provider with id %s is existed", s.ID)
 		a.respondError(w, apiError{
