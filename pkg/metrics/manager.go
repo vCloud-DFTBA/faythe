@@ -28,7 +28,7 @@ import (
 // Manager maintains a set of Backends.
 type Manager struct {
 	logger log.Logger
-	rgt    RegistryInterface
+	rgt    *Registry
 }
 
 // NewManager is the MetricsManager constructor.
@@ -39,7 +39,7 @@ func NewManager(logger log.Logger, options ...func(*Manager)) *Manager {
 
 	mgr := &Manager{
 		logger: logger,
-		rgt:    Registry(),
+		rgt:    &Registry{items: make(map[string]Backend)},
 	}
 	return mgr
 }
@@ -54,7 +54,7 @@ func (m *Manager) initBackend(btype string, address string) (Backend, error) {
 }
 
 // Register inits Backend with input Type and address, puts the instantiated
-// backend to registry.
+// backend to Registry.
 func (m *Manager) Register(btype, address string) error {
 	name := fmt.Sprintf("%s-%s", btype, address)
 	_, err := url.ParseRequestURI(address)
@@ -63,7 +63,7 @@ func (m *Manager) Register(btype, address string) error {
 	}
 	// If the instantiated metrics backend already exists, let's just
 	// ignore it.
-	if _, err := m.rgt.Get(name); err == nil {
+	if _, ok := m.rgt.Get(name); ok {
 		return nil
 	}
 
@@ -72,7 +72,7 @@ func (m *Manager) Register(btype, address string) error {
 	if err != nil {
 		return errors.Wrapf(err, "instantiating backend client for MetricsBackend %q", btype)
 	}
-	m.rgt.Put(name, b)
+	m.rgt.Set(name, b)
 	level.Info(m.logger).Log("msg", "Backend", name, "instantiated successfully")
 
 	return nil

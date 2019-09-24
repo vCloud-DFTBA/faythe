@@ -16,64 +16,61 @@ package metrics
 
 import (
 	"sync"
-
-	"github.com/pkg/errors"
 )
 
-// RegistryInterface is an interface to a Backend registry.
-// See function comments for implementation limitations.
-type RegistryInterface interface {
-	Get(name string) (Backend, error)
-	Delete(name string)
-	Put(name string, backend Backend)
-}
-
-type registry struct {
+type Registry struct {
 	sync.RWMutex
 	items map[string]Backend
 }
 
-var reg = registry{
-	items: make(map[string]Backend),
+type RegistryItem struct {
+	Key   string
+	Value Backend
 }
 
-// Registry provides an interface to the single Backend registry.
-func Registry() RegistryInterface {
-	return &reg
-}
-
-// Get returns the Backend with the given name from the registry, or an error
-// if it does not exist. A Backend returned is not guaranteed to be valid
-// still; it's assumed that the caller will handle Backend errors and delete it
-// from the Registry if appropriate.
-func (r *registry) Get(name string) (Backend, error) {
+// Get returns the Backend with the given name from the Registry
+func (r *Registry) Get(key string) (Backend, bool) {
 	r.RLock()
 	defer r.RUnlock()
 
-	var backend Backend
-	var ok bool
-	if backend, ok = r.items[name]; !ok {
-		return nil, errors.Errorf("backend %q does not exist", name)
-	}
-
-	return backend, nil
+	value, ok := r.items[key]
+	return value, ok
 }
 
-// Delete deletes the Backend with the given name from the registry, or noops
-// if the Backend doesn't exist. It only deletes it from the registry; it does
+// Delete deletes the Backend with the given name from the Registry, or noops
+// if the Backend doesn't exist. It only deletes it from the Registry; it does
 // not clean up the underlying type.
-func (r *registry) Delete(name string) {
+func (r *Registry) Delete(key string) {
 	r.Lock()
 	defer r.Unlock()
 
-	delete(r.items, name)
+	delete(r.items, key)
 }
 
-// Put puts a Backend with the given name into the registry. If a Backend
+// Put puts a Backend with the given name into the Registry. If a Backend
 // already exists with the given name, it will simply be overwritten.
-func (r *registry) Put(name string, backend Backend) {
+func (r *Registry) Set(key string, value Backend) {
 	r.Lock()
 	defer r.Unlock()
 
-	r.items[name] = backend
+	r.items[key] = value
+}
+
+// Iter iterates over the items in a Registry
+// Each item is sent over a channel, so that
+// we can iterate over the Registry using the builtin
+// range keyword
+func (r *Registry) Iter() <-chan RegistryItem {
+	c := make(chan RegistryItem)
+
+	go func() {
+		r.Lock()
+		defer r.Unlock()
+
+		for k, v := range r.items {
+			c <- RegistryItem{k, v}
+		}
+	}()
+
+	return c
 }
