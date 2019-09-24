@@ -53,9 +53,15 @@ func (a *alert) start() {
 func (s *Scaler) doScale() {
 	var (
 		wg  sync.WaitGroup
-		cli http.Client
+		tr  *http.Transport
+		cli *http.Client
 	)
-	cli = http.Client{Timeout: time.Second * 15}
+	tr = &http.Transport{}
+	cli = &http.Client{
+		Transport: tr,
+		Timeout:   time.Second * 15,
+	}
+
 	for _, a := range s.Actions {
 		wg.Add(1)
 		go func(url string) {
