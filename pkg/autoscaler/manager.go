@@ -14,22 +14,54 @@
 
 package autoscaler
 
-import "github.com/go-kit/kit/log"
+import (
+	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
+	etcdv3 "go.etcd.io/etcd/clientv3"
+	"sync"
+)
 
 // Manager manages a set of Scaler instances.
 type Manager struct {
 	logger   log.Logger
-	scalers  map[string]Scaler
+	rgt      *Registry
 	stopChan chan struct{}
+	etcdcli  *etcdv3.Client
 }
 
-// NewManager returns a Autoscale Manager
-func NewManager(l log.Logger, stopChan chan struct{}) *Manager {
-	mgr := Manager{
+// NewManager returns an Autoscale Manager
+func NewManager(l log.Logger, stopChan chan struct{}, e *etcdv3.Client) *Manager {
+	return &Manager{
 		logger:   l,
-		scalers:  make(map[string]Scaler),
+		rgt:      &Registry{items: make(map[string]Scaler)},
 		stopChan: stopChan,
+		etcdcli:  e,
 	}
-	// Init scaler here.
-	return &mgr
+}
+
+func (m *Manager) run() {
+	// This stop channel tells the rgt to stop if the manager is
+	// shutting down for any reason. It must be closed if this function exits.
+	scalerStopCh := make(chan struct{})
+
+	var wg sync.WaitGroup
+
+	for {
+		select {
+		case <-scalerStopCh:
+			wg.Wait()
+		}
+	}
+	for i := range m.rgt.Iter() {
+		wg.Add(1)
+		go i.Value.run(&wg, scalerStopCh)
+	}
+
+	defer func() {
+		close(scalerStopCh)
+
+		// Wait for all scalers to shut down
+		wg.Wait()
+		level.Info(m.logger).Log("msg", "Autoscale Manager shuts down success")
+	}()
 }
