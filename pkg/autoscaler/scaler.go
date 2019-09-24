@@ -55,7 +55,6 @@ func (s *Scaler) doScale() {
 		wg  sync.WaitGroup
 		cli http.Client
 	)
-	defer wg.Done()
 	cli = http.Client{Timeout: time.Second * 15}
 	for _, a := range s.Actions {
 		wg.Add(1)
@@ -70,9 +69,15 @@ func (s *Scaler) doScale() {
 				level.Info(s.logger).Log("msg", "Error sends scale request",
 					"req", req.URL, "err", err)
 			}
-			defer resp.Body.Close()
+
+			defer func() {
+				resp.Body.Close()
+				wg.Done()
+			}()
 		}(string(a))
 	}
+
+	wg.Wait()
 }
 
 func newScaler(l log.Logger, b metrics.Backend, data []byte) *Scaler {
