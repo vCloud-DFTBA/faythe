@@ -101,7 +101,8 @@ func (a *API) listScalers(w http.ResponseWriter, req *http.Request) {
 
 	pid = strings.ToLower(vars["provider_id"])
 	path = utils.Path(model.DefaultScalerPrefix, pid)
-	resp, err := a.etcdclient.Get(req.Context(), path, etcdv3.WithPrefix())
+	resp, err := a.etcdclient.Get(req.Context(), path, etcdv3.WithPrefix(),
+		etcdv3.WithSort(etcdv3.SortByKey, etcdv3.SortAscend))
 	if err != nil {
 		a.respondError(w, apiError{
 			code: http.StatusInternalServerError,
