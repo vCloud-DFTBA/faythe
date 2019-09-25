@@ -20,17 +20,17 @@ import "sync"
 // goroutines that require read/write access to a map.
 type Registry struct {
 	sync.RWMutex
-	items map[string]Scaler
+	items map[string]*Scaler
 }
 
 // RegistryItem contains a key/value pair item of a registry
 type RegistryItem struct {
 	Key   string
-	Value Scaler
+	Value *Scaler
 }
 
 // Set adds an item to a registry
-func (r *Registry) Set(key string, value Scaler) {
+func (r *Registry) Set(key string, value *Scaler) {
 	r.Lock()
 	defer r.Unlock()
 
@@ -38,7 +38,7 @@ func (r *Registry) Set(key string, value Scaler) {
 }
 
 // Get retrieves the value for a registry
-func (r *Registry) Get(key string) (Scaler, bool) {
+func (r *Registry) Get(key string) (*Scaler, bool) {
 	r.Lock()
 	defer r.Unlock()
 
