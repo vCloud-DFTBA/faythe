@@ -16,10 +16,9 @@ package model
 
 import (
 	"fmt"
+	"github.com/pkg/errors"
 	"strings"
 	"time"
-
-	"github.com/pkg/errors"
 
 	"github.com/ntk148v/faythe/pkg/metrics"
 	"github.com/ntk148v/faythe/pkg/utils"
@@ -40,6 +39,7 @@ type Scaler struct {
 	Metadata    map[string]string `json:"metadata"`
 	Active      bool              `json:"active"`
 	ID          string            `json:"id,omitempty"`
+	Alert       *Alert            `json:"alert,omitempty"`
 }
 
 // Validate returns nil if all fields of the Scaler have valid values.
