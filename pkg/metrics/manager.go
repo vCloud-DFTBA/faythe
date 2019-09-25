@@ -46,7 +46,7 @@ func NewManager(logger log.Logger, options ...func(*Manager)) *Manager {
 
 func (m *Manager) initBackend(btype string, address string) (Backend, error) {
 	switch btype {
-	case "promtheus":
+	case "prometheus":
 		return prometheus.New(address, log.With(m.logger, fmt.Sprintf("%s-%s", btype, address)))
 	default:
 		return nil, errors.Errorf("unknown backend type %q", btype)
