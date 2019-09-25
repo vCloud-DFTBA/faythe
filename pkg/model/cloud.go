@@ -16,6 +16,7 @@ package model
 
 import (
 	"fmt"
+	"github.com/ntk148v/faythe/pkg/metrics"
 	"github.com/pkg/errors"
 
 	"github.com/ntk148v/faythe/pkg/utils"
@@ -37,6 +38,7 @@ type OpenStack struct {
 	Endpoints map[string]URL `json:"endpoints"`
 	ID        string         `json:"id,omitempty"`
 	Auth      Auth           `json:"auth"`
+	Monitor   Monitor        `json:"monitor"`
 }
 
 // Auth stores information needed to authenticate to an OpenStack Cloud.
@@ -80,13 +82,20 @@ type Auth struct {
 func (op *OpenStack) Validate() error {
 	for _, e := range op.Endpoints {
 		if err := e.Validate(); err != nil {
-			return errors.Errorf("invalid endpoint %s", e.String())
+			return errors.Errorf("invalid endpoint %s: %s", e.String(), err)
 		}
 	}
 
-	// Require Prometheus URL as prometheus endpoint
-	if _, ok := op.Endpoints["prometheus"]; !ok {
-		return errors.New("missing `prometheus` endpoint")
+	// Require Monitor backend
+	if &op.Monitor == nil {
+		return errors.New("missing `Monitor` option")
+	}
+	if err := op.Monitor.Address.Validate(); err != nil {
+		return errors.Errorf("invalid address %s: %s", op.Monitor.Address.String(), err)
+	}
+	err := metrics.Register(op.Monitor.Backend, string(op.Monitor.Address))
+	if err != nil {
+		return errors.Errorf("register backend %s-%s failed: err", op.Monitor.Backend, op.Monitor.Address, err)
 	}
 
 	// Require at least auth_url

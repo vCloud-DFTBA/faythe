@@ -16,11 +16,11 @@ package model
 
 import (
 	"fmt"
+	"github.com/ntk148v/faythe/pkg/metrics"
 	"github.com/pkg/errors"
 	"strings"
 	"time"
 
-	"github.com/ntk148v/faythe/pkg/metrics"
 	"github.com/ntk148v/faythe/pkg/utils"
 )
 
@@ -30,7 +30,7 @@ const (
 
 // Scaler represents a Scaler object
 type Scaler struct {
-	Backend     string            `json:"backend"`
+	Monitor     Monitor           `json:"monitor"`
 	Query       string            `json:"query"`
 	Duration    string            `json:"duration"`
 	Description string            `json:"description,omitempty"`
@@ -47,16 +47,21 @@ func (s *Scaler) Validate() error {
 	as := make([]string, len(s.Actions))
 	for _, a := range s.Actions {
 		if err := a.Validate(); err != nil {
-			return errors.Errorf("invalid action url: %s", a.String())
+			return errors.Errorf("invalid action url %s: %s", a.String(), err)
 		}
 		as = append(as, a.String())
 	}
 
-	switch s.Backend {
-	case metrics.Prometheus:
-		// Ignore this case, it's good
-	default:
-		return errors.Errorf("invalid metric backend: %s", s.Backend)
+	// Require Monitor backend
+	if &s.Monitor == nil {
+		return errors.New("missing `Monitor` option")
+	}
+	if err := s.Monitor.Address.Validate(); err != nil {
+		return errors.Errorf("invalid address %s: %s", s.Monitor.Address.String(), err)
+	}
+	err := metrics.Register(s.Monitor.Backend, string(s.Monitor.Address))
+	if err != nil {
+		return errors.Errorf("register backend %s-%s failed: err", s.Monitor.Backend, s.Monitor.Address, err)
 	}
 
 	if s.Query == "" {
