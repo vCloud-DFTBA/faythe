@@ -16,8 +16,6 @@ package metrics
 
 import (
 	"fmt"
-	"net/url"
-
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
@@ -32,16 +30,18 @@ type Manager struct {
 }
 
 // NewManager is the MetricsManager constructor.
-func NewManager(logger log.Logger, options ...func(*Manager)) *Manager {
-	if logger == nil {
-		logger = log.NewNopLogger()
-	}
-
+func NewManager() *Manager {
 	mgr := &Manager{
-		logger: logger,
+		logger: log.NewNopLogger(),
 		rgt:    &Registry{items: make(map[string]Backend)},
 	}
 	return mgr
+}
+
+var m *Manager
+
+func init() {
+	m = NewManager()
 }
 
 func (m *Manager) initBackend(btype string, address string) (Backend, error) {
@@ -58,10 +58,6 @@ func (m *Manager) initBackend(btype string, address string) (Backend, error) {
 // backend to Registry.
 func (m *Manager) Register(btype, address string) error {
 	name := fmt.Sprintf("%s-%s", btype, address)
-	_, err := url.ParseRequestURI(address)
-	if err != nil {
-		return errors.Wrap(err, "the input address has to be a valid URI")
-	}
 	// If the instantiated metrics backend already exists, let's just
 	// ignore it.
 	if _, ok := m.rgt.Get(name); ok {
@@ -77,4 +73,20 @@ func (m *Manager) Register(btype, address string) error {
 	level.Info(m.logger).Log("msg", "Backend", name, "instantiated successfully")
 
 	return nil
+}
+
+// Register inits Backend with input Type and address, puts the instantiated
+// backend to Registry.
+func Register(btype, address string) error {
+	return m.Register(btype, address)
+}
+
+// Unregister removes Backend from registry
+func Unregister(name string) {
+	m.rgt.Delete(name)
+}
+
+// Get returns a Backend with a given name
+func Get(name string) (Backend, bool) {
+	return m.rgt.Get(name)
 }

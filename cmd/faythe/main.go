@@ -39,7 +39,6 @@ import (
 	"github.com/ntk148v/faythe/api"
 	"github.com/ntk148v/faythe/config"
 	"github.com/ntk148v/faythe/middleware"
-	"github.com/ntk148v/faythe/pkg/metrics"
 )
 
 func main() {
@@ -79,15 +78,10 @@ func main() {
 		etcdConf = etcdv3.Config{}
 		etcdCli  = &etcdv3.Client{}
 		mux      = mux.NewRouter()
-		fmtrMgr  = metrics.NewManager(log.With(logger, "component", "metric backend manager"))
 		fmw      = &middleware.Middleware{}
 		fapi     = &api.API{}
 		fas      = &autoscaler.Manager{}
 	)
-
-	// To ignore error
-	fmt.Println(fmtrMgr)
-
 	// Load configurations from file
 	err = config.Set(cfg.configFile, log.With(logger, "component", "config manager"))
 	if err != nil {
