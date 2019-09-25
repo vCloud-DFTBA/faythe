@@ -17,12 +17,14 @@ package autoscaler
 import (
 	"context"
 	"encoding/json"
-	"github.com/go-kit/kit/log/level"
+	"fmt"
 	"net/http"
 	"sync"
 	"time"
 
 	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
+
 	"github.com/ntk148v/faythe/pkg/metrics"
 	"github.com/ntk148v/faythe/pkg/model"
 )
@@ -34,7 +36,6 @@ const (
 // Scaler does metric polling and executes scale actions.
 type Scaler struct {
 	model.Scaler
-	backend    metrics.Backend
 	alert      *alert
 	logger     log.Logger
 	mtx        sync.RWMutex
@@ -67,6 +68,13 @@ func (s *Scaler) run(ctx context.Context, wg *sync.WaitGroup) {
 	duration, _ := time.ParseDuration(s.Duration)
 	wg.Add(1)
 	ticker := time.NewTicker(interval)
+	// Force register
+	_ = metrics.Register(s.Monitor.Backend, string(s.Monitor.Address))
+	backend, ok := metrics.Get(fmt.Sprintf("%s-%s", s.Monitor.Backend, s.Monitor.Address))
+	if !ok {
+		level.Error(s.logger).Log("msg", "Error loading metric backend, cancel scaler")
+		return
+	}
 
 	for {
 		select {
@@ -80,7 +88,7 @@ func (s *Scaler) run(ctx context.Context, wg *sync.WaitGroup) {
 				if !s.Active {
 					continue
 				}
-				result, err := s.backend.QueryInstant(ctx, s.Query, time.Now())
+				result, err := backend.QueryInstant(ctx, s.Query, time.Now())
 				if err != nil {
 					level.Error(s.logger).Log("msg", "Executing query failed",
 						"query", s.Query, "err", err)

@@ -24,6 +24,8 @@ import (
 	"sync"
 )
 
+var wg sync.WaitGroup
+
 // Manager manages a set of Scaler instances.
 type Manager struct {
 	logger  log.Logger
@@ -56,6 +58,8 @@ func (m *Manager) Stop() {
 	defer m.mtx.Unlock()
 
 	level.Info(m.logger).Log("msg", "Stopping autoscale manager...")
+	// Wait until all scalers shut down
+	wg.Wait()
 	close(m.stop)
 	for s := range m.rgt.Iter() {
 		s.Value.stop()
@@ -68,11 +72,8 @@ func (m *Manager) Stop() {
 func (m *Manager) Run() {
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
-	var wg sync.WaitGroup
 
 	defer func() {
-		// Wait until all scalers shut down
-		wg.Wait()
 		m.Stop()
 		// Save all alert state to etcd
 		m.Save()
@@ -88,12 +89,12 @@ func (m *Manager) Run() {
 					sid := string(event.Kv.Key)
 					// Create -> simply create and add it to registry
 					if event.IsCreate() {
-						m.startScaler(sid, event.Kv.Value, &wg)
+						m.startScaler(sid, event.Kv.Value)
 					}
 					// Update -> force recreate scaler
 					if event.IsModify() {
 						m.stopScaler(sid)
-						m.startScaler(sid, event.Kv.Value, &wg)
+						m.startScaler(sid, event.Kv.Value)
 					}
 					// Delete -> remove from registry and stop the goroutine
 					if event.Type == etcdv3.EventTypeDelete {
@@ -113,13 +114,13 @@ func (m *Manager) stopScaler(id string) {
 	}
 }
 
-func (m *Manager) startScaler(id string, data []byte, wg *sync.WaitGroup) {
+func (m *Manager) startScaler(id string, data []byte) {
 	level.Info(m.logger).Log("msg", "Creating scaler", "id", id)
 	s := newScaler(log.With(m.logger, "component", "scaler", "id", id), data)
 	m.rgt.Set(s.ID, s)
 	go func() {
 		wg.Add(1)
-		s.run(m.ctx, wg)
+		s.run(m.ctx, &wg)
 	}()
 }
 
@@ -154,8 +155,6 @@ func (m *Manager) Load() {
 		return
 	}
 	for _, ev := range resp.Kvs {
-		var s Scaler
-		_ = json.Unmarshal(ev.Value, &s)
-		m.rgt.Set(string(ev.Key), &s)
+		m.startScaler(string(ev.Key), ev.Value)
 	}
 }
