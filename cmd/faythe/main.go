@@ -16,6 +16,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/ntk148v/faythe/pkg/autoscaler"
 	"net"
 	"net/http"
 	"net/url"
@@ -33,7 +34,7 @@ import (
 	"github.com/prometheus/common/promlog"
 	logflag "github.com/prometheus/common/promlog/flag"
 	etcdv3 "go.etcd.io/etcd/clientv3"
-	kingpin "gopkg.in/alecthomas/kingpin.v2"
+	"gopkg.in/alecthomas/kingpin.v2"
 
 	"github.com/ntk148v/faythe/api"
 	"github.com/ntk148v/faythe/config"
@@ -81,6 +82,7 @@ func main() {
 		fmtrMgr  = metrics.NewManager(log.With(logger, "component", "metric backend manager"))
 		fmw      = &middleware.Middleware{}
 		fapi     = &api.API{}
+		fas      = &autoscaler.Manager{}
 	)
 
 	// To ignore error
@@ -112,6 +114,8 @@ func main() {
 	fapi.Register(mux)
 	mux.Use(fmw.Logging, fmw.RestrictDomain, fmw.Authenticate)
 
+	fas = autoscaler.NewManager(log.With(logger, "component", "autoscale manager"), etcdCli)
+	go fas.Run()
 	// Init HTTP server
 	srv := http.Server{Addr: cfg.listenAddress, Handler: mux}
 	srvc := make(chan struct{})

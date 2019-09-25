@@ -17,24 +17,127 @@ package autoscaler
 import (
 	"context"
 	"encoding/json"
+	"github.com/go-kit/kit/log/level"
 	"net/http"
 	"sync"
 	"time"
 
 	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
-	"github.com/pkg/errors"
-
 	"github.com/ntk148v/faythe/pkg/metrics"
 	"github.com/ntk148v/faythe/pkg/model"
+)
+
+const (
+	httpTimeout = time.Second * 15
 )
 
 // Scaler does metric polling and executes scale actions.
 type Scaler struct {
 	model.Scaler
-	backend metrics.Backend
-	alert   *alert
-	logger  log.Logger
+	backend    metrics.Backend
+	alert      *alert
+	logger     log.Logger
+	mtx        sync.RWMutex
+	done       chan struct{}
+	terminated chan struct{}
+}
+
+func newScaler(l log.Logger, data []byte) *Scaler {
+	s := &Scaler{
+		logger:     l,
+		done:       make(chan struct{}),
+		terminated: make(chan struct{}),
+		alert:      &alert{},
+	}
+	_ = json.Unmarshal(data, s)
+	return s
+}
+
+func (s *Scaler) stop() {
+	close(s.done)
+	<-s.terminated
+}
+
+func (s *Scaler) run(ctx context.Context, wg *sync.WaitGroup) {
+	defer func() {
+		wg.Done()
+		close(s.terminated)
+	}()
+	interval, _ := time.ParseDuration(s.Interval)
+	duration, _ := time.ParseDuration(s.Duration)
+	wg.Add(1)
+	ticker := time.NewTicker(interval)
+
+	for {
+		select {
+		case <-s.done:
+			return
+		default:
+			select {
+			case <-s.done:
+				return
+			case <-ticker.C:
+				if !s.Active {
+					continue
+				}
+				result, err := s.backend.QueryInstant(ctx, s.Query, time.Now())
+				if err != nil {
+					level.Error(s.logger).Log("msg", "Executing query failed",
+						"query", s.Query, "err", err)
+				}
+				level.Debug(s.logger).Log("msg", "Executing query success",
+					"query", s.Query)
+				s.mtx.Lock()
+				if len(result) == 0 {
+					s.alert.reset()
+					continue
+				}
+				if !s.alert.isActive() {
+					s.alert.start()
+				}
+				if s.alert.shouldFire(duration) {
+					s.do()
+				}
+				s.mtx.Unlock()
+			}
+		}
+	}
+}
+
+// do simply creates and executes a POST request
+func (s *Scaler) do() {
+	var (
+		wg  sync.WaitGroup
+		tr  *http.Transport
+		cli *http.Client
+	)
+	tr = &http.Transport{}
+	cli = &http.Client{
+		Transport: tr,
+		Timeout:   httpTimeout,
+	}
+
+	for _, a := range s.Actions {
+		go func(url string) {
+			// TODO(kiennt): Check kind of action url -> Authen or not?
+			req, err := http.NewRequest("POST", url, nil)
+			if err != nil {
+				level.Error(s.logger).Log("msg", "Error creating scale request",
+					"req", req.URL, "err", err)
+			}
+			resp, err := cli.Do(req)
+			if err != nil {
+				level.Error(s.logger).Log("msg", "Error performing scale request",
+					"req", req.URL, "err", err)
+			}
+			defer func() {
+				resp.Body.Close()
+				wg.Done()
+			}()
+		}(string(a))
+	}
+	// Wait until all actions were performed
+	wg.Wait()
 }
 
 type alert struct {
@@ -50,84 +153,11 @@ func (a *alert) start() {
 	a.Active = true
 }
 
-func (s *Scaler) doScale() {
-	var (
-		wg  sync.WaitGroup
-		tr  *http.Transport
-		cli *http.Client
-	)
-	tr = &http.Transport{}
-	cli = &http.Client{
-		Transport: tr,
-		Timeout:   time.Second * 15,
-	}
-
-	for _, a := range s.Actions {
-		wg.Add(1)
-		go func(url string) {
-			req, err := http.NewRequest("POST", url, nil)
-			if err != nil {
-				level.Info(s.logger).Log("msg", "Error creating scale request",
-					"req", req.URL, "err", err)
-			}
-			resp, err := cli.Do(req)
-			if err != nil {
-				level.Info(s.logger).Log("msg", "Error sends scale request",
-					"req", req.URL, "err", err)
-			}
-
-			defer func() {
-				resp.Body.Close()
-				wg.Done()
-			}()
-		}(string(a))
-	}
-
-	wg.Wait()
+func (a *alert) reset() {
+	a.StartedAt = time.Time{}
+	a.Active = false
 }
 
-func newScaler(l log.Logger, b metrics.Backend, data []byte) *Scaler {
-	s := &Scaler{
-		backend: b,
-		logger:  l,
-	}
-	_ = json.Unmarshal(data, s)
-	return s
-}
-
-func (s *Scaler) run(wg *sync.WaitGroup, stopChan <-chan struct{}) {
-	defer wg.Done()
-
-	interval, _ := time.ParseDuration(s.Interval)
-	duration, _ := time.ParseDuration(s.Duration)
-	ticker := time.NewTicker(interval)
-	s.alert = &alert{}
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ticker.C:
-			if !s.Active {
-				continue
-			}
-			result, err := s.backend.QueryInstant(context.Background(), s.Query, time.Now())
-			if err != nil {
-				err = errors.Wrapf(err, "querying %s", s.Query)
-				return
-			}
-
-			level.Debug(s.logger).Log("msg", "Scaler is querying successfully", "id", s.ID,
-				"query", s.Query, "result", result.String())
-			if len(result) == 0 {
-				continue
-			}
-			s.alert.start()
-			if s.alert.shouldFire(duration) {
-				s.doScale()
-			}
-		case <-stopChan:
-			level.Debug(s.logger).Log("msg", "Scaler is shutting down", "id", s.ID)
-			return
-		}
-	}
+func (a *alert) isActive() bool {
+	return a.Active
 }
