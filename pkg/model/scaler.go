@@ -16,7 +16,6 @@ package model
 
 import (
 	"fmt"
-	"github.com/ntk148v/faythe/pkg/metrics"
 	"github.com/pkg/errors"
 	"strings"
 	"time"
@@ -58,10 +57,6 @@ func (s *Scaler) Validate() error {
 	}
 	if err := s.Monitor.Address.Validate(); err != nil {
 		return errors.Errorf("invalid address %s: %s", s.Monitor.Address.String(), err)
-	}
-	err := metrics.Register(s.Monitor.Backend, string(s.Monitor.Address))
-	if err != nil {
-		return errors.Errorf("register backend %s-%s failed: err", s.Monitor.Backend, s.Monitor.Address, err)
 	}
 
 	if s.Query == "" {

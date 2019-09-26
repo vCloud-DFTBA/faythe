@@ -16,7 +16,6 @@ package model
 
 import (
 	"fmt"
-	"github.com/ntk148v/faythe/pkg/metrics"
 	"github.com/pkg/errors"
 
 	"github.com/ntk148v/faythe/pkg/utils"
@@ -92,10 +91,6 @@ func (op *OpenStack) Validate() error {
 	}
 	if err := op.Monitor.Address.Validate(); err != nil {
 		return errors.Errorf("invalid address %s: %s", op.Monitor.Address.String(), err)
-	}
-	err := metrics.Register(op.Monitor.Backend, string(op.Monitor.Address))
-	if err != nil {
-		return errors.Errorf("register backend %s-%s failed: err", op.Monitor.Backend, op.Monitor.Address, err)
 	}
 
 	// Require at least auth_url
