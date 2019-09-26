@@ -98,7 +98,7 @@ func (a *API) listScalers(w http.ResponseWriter, req *http.Request) {
 		path    string
 		scalers map[string]model.Scaler
 	)
-
+	vars = mux.Vars(req)
 	pid = strings.ToLower(vars["provider_id"])
 	path = utils.Path(model.DefaultScalerPrefix, pid)
 	resp, err := a.etcdclient.Get(req.Context(), path, etcdv3.WithPrefix(),
