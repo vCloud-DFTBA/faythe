@@ -127,6 +127,7 @@ func (s *Scaler) do() {
 	}
 
 	for _, a := range s.Actions {
+		wg.Add(1)
 		go func(url string) {
 			// TODO(kiennt): Check kind of action url -> Authen or not?
 			req, err := http.NewRequest("POST", url, nil)
