@@ -69,12 +69,12 @@ func (s *Scaler) run(ctx context.Context, wg *sync.WaitGroup) {
 	wg.Add(1)
 	ticker := time.NewTicker(interval)
 	// Force register
-	_ = metrics.Register(s.Monitor.Backend, string(s.Monitor.Address))
-	backend, ok := metrics.Get(fmt.Sprintf("%s-%s", s.Monitor.Backend, s.Monitor.Address))
-	if !ok {
+	err := metrics.Register(s.Monitor.Backend, string(s.Monitor.Address))
+	if err != nil {
 		level.Error(s.logger).Log("msg", "Error loading metric backend, cancel scaler")
 		return
 	}
+	backend, _ := metrics.Get(fmt.Sprintf("%s-%s", s.Monitor.Backend, s.Monitor.Address))
 
 	for {
 		select {
@@ -90,8 +90,9 @@ func (s *Scaler) run(ctx context.Context, wg *sync.WaitGroup) {
 				}
 				result, err := backend.QueryInstant(ctx, s.Query, time.Now())
 				if err != nil {
-					level.Error(s.logger).Log("msg", "Executing query failed",
+					level.Error(s.logger).Log("msg", "Executing query failed, skip current interval",
 						"query", s.Query, "err", err)
+					continue
 				}
 				level.Debug(s.logger).Log("msg", "Executing query success",
 					"query", s.Query)
