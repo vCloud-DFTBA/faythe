@@ -133,16 +133,16 @@ func (s *Scaler) do() {
 			if err != nil {
 				level.Error(s.logger).Log("msg", "Error creating scale request",
 					"req", req.URL, "err", err)
+				return
 			}
 			resp, err := cli.Do(req)
 			if err != nil {
 				level.Error(s.logger).Log("msg", "Error performing scale request",
 					"req", req.URL, "err", err)
+				return
 			}
-			defer func() {
-				resp.Body.Close()
-				wg.Done()
-			}()
+			resp.Body.Close()
+			defer wg.Done()
 		}(string(a))
 	}
 	// Wait until all actions were performed
