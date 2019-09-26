@@ -104,7 +104,7 @@ func (a *API) respondError(w http.ResponseWriter, e apiError) {
 
 	b, err := json.Marshal(&response{
 		Status: http.StatusText(e.code),
-		Err:    e,
+		Err:    e.err.Error(),
 	})
 
 	if err != nil {
@@ -121,7 +121,7 @@ func (a *API) respondError(w http.ResponseWriter, e apiError) {
 type response struct {
 	Status string
 	Data   interface{}
-	Err    apiError
+	Err    string
 }
 
 func (a *API) respondSuccess(w http.ResponseWriter, code int, data interface{}) {
