@@ -116,7 +116,7 @@ func (m *Manager) stopScaler(id string) {
 
 func (m *Manager) startScaler(id string, data []byte) {
 	level.Info(m.logger).Log("msg", "Creating scaler", "id", id)
-	s := newScaler(log.With(m.logger, "component", "scaler", "id", id), data)
+	s := newScaler(log.With(m.logger, "scaler", id), data)
 	m.rgt.Set(s.ID, s)
 	go func() {
 		wg.Add(1)
