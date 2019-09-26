@@ -46,7 +46,7 @@ func (s *Scaler) Validate() error {
 	as := make([]string, len(s.Actions))
 	for _, a := range s.Actions {
 		if err := a.Validate(); err != nil {
-			return errors.Errorf("invalid action url %s: %s", a.String(), err)
+			return err
 		}
 		as = append(as, a.String())
 	}
@@ -56,7 +56,7 @@ func (s *Scaler) Validate() error {
 		return errors.New("missing `Monitor` option")
 	}
 	if err := s.Monitor.Address.Validate(); err != nil {
-		return errors.Errorf("invalid address %s: %s", s.Monitor.Address.String(), err)
+		return err
 	}
 
 	if s.Query == "" {
@@ -64,11 +64,11 @@ func (s *Scaler) Validate() error {
 	}
 
 	if _, err := time.ParseDuration(s.Duration); err != nil {
-		return errors.Errorf("required field %+v is missing or invalid: %s", s.Duration, err.Error())
+		return err
 	}
 
 	if _, err := time.ParseDuration(s.Interval); err != nil {
-		return errors.Errorf("required field %+v is missing or invalid: %s", s.Interval, err.Error())
+		return err
 	}
 
 	s.ID = fmt.Sprintf("%x", utils.HashSHA(strings.Join(as, "")))

@@ -81,7 +81,7 @@ type Auth struct {
 func (op *OpenStack) Validate() error {
 	for _, e := range op.Endpoints {
 		if err := e.Validate(); err != nil {
-			return errors.Errorf("invalid endpoint %s: %s", e.String(), err)
+			return err
 		}
 	}
 
@@ -90,7 +90,7 @@ func (op *OpenStack) Validate() error {
 		return errors.New("missing `Monitor` option")
 	}
 	if err := op.Monitor.Address.Validate(); err != nil {
-		return errors.Errorf("invalid address %s: %s", op.Monitor.Address.String(), err)
+		return err
 	}
 
 	// Require at least auth_url
