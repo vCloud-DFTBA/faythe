@@ -117,7 +117,7 @@ func (m *Manager) stopScaler(id string) {
 func (m *Manager) startScaler(id string, data []byte) {
 	level.Info(m.logger).Log("msg", "Creating scaler", "id", id)
 	s := newScaler(log.With(m.logger, "scaler", id), data)
-	m.rgt.Set(s.ID, s)
+	m.rgt.Set(id, s)
 	go func() {
 		wg.Add(1)
 		s.run(m.ctx, &wg)
