@@ -55,10 +55,18 @@ func (r *Registry) Iter() <-chan RegistryItem {
 
 	go func() {
 		r.Lock()
-		defer r.Unlock()
+		defer func() {
+			r.Unlock()
+			close(c)
+		}()
 
 		for k, v := range r.items {
-			c <- RegistryItem{k, v}
+			select {
+			case c <- RegistryItem{k, v}:
+			case <-c:
+				close(c)
+				return
+			}
 		}
 	}()
 
