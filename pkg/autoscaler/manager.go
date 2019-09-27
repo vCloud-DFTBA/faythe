@@ -24,8 +24,6 @@ import (
 	"sync"
 )
 
-var wg sync.WaitGroup
-
 // Manager manages a set of Scaler instances.
 type Manager struct {
 	logger  log.Logger
@@ -35,6 +33,7 @@ type Manager struct {
 	watch   etcdv3.WatchChan
 	mtx     sync.RWMutex
 	ctx     context.Context
+	wg      *sync.WaitGroup
 }
 
 // NewManager returns an Autoscale Manager
@@ -45,6 +44,7 @@ func NewManager(l log.Logger, e *etcdv3.Client) *Manager {
 		stop:    make(chan struct{}),
 		etcdcli: e,
 		ctx:     context.Background(),
+		wg:      &sync.WaitGroup{},
 	}
 	m.watch = m.etcdcli.Watch(m.ctx, model.DefaultScalerPrefix, etcdv3.WithPrefix())
 	// Load at init
@@ -59,7 +59,7 @@ func (m *Manager) Stop() {
 
 	level.Info(m.logger).Log("msg", "Stopping autoscale manager...")
 	// Wait until all scalers shut down
-	wg.Wait()
+	m.wg.Wait()
 	close(m.stop)
 	for s := range m.rgt.Iter() {
 		s.Value.stop()
@@ -119,8 +119,8 @@ func (m *Manager) startScaler(id string, data []byte) {
 	s := newScaler(log.With(m.logger, "scaler", id), data)
 	m.rgt.Set(id, s)
 	go func() {
-		wg.Add(1)
-		s.run(m.ctx, &wg)
+		m.wg.Add(1)
+		s.run(m.ctx, m.wg)
 	}()
 }
 
