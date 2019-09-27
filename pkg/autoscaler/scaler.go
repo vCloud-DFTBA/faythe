@@ -55,19 +55,21 @@ func newScaler(l log.Logger, data []byte) *Scaler {
 }
 
 func (s *Scaler) stop() {
+	level.Debug(s.logger).Log("msg", "Scaler is stopping", "id", s.ID)
 	close(s.done)
 	<-s.terminated
+	level.Debug(s.logger).Log("msg", "Scaler is stopped", "id", s.ID)
 }
 
 func (s *Scaler) run(ctx context.Context, wg *sync.WaitGroup) {
+	interval, _ := time.ParseDuration(s.Interval)
+	duration, _ := time.ParseDuration(s.Duration)
+	ticker := time.NewTicker(interval)
 	defer func() {
+		ticker.Stop()
 		wg.Done()
 		close(s.terminated)
 	}()
-	interval, _ := time.ParseDuration(s.Interval)
-	duration, _ := time.ParseDuration(s.Duration)
-	wg.Add(1)
-	ticker := time.NewTicker(interval)
 	// Force register
 	err := metrics.Register(s.Monitor.Backend, string(s.Monitor.Address))
 	if err != nil {
