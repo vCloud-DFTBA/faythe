@@ -31,77 +31,64 @@ type Manager struct {
 	stop    chan struct{}
 	etcdcli *etcdv3.Client
 	watch   etcdv3.WatchChan
-	mtx     sync.RWMutex
 	ctx     context.Context
+	cancel  context.CancelFunc
 	wg      *sync.WaitGroup
 }
 
 // NewManager returns an Autoscale Manager
 func NewManager(l log.Logger, e *etcdv3.Client) *Manager {
+	ctx, cancel := context.WithCancel(context.Background())
 	m := &Manager{
 		logger:  l,
 		rgt:     &Registry{items: make(map[string]*Scaler)},
 		stop:    make(chan struct{}),
 		etcdcli: e,
-		ctx:     context.Background(),
+		ctx:     ctx,
 		wg:      &sync.WaitGroup{},
+		cancel:  cancel,
 	}
 	m.watch = m.etcdcli.Watch(m.ctx, model.DefaultScalerPrefix, etcdv3.WithPrefix())
 	// Load at init
-	m.Load()
+	m.load()
 	return m
 }
 
 // Stop the manager and its scaler cycles.
 func (m *Manager) Stop() {
-	m.mtx.Lock()
-	defer m.mtx.Unlock()
-
 	level.Info(m.logger).Log("msg", "Stopping autoscale manager...")
+	m.save()
 	// Wait until all scalers shut down
 	m.wg.Wait()
+	m.cancel()
 	close(m.stop)
-	for s := range m.rgt.Iter() {
-		s.Value.stop()
-	}
-
 	level.Info(m.logger).Log("msg", "Autoscale manager stopped")
 }
 
 // Run starts processing of the autoscale manager
 func (m *Manager) Run() {
-	m.mtx.Lock()
-	defer m.mtx.Unlock()
-
-	defer func() {
-		m.Stop()
-		// Save all alert state to etcd
-		m.Save()
-	}()
-
 	for {
 		select {
 		case <-m.stop:
 			return
-		default:
-			for watchResp := range m.watch {
-				for _, event := range watchResp.Events {
-					sid := string(event.Kv.Key)
-					// Create -> simply create and add it to registry
-					if event.IsCreate() {
-						m.startScaler(sid, event.Kv.Value)
-					}
-					// Update -> force recreate scaler
-					if event.IsModify() {
-						m.stopScaler(sid)
-						m.startScaler(sid, event.Kv.Value)
-					}
-					// Delete -> remove from registry and stop the goroutine
-					if event.Type == etcdv3.EventTypeDelete {
-						m.stopScaler(sid)
-					}
+		case watchResp := <-m.watch:
+			for _, event := range watchResp.Events {
+				sid := string(event.Kv.Key)
+				// Create -> simply create and add it to registry
+				if event.IsCreate() {
+					m.startScaler(sid, event.Kv.Value)
+				}
+				// Update -> force recreate scaler
+				if event.IsModify() {
+					m.stopScaler(sid)
+					m.startScaler(sid, event.Kv.Value)
+				}
+				// Delete -> remove from registry and stop the goroutine
+				if event.Type == etcdv3.EventTypeDelete {
+					m.stopScaler(sid)
 				}
 			}
+		default:
 		}
 	}
 }
@@ -124,30 +111,32 @@ func (m *Manager) startScaler(id string, data []byte) {
 	}()
 }
 
-// Save puts scalers to etcd
-func (m *Manager) Save() {
-	m.mtx.Lock()
-	defer m.mtx.Unlock()
-
+// save puts scalers to etcd
+func (m *Manager) save() {
 	for i := range m.rgt.Iter() {
-		raw, err := json.Marshal(&i.Value)
-		if err != nil {
-			level.Error(m.logger).Log("msg", "Error serializing scaler object",
-				"id", i.Value.ID, "err", err)
-			continue
-		}
-		_, err = m.etcdcli.Put(m.ctx, i.Key, string(raw))
-		if err != nil {
-			level.Error(m.logger).Log("msg", "Error putting scaler object",
-				"key", i.Key, "err", err)
-		}
+		m.wg.Add(1)
+		go func(wg *sync.WaitGroup) {
+			defer func() {
+				m.stopScaler(i.Key)
+				wg.Done()
+			}()
+			raw, err := json.Marshal(&i.Value)
+			if err != nil {
+				level.Error(m.logger).Log("msg", "Error serializing scaler object",
+					"id", i.Value.ID, "err", err)
+				return
+			}
+			_, err = m.etcdcli.Put(m.ctx, i.Key, string(raw))
+			if err != nil {
+				level.Error(m.logger).Log("msg", "Error putting scaler object",
+					"key", i.Key, "err", err)
+				return
+			}
+		}(m.wg)
 	}
 }
 
-func (m *Manager) Load() {
-	m.mtx.Lock()
-	defer m.mtx.Unlock()
-
+func (m *Manager) load() {
 	resp, err := m.etcdcli.Get(m.ctx, model.DefaultScalerPrefix,
 		etcdv3.WithPrefix(), etcdv3.WithSort(etcdv3.SortByKey, etcdv3.SortAscend))
 	if err != nil {
