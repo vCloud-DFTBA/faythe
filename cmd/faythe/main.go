@@ -110,6 +110,7 @@ func main() {
 
 	fas = autoscaler.NewManager(log.With(logger, "component", "autoscale manager"), etcdCli)
 	go fas.Run()
+	defer fas.Stop()
 	// Init HTTP server
 	srv := http.Server{Addr: cfg.listenAddress, Handler: mux}
 	srvc := make(chan struct{})
@@ -142,9 +143,9 @@ func main() {
 		select {
 		case <-term:
 			level.Info(logger).Log("msg", "Received SIGTERM, exiting gracefully...")
-			os.Exit(0)
+			return
 		case <-srvc:
-			os.Exit(1)
+			return
 		}
 	}
 }
