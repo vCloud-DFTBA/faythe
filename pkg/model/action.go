@@ -49,6 +49,10 @@ func (a *Action) Validate() error {
 		return err
 	}
 
+	if a.Attempts == 0 {
+		a.Attempts = 10
+	}
+
 	if a.Method == "" {
 		a.Method = "POST"
 	}
