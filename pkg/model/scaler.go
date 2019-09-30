@@ -16,14 +16,16 @@ package model
 
 import (
 	"fmt"
-	"github.com/pkg/errors"
 	"strings"
 	"time"
+
+	"github.com/pkg/errors"
 
 	"github.com/ntk148v/faythe/pkg/utils"
 )
 
 const (
+	// DefaultScalerPrefix is the etcd default prefix for scaler
 	DefaultScalerPrefix string = "/scalers"
 )
 
@@ -34,7 +36,7 @@ type Scaler struct {
 	Duration    string            `json:"duration"`
 	Description string            `json:"description,omitempty"`
 	Interval    string            `json:"interval"`
-	Actions     map[string]URL    `json:"actions"`
+	Actions     map[string]Action `json:"actions"`
 	Metadata    map[string]string `json:"metadata"`
 	Active      bool              `json:"active"`
 	ID          string            `json:"id,omitempty"`
@@ -48,7 +50,7 @@ func (s *Scaler) Validate() error {
 		if err := a.Validate(); err != nil {
 			return err
 		}
-		as = append(as, a.String())
+		as = append(as, a.URL.String())
 	}
 
 	// Require Monitor backend
