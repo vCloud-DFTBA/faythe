@@ -144,6 +144,7 @@ func (s *Scaler) do() {
 					"req", req.URL, "err", err)
 				return
 			}
+			level.Info(s.logger).Log("msg", "Sending POST request", "id", s.ID, "url", url)
 			resp.Body.Close()
 			defer wg.Done()
 		}(string(a))
