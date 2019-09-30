@@ -45,6 +45,9 @@ func (a *Action) Validate() error {
 		return errors.Errorf("unsupported action type: %s", a.Type)
 	}
 
+	if a.Delay == "" {
+		a.Delay = "100ms"
+	}
 	if _, err := time.ParseDuration(a.Delay); err != nil {
 		return err
 	}
