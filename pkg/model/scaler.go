@@ -16,7 +16,6 @@ package model
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -45,12 +44,10 @@ type Scaler struct {
 
 // Validate returns nil if all fields of the Scaler have valid values.
 func (s *Scaler) Validate() error {
-	as := make([]string, len(s.Actions))
 	for _, a := range s.Actions {
 		if err := a.Validate(); err != nil {
 			return err
 		}
-		as = append(as, a.URL.String())
 	}
 
 	// Require Monitor backend
@@ -73,7 +70,7 @@ func (s *Scaler) Validate() error {
 		return err
 	}
 
-	s.ID = fmt.Sprintf("%x", utils.HashSHA(strings.Join(as, "")))
+	s.ID = fmt.Sprintf("%x", utils.HashSHA(s.Query))
 
 	return nil
 }
