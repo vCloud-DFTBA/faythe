@@ -22,6 +22,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/avast/retry-go"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 
@@ -131,23 +132,43 @@ func (s *Scaler) do() {
 	for _, a := range s.Actions {
 		wg.Add(1)
 		go func(url string) {
-			// TODO(kiennt): Check kind of action url -> Authen or not?
-			req, err := http.NewRequest("POST", url, nil)
+			delay, _ := time.ParseDuration(a.Delay)
+			err := retry.Do(
+				func() error {
+					switch a.Type {
+					case "http":
+						// TODO(kiennt): Check kind of action url -> Authen or not?
+						req, err := http.NewRequest(a.Method, url, nil)
+						if err != nil {
+							return err
+						}
+						resp, err := cli.Do(req)
+						if err != nil {
+							return err
+						}
+						level.Info(s.logger).Log("msg", "Sending POST request", "id", s.ID, "url", url)
+						resp.Body.Close()
+					}
+					return nil
+				},
+				retry.DelayType(func(n uint, config *retry.Config) time.Duration {
+					var f retry.DelayTypeFunc
+					switch a.DelayType {
+					case "fixed":
+						f = retry.FixedDelay
+					case "backoff":
+						f = retry.BackOffDelay
+					}
+					return f(n, config)
+				}),
+				retry.Attempts(a.Attempts),
+				retry.Delay(delay),
+			)
 			if err != nil {
-				level.Error(s.logger).Log("msg", "Error creating scale request",
-					"req", req.URL, "err", err)
-				return
+				level.Error(s.logger).Log("msg", "Error doing scale action", "url", a.URL.String(), "err", err)
 			}
-			resp, err := cli.Do(req)
-			if err != nil {
-				level.Error(s.logger).Log("msg", "Error performing scale request",
-					"req", req.URL, "err", err)
-				return
-			}
-			level.Info(s.logger).Log("msg", "Sending POST request", "id", s.ID, "url", url)
-			resp.Body.Close()
 			defer wg.Done()
-		}(string(a))
+		}(string(a.URL))
 	}
 	// Wait until all actions were performed
 	wg.Wait()
