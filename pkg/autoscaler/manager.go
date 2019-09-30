@@ -17,11 +17,13 @@ package autoscaler
 import (
 	"context"
 	"encoding/json"
+	"sync"
+
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
-	"github.com/ntk148v/faythe/pkg/model"
 	etcdv3 "go.etcd.io/etcd/clientv3"
-	"sync"
+
+	"github.com/ntk148v/faythe/pkg/model"
 )
 
 // Manager manages a set of Scaler instances.
