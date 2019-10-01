@@ -122,6 +122,7 @@ func (m *Manager) save() {
 				m.stopScaler(i.Key)
 				wg.Done()
 			}()
+			i.Value.Alert = i.Value.alert.state
 			raw, err := json.Marshal(&i.Value)
 			if err != nil {
 				level.Error(m.logger).Log("msg", "Error serializing scaler object",

@@ -30,16 +30,17 @@ const (
 
 // Scaler represents a Scaler object
 type Scaler struct {
-	Monitor     Monitor           `json:"monitor"`
-	Query       string            `json:"query"`
-	Duration    string            `json:"duration"`
-	Description string            `json:"description,omitempty"`
-	Interval    string            `json:"interval"`
+	Monitor     Monitor            `json:"monitor"`
+	Query       string             `json:"query"`
+	Duration    string             `json:"duration"`
+	Description string             `json:"description,omitempty"`
+	Interval    string             `json:"interval"`
 	Actions     map[string]*Action `json:"actions"`
-	Metadata    map[string]string `json:"metadata"`
-	Active      bool              `json:"active"`
-	ID          string            `json:"id,omitempty"`
-	Alert       *Alert            `json:"alert,omitempty"`
+	Metadata    map[string]string  `json:"metadata"`
+	Active      bool               `json:"active"`
+	ID          string             `json:"id,omitempty"`
+	Alert       *Alert             `json:"alert,omitempty"`
+	Cooldown    string             `json:"cooldown"`
 }
 
 // Validate returns nil if all fields of the Scaler have valid values.
@@ -67,6 +68,13 @@ func (s *Scaler) Validate() error {
 	}
 
 	if _, err := time.ParseDuration(s.Interval); err != nil {
+		return err
+	}
+
+	if s.Cooldown == "" {
+		s.Cooldown = "600s"
+	}
+	if _, err := time.ParseDuration(s.Cooldown); err != nil {
 		return err
 	}
 

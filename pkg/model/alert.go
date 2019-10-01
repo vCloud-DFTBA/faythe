@@ -19,4 +19,5 @@ import "time"
 type Alert struct {
 	Active    bool      `json:"active"`
 	StartedAt time.Time `json:"started_at"`
+	FiredAt   time.Time `json:"fired_at"`
 }

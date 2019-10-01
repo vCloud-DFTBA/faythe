@@ -48,9 +48,12 @@ func newScaler(l log.Logger, data []byte) *Scaler {
 		logger:     l,
 		done:       make(chan struct{}),
 		terminated: make(chan struct{}),
-		alert:      &alert{},
 	}
 	_ = json.Unmarshal(data, s)
+	if s.Alert == nil {
+		s.Alert = &model.Alert{}
+	}
+	s.alert = &alert{state: s.Alert}
 	return s
 }
 
@@ -64,6 +67,7 @@ func (s *Scaler) stop() {
 func (s *Scaler) run(ctx context.Context, wg *sync.WaitGroup) {
 	interval, _ := time.ParseDuration(s.Interval)
 	duration, _ := time.ParseDuration(s.Duration)
+	cooldown, _ := time.ParseDuration(s.Cooldown)
 	ticker := time.NewTicker(interval)
 	defer func() {
 		ticker.Stop()
@@ -106,7 +110,7 @@ func (s *Scaler) run(ctx context.Context, wg *sync.WaitGroup) {
 				if !s.alert.isActive() {
 					s.alert.start()
 				}
-				if s.alert.shouldFire(duration) {
+				if s.alert.shouldFire(duration) && !s.alert.isCoolingDown(cooldown) {
 					s.do()
 				}
 				s.mtx.Unlock()
@@ -129,8 +133,8 @@ func (s *Scaler) do() {
 	}
 
 	for _, a := range s.Actions {
-		wg.Add(1)
 		go func(url string) {
+			wg.Add(1)
 			// TODO(kiennt): Check kind of action url -> Authen or not?
 			req, err := http.NewRequest(a.Method, url, nil)
 			if err != nil {
@@ -144,6 +148,7 @@ func (s *Scaler) do() {
 			}
 			level.Info(s.logger).Log("msg", "Sending request", "id", s.ID,
 				"url", url, "method", a.Method)
+			s.alert.fire(time.Now())
 			resp.Body.Close()
 			defer wg.Done()
 		}(string(a.URL))
@@ -192,23 +197,34 @@ func (s *Scaler) do() {
 }
 
 type alert struct {
-	model.Alert
+	state *model.Alert
 }
 
 func (a *alert) shouldFire(duration time.Duration) bool {
-	return a.Active && time.Now().Sub(a.StartedAt) >= duration
+	return a.state.Active && time.Now().Sub(a.state.StartedAt) >= duration
+}
+
+func (a *alert) isCoolingDown(cooldown time.Duration) bool {
+	return time.Now().Sub(a.state.FiredAt) <= cooldown
 }
 
 func (a *alert) start() {
-	a.StartedAt = time.Now()
-	a.Active = true
+	a.state.StartedAt = time.Now()
+	a.state.Active = true
+}
+
+func (a *alert) fire(firedAt time.Time) {
+	if a.state.FiredAt.IsZero() {
+		a.state.FiredAt = firedAt
+	}
 }
 
 func (a *alert) reset() {
-	a.StartedAt = time.Time{}
-	a.Active = false
+	a.state.StartedAt = time.Time{}
+	a.state.Active = false
+	a.state.FiredAt = time.Time{}
 }
 
 func (a *alert) isActive() bool {
-	return a.Active
+	return a.state.Active
 }
