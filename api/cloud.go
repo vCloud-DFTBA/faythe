@@ -55,7 +55,7 @@ func (a *API) registerCloud(w http.ResponseWriter, req *http.Request) {
 			})
 			return
 		}
-		k = utils.Path(model.DefaultOpenStackPrefix, ops.ID)
+		k = utils.Path(model.DefaultCloudPrefix, ops.ID)
 		if strings.ToLower(req.URL.Query().Get("force")) == "true" {
 			force = true
 		}
@@ -82,12 +82,6 @@ func (a *API) registerCloud(w http.ResponseWriter, req *http.Request) {
 
 		a.respondSuccess(w, http.StatusOK, nil)
 	default:
-		err := fmt.Errorf("The provider %s is unsupported", p)
-		a.respondError(w, apiError{
-			code: http.StatusBadRequest,
-			err:  err,
-		})
-		return
 	}
 }
 
@@ -102,7 +96,7 @@ func (a *API) listClouds(w http.ResponseWriter, req *http.Request) {
 	p = strings.ToLower(vars["provider"])
 	switch p {
 	case "openstack":
-		resp, err := a.etcdclient.Get(req.Context(), model.DefaultOpenStackPrefix,
+		resp, err := a.etcdclient.Get(req.Context(), model.DefaultCloudPrefix,
 			etcdv3.WithPrefix(), etcdv3.WithSort(etcdv3.SortByKey, etcdv3.SortAscend))
 		if err != nil {
 			a.respondError(w, apiError{
@@ -127,12 +121,6 @@ func (a *API) listClouds(w http.ResponseWriter, req *http.Request) {
 		a.respondSuccess(w, http.StatusOK, clouds)
 		return
 	default:
-		err := fmt.Errorf("The provider %s is unsupported", p)
-		a.respondError(w, apiError{
-			code: http.StatusBadRequest,
-			err:  err,
-		})
-		return
 	}
 }
 
@@ -140,24 +128,12 @@ func (a *API) listClouds(w http.ResponseWriter, req *http.Request) {
 func (a *API) unregisterCloud(w http.ResponseWriter, req *http.Request) {
 	var (
 		vars map[string]string
-		p    string
 		pid  string
 		path string
 	)
 	vars = mux.Vars(req)
-	p = strings.ToLower(vars["provider"])
 	pid = strings.ToLower(vars["id"])
-	switch p {
-	case "openstack":
-		path = utils.Path(model.DefaultOpenStackPrefix, pid)
-	default:
-		err := fmt.Errorf("The provider %s is unsupported", p)
-		a.respondError(w, apiError{
-			code: http.StatusBadRequest,
-			err:  err,
-		})
-		return
-	}
+	path = utils.Path(model.DefaultOpenStackPrefix, pid)
 	_, err := a.etcdclient.Delete(req.Context(), path, etcdv3.WithPrefix())
 	if err != nil {
 		a.respondError(w, apiError{

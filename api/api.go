@@ -76,8 +76,8 @@ func (a *API) Register(r *mux.Router) {
 	// Cloud endpoints
 	r.Handle("/clouds/{provider}", wrap(a.registerCloud)).Methods("POST")
 	r.Handle("/clouds/{provider}", wrap(a.listClouds)).Methods("GET")
-	r.Handle("/clouds/{provider}/{id:[a-z 0-9]+}", wrap(a.unregisterCloud)).Methods("DELETE")
-	r.Handle("/clouds/{provider}/{id:[a-z 0-9]+}", wrap(a.updateCloud)).Methods("PUT")
+	r.Handle("/clouds/{id:[a-z 0-9]+}", wrap(a.unregisterCloud)).Methods("DELETE")
+	r.Handle("/clouds/{id:[a-z 0-9]+}", wrap(a.updateCloud)).Methods("PUT")
 
 	// Scaler endpoints
 	r.Handle("/scalers/{provider_id:[a-z 0-9]+}", wrap(a.createScaler)).Methods("POST")
