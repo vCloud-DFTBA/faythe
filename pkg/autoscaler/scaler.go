@@ -18,6 +18,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/avast/retry-go"
+	"net"
 	"net/http"
 	"sync"
 	"time"
@@ -135,69 +137,57 @@ func (s *Scaler) do() {
 	for _, a := range s.Actions {
 		go func(url string) {
 			wg.Add(1)
-			// TODO(kiennt): Check kind of action url -> Authen or not?
-			req, err := http.NewRequest(a.Method, url, nil)
+			delay, _ := time.ParseDuration(a.Delay)
+			err := retry.Do(
+				func() error {
+					// TODO(kiennt): Check kind of action url -> Authen or not?
+					req, err := http.NewRequest(a.Method, url, nil)
+					if err != nil {
+						return err
+					}
+					resp, err := cli.Do(req)
+					if err != nil {
+						return err
+					}
+					defer resp.Body.Close()
+					return nil
+				},
+				retry.DelayType(func(n uint, config *retry.Config) time.Duration {
+					var f retry.DelayTypeFunc
+					switch a.DelayType {
+					case "fixed":
+						f = retry.FixedDelay
+					case "backoff":
+						f = retry.BackOffDelay
+					}
+					return f(n, config)
+				}),
+				retry.Attempts(a.Attempts),
+				retry.Delay(delay),
+				retry.RetryIf(func(err error) bool {
+					if err, ok := err.(net.Error); ok && err.Timeout() {
+						return true
+					}
+					return false
+				}),
+			)
 			if err != nil {
-				level.Error(s.logger).Log("msg", "Error creating request", "url", a.URL, "method", a.Method)
-				return
-			}
-			resp, err := cli.Do(req)
-			if err != nil {
-				level.Error(s.logger).Log("msg", "Error doing request", "url", a.URL, "method", a.Method)
+				level.Error(s.logger).Log("msg", "Error doing scale action", "url", a.URL.String(), "err", err)
 				return
 			}
 			level.Info(s.logger).Log("msg", "Sending request", "id", s.ID,
 				"url", url, "method", a.Method)
 			s.alert.fire(time.Now())
-			resp.Body.Close()
 			defer wg.Done()
 		}(string(a.URL))
-		//go func(url string) {
-		//	delay, _ := time.ParseDuration(a.Delay)
-		//	err := retry.Do(
-		//		func() error {
-		//			// TODO(kiennt): Check kind of action url -> Authen or not?
-		//			req, err := http.NewRequest(a.Method, url, nil)
-		//			if err != nil {
-		//				return err
-		//			}
-		//			resp, err := cli.Do(req)
-		//			if err != nil {
-		//				return err
-		//			}
-		//			level.Info(s.logger).Log("msg", "Sending request", "id", s.ID,
-		//				"url", url, "method", a.Method)
-		//			defer resp.Body.Close()
-		//			return nil
-		//		},
-		//		retry.DelayType(func(n uint, config *retry.Config) time.Duration {
-		//			var f retry.DelayTypeFunc
-		//			switch a.DelayType {
-		//			case "fixed":
-		//				f = retry.FixedDelay
-		//			case "backoff":
-		//				f = retry.BackOffDelay
-		//			}
-		//			return f(n, config)
-		//		}),
-		//		retry.Attempts(a.Attempts),
-		//		retry.Delay(delay),
-		//		retry.RetryIf(func(err error) bool {
-		//			return err != nil
-		//		}),
-		//	)
-		//	if err != nil {
-		//		level.Error(s.logger).Log("msg", "Error doing scale action", "url", a.URL.String(), "err", err)
-		//	}
-		//	defer wg.Done()
-		//}(string(a.URL))
 	}
 	// Wait until all actions were performed
 	wg.Wait()
 }
 
 type alert struct {
-	state *model.Alert
+	state   *model.Alert
+	cooling bool
 }
 
 func (a *alert) shouldFire(duration time.Duration) bool {
@@ -205,7 +195,8 @@ func (a *alert) shouldFire(duration time.Duration) bool {
 }
 
 func (a *alert) isCoolingDown(cooldown time.Duration) bool {
-	return time.Now().Sub(a.state.FiredAt) <= cooldown
+	a.cooling = time.Now().Sub(a.state.FiredAt) <= cooldown
+	return a.cooling
 }
 
 func (a *alert) start() {
@@ -214,7 +205,7 @@ func (a *alert) start() {
 }
 
 func (a *alert) fire(firedAt time.Time) {
-	if a.state.FiredAt.IsZero() {
+	if a.state.FiredAt.IsZero() || !a.cooling {
 		a.state.FiredAt = firedAt
 	}
 }
