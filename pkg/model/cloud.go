@@ -28,20 +28,50 @@ var (
 	DefaultOpenStackPrefix = utils.Path(DefaultCloudPrefix, "openstack")
 )
 
-const ( // OpenStackType represents a OpenStack type
+const (
+	// OpenStackType represents a OpenStack type
 	OpenStackType string = "openstack"
 )
 
-// OpenStack represents OpenStack information.
-type OpenStack struct {
-	Endpoints map[string]URL `json:"endpoints"`
+// Cloud represents Cloud information. Other cloud provider models
+// have to inherited this struct
+type Cloud struct {
+	Provider  string         `json:"provider"`
 	ID        string         `json:"id,omitempty"`
-	Auth      Auth           `json:"auth"`
+	Endpoints map[string]URL `json:"endpoints"`
 	Monitor   Monitor        `json:"monitor"`
 }
 
-// Auth stores information needed to authenticate to an OpenStack Cloud.
-type Auth struct {
+func (cl *Cloud) Validate() error {
+	switch cl.Provider {
+	case "openstack":
+	default:
+		return errors.Errorf("unsupported provider %s", cl.Provider)
+	}
+	// Validate endpoints
+	for _, e := range cl.Endpoints {
+		if err := e.Validate(); err != nil {
+			return err
+		}
+	}
+	// Require Monitor backend
+	if &cl.Monitor == nil {
+		return errors.New("missing `Monitor` option")
+	}
+	if err := cl.Monitor.Address.Validate(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// OpenStack represents OpenStack information.
+type OpenStack struct {
+	Cloud
+	Auth OpenStackAuth `json:"auth"`
+}
+
+// OpenStackAuth stores information needed to authenticate to an OpenStack Cloud.
+type OpenStackAuth struct {
 	// AuthURL specifies the HTTP endpoint that is required to work with
 	// the Identity API of the appropriate version. While it's ultimately needed by
 	// all of the identity services, it will often be populated by a provider-level
@@ -79,20 +109,6 @@ type Auth struct {
 
 // Validate returns nil if all fields of the OpenStack have valid values.
 func (op *OpenStack) Validate() error {
-	for _, e := range op.Endpoints {
-		if err := e.Validate(); err != nil {
-			return err
-		}
-	}
-
-	// Require Monitor backend
-	if &op.Monitor == nil {
-		return errors.New("missing `Monitor` option")
-	}
-	if err := op.Monitor.Address.Validate(); err != nil {
-		return err
-	}
-
 	// Require at least auth_url
 	if op.Auth.AuthURL == "" {
 		return errors.New("missing `IdentityEndpoint` in OpenStack AuthOpts")
