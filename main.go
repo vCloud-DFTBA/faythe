@@ -1,7 +1,7 @@
 package main
 
 import (
-	"faythe/config"
+	"github.com/ntk148v/faythe/config"
 	"flag"
 	"log"
 	"os"

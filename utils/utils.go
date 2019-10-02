@@ -12,7 +12,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/alertmanager/template"
 
-	"faythe/config"
+	"github.com/ntk148v/faythe/config"
 )
 
 // Flogger represents a file logger.

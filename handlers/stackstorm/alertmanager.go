@@ -10,8 +10,8 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/prometheus/alertmanager/template"
 
-	"faythe/config"
-	"faythe/utils"
+	"github.com/ntk148v/faythe/config"
+	"github.com/ntk148v/faythe/utils"
 )
 
 // TriggerSt2RuleAM gets Request from Prometheus Alertmanager then

@@ -8,10 +8,10 @@ import (
 
 	"github.com/gorilla/mux"
 
-	"faythe/config"
-	"faythe/handlers/basic"
-	"faythe/handlers/openstack"
-	"faythe/handlers/stackstorm"
+	"github.com/ntk148v/faythe/config"
+	"github.com/ntk148v/faythe/handlers/basic"
+	"github.com/ntk148v/faythe/handlers/openstack"
+	"github.com/ntk148v/faythe/handlers/stackstorm"
 )
 
 func newRouter(logger *log.Logger) *mux.Router {

@@ -8,8 +8,8 @@ import (
 	"github.com/gophercloud/gophercloud/openstack/orchestration/v1/stacks"
 	"github.com/pkg/errors"
 
-	"faythe/config"
-	"faythe/handlers/openstack/auth"
+	"github.com/ntk148v/faythe/config"
+	"github.com/ntk148v/faythe/handlers/openstack/auth"
 )
 
 // Outputs represents the outputs of stacks.

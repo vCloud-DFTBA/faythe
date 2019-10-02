@@ -11,8 +11,8 @@ import (
 
 	"github.com/prometheus/alertmanager/template"
 
-	"faythe/config"
-	"faythe/utils"
+	"github.com/ntk148v/faythe/config"
+	"github.com/ntk148v/faythe/utils"
 )
 
 var (

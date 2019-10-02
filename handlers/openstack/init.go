@@ -7,8 +7,8 @@ import (
 
 	"github.com/gophercloud/gophercloud/openstack/identity/v3/tokens"
 
-	"faythe/config"
-	"faythe/utils"
+	"github.com/ntk148v/faythe/config"
+	"github.com/ntk148v/faythe/utils"
 )
 
 // ServiceName represents the name of service, for example: heat, nova

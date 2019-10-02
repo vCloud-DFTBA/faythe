@@ -5,7 +5,7 @@ import (
 	"github.com/gophercloud/gophercloud/openstack"
 	"github.com/pkg/errors"
 
-	"faythe/config"
+	"github.com/ntk148v/faythe/config"
 )
 
 // CreateProvider gets configuration and returns a ProviderClient
