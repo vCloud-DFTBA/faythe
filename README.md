@@ -30,3 +30,7 @@ Follow the documentation [here](./docs/getting-started.md).
 ## Documentation
 
 Check out [documentation directory](./docs).
+
+## Version
+
+You can find [Faythe legacy version](https://github.com/ntk148v/faythe/tree/legacy). This is a just work version with autoscaling & autohealing.
