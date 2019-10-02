@@ -14,3 +14,7 @@ etcd:
   endpoints: ["192.168.1.2:2379", "192.168.1.3:2379", "192.168.1.4:2379"]
   username: "etcdadmin"
   password: "etcdsuperpassword"
+  auto_sync_interval: 30s
+  dial_timeout: 2s
+  dial_keep_alive_time: 2s
+  dial_keep_alive_timeout: 6s
