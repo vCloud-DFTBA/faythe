@@ -14,16 +14,13 @@
 
 package model
 
-import (
-	"fmt"
-	"net/url"
-)
+import "net/url"
 
 // URL represents HTTP URL as string
 type URL string
 
 func (u URL) String() string {
-	return fmt.Sprintf("%s", string(u))
+	return string(u)
 }
 
 // Validate validates the raw url is the valid net.URL
