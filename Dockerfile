@@ -1,4 +1,5 @@
 FROM golang:1.12-alpine as builder
+LABEL maintainer="Kien Nguyen-Tuan <kiennt2609@gmail.com>"
 
 ENV GO111MODULE=on
 ENV APPLOC=$GOPATH/src/faythe
@@ -7,12 +8,16 @@ RUN apk add --no-cache git
 
 ADD . $APPLOC
 WORKDIR $APPLOC
-RUN go build -mod vendor -o /bin/faythe
+RUN go build -mod vendor -o /bin/faythe cmd/faythe/main.go && \
+    chmod +x /bin/faythe
 
 FROM alpine:3.9
 LABEL maintainer="Kien Nguyen <kiennt2609@gmail.com>"
 COPY --from=builder /bin/faythe /bin/faythe
-RUN chmod +x /bin/faythe && \
-    mkdir /etc/faythe
+COPY examples/faythe.yml /etc/faythe/config.yml
+RUN mkdir -p etc/faythe && \
+    chown -R nobody:nogroup etc/faythe
+USER nobody
+EXPOSE 8600
 ENTRYPOINT ["/bin/faythe"]
-CMD ["-conf", "/etc/faythe/config.yml"]
+CMD ["--config.file", "/etc/faythe/config.yml"]
