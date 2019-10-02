@@ -17,13 +17,17 @@ package autoscaler
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	etcdv3 "go.etcd.io/etcd/clientv3"
 
+	"github.com/ntk148v/faythe/pkg/metrics"
 	"github.com/ntk148v/faythe/pkg/model"
+	"github.com/ntk148v/faythe/pkg/utils"
 )
 
 // Manager manages a set of Scaler instances.
@@ -105,12 +109,52 @@ func (m *Manager) stopScaler(id string) {
 
 func (m *Manager) startScaler(id string, data []byte) {
 	level.Info(m.logger).Log("msg", "Creating scaler", "id", id)
-	s := newScaler(log.With(m.logger, "scaler", id), data)
+	backend, err := m.getBackend(id)
+	if err != nil {
+		level.Error(m.logger).Log("msg", "Error creating registry backend for scaler",
+			"id", id)
+		return
+	}
+	s := newScaler(log.With(m.logger, "scaler", id), data, backend)
 	m.rgt.Set(id, s)
 	go func() {
 		m.wg.Add(1)
 		s.run(m.ctx, m.wg)
 	}()
+}
+
+func (m *Manager) getBackend(key string) (metrics.Backend, error) {
+	// There is format -> Cloud provider id
+	providerID := strings.Split(key, "/")[2]
+	resp, err := m.etcdcli.Get(m.ctx, utils.Path(model.DefaultCloudPrefix, providerID))
+	if err != nil {
+		return nil, err
+	}
+	value := resp.Kvs[0]
+	var (
+		cloud   model.Cloud
+		backend metrics.Backend
+	)
+	err = json.Unmarshal(value.Value, &cloud)
+	if err != nil {
+		return nil, err
+	}
+	switch cloud.Provider {
+	case "openstack":
+		var ops model.OpenStack
+		err = json.Unmarshal(value.Value, &ops)
+		if err != nil {
+			return nil, err
+		}
+		// Force register
+		err := metrics.Register(ops.Monitor.Backend, string(ops.Monitor.Address))
+		if err != nil {
+			return nil, err
+		}
+		backend, _ = metrics.Get(fmt.Sprintf("%s-%s", ops.Monitor.Backend, ops.Monitor.Address))
+	default:
+	}
+	return backend, nil
 }
 
 // save puts scalers to etcd

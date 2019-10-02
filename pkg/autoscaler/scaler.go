@@ -17,7 +17,6 @@ package autoscaler
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"github.com/avast/retry-go"
 	"net"
 	"net/http"
@@ -43,13 +42,15 @@ type Scaler struct {
 	mtx        sync.RWMutex
 	done       chan struct{}
 	terminated chan struct{}
+	backend    metrics.Backend
 }
 
-func newScaler(l log.Logger, data []byte) *Scaler {
+func newScaler(l log.Logger, data []byte, b metrics.Backend) *Scaler {
 	s := &Scaler{
 		logger:     l,
 		done:       make(chan struct{}),
 		terminated: make(chan struct{}),
+		backend:    b,
 	}
 	_ = json.Unmarshal(data, s)
 	if s.Alert == nil {
@@ -76,13 +77,6 @@ func (s *Scaler) run(ctx context.Context, wg *sync.WaitGroup) {
 		wg.Done()
 		close(s.terminated)
 	}()
-	// Force register
-	err := metrics.Register(s.Monitor.Backend, string(s.Monitor.Address))
-	if err != nil {
-		level.Error(s.logger).Log("msg", "Error loading metric backend, cancel scaler")
-		return
-	}
-	backend, _ := metrics.Get(fmt.Sprintf("%s-%s", s.Monitor.Backend, s.Monitor.Address))
 
 	for {
 		select {
@@ -96,7 +90,7 @@ func (s *Scaler) run(ctx context.Context, wg *sync.WaitGroup) {
 				if !s.Active {
 					continue
 				}
-				result, err := backend.QueryInstant(ctx, s.Query, time.Now())
+				result, err := s.backend.QueryInstant(ctx, s.Query, time.Now())
 				if err != nil {
 					level.Error(s.logger).Log("msg", "Executing query failed, skip current interval",
 						"query", s.Query, "err", err)
