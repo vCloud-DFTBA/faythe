@@ -19,6 +19,10 @@ _/ ____\____  ___.__._/  |_|  |__   ____
 > * Q: What is Faythe?
 > * A: A trusted advisor, courier or intermediary. Faythe is used infrequently, and is associated with Faith and Faithfulness. Faythe may be a repository of key service or courier of shared secrets.
 
+## Getting started
+
+Follow the documentation [here](./docs/getting-started.md).
+
 ## Features
 
 ## Documentation
