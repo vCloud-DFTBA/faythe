@@ -38,7 +38,7 @@ func (a *API) createScaler(w http.ResponseWriter, req *http.Request) {
 		force bool
 	)
 	vars = mux.Vars(req)
-	path = utils.Path(model.DefaultOpenStackPrefix, vars["provider_id"])
+	path = utils.Path(model.DefaultCloudPrefix, vars["provider_id"])
 	resp, _ := a.etcdclient.Get(req.Context(), path, etcdv3.WithCountOnly())
 	if resp.Count == 0 {
 		err := fmt.Errorf("Unknown provider id: %s", vars["provider_id"])

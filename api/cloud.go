@@ -133,7 +133,7 @@ func (a *API) unregisterCloud(w http.ResponseWriter, req *http.Request) {
 	)
 	vars = mux.Vars(req)
 	pid = strings.ToLower(vars["id"])
-	path = utils.Path(model.DefaultOpenStackPrefix, pid)
+	path = utils.Path(model.DefaultCloudPrefix, pid)
 	_, err := a.etcdclient.Delete(req.Context(), path, etcdv3.WithPrefix())
 	if err != nil {
 		a.respondError(w, apiError{
