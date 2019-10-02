@@ -11,7 +11,7 @@ _/ ____\____  ___.__._/  |_|  |__   ____
             \/\/                \/     \/
 ```
 
-## What is Faythe?
+## What does the phrase Faythe mean?
 
 * The name is inspired by a character in cryptology. Check [wiki - section Cast of character](https://en.wikipedia.org/wiki/Alice_and_Bob) for more details.
 
@@ -24,6 +24,8 @@ _/ ____\____  ___.__._/  |_|  |__   ____
 Follow the documentation [here](./docs/getting-started.md).
 
 ## Features
+
+* Cloud autoscaler with pluggable metric backends & cloud providers.
 
 ## Documentation
 
