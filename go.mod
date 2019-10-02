@@ -1,4 +1,4 @@
-module faythe
+module github.com/ntk148v/faythe
 
 go 1.12
 
