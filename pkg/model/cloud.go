@@ -34,6 +34,7 @@ const (
 // Cloud represents Cloud information. Other cloud provider models
 // have to inherited this struct
 type Cloud struct {
+	// The cloud provider type. OpenStack is the only provider supported by now
 	Provider  string         `json:"provider"`
 	ID        string         `json:"id,omitempty"`
 	Endpoints map[string]URL `json:"endpoints"`
