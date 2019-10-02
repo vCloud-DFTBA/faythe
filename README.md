@@ -11,27 +11,26 @@ _/ ____\____  ___.__._/  |_|  |__   ____
             \/\/                \/     \/
 ```
 
-> **NOTE**: The current version v0.1.0 just works and won't be updated in the future. A completly new version is coming soon.
+## What does the phrase Faythe mean?
 
-## What is Faythe?
-
-* A ~~simple~~ Golang web api.
 * The name is inspired by a character in cryptology. Check [wiki - section Cast of character](https://en.wikipedia.org/wiki/Alice_and_Bob) for more details.
 
 > **TL;DR**:
 > * Q: What is Faythe?
 > * A: A trusted advisor, courier or intermediary. Faythe is used infrequently, and is associated with Faith and Faithfulness. Faythe may be a repository of key service or courier of shared secrets.
 
+## Getting started
+
+Follow the documentation [here](./docs/getting-started.md).
+
 ## Features
 
-* Trigger Heat AutoscalingPolicy & AutoscalingGroup with information from Prometheus alerts instead of OpenStack Telemetry (Aodh, Gnocchi & Ceilometer).
-* Trigger Stackstorm rules with information from Prometheus alerts.
-* Basic authentication.
-* Restrict domains(s).
-* Deduplicate alerts from Prometheus Alertmanager.
-* Live-reload configuration.
-* Write configuration.
+* Cloud autoscaler with pluggable metric backends & cloud providers.
 
 ## Documentation
 
 Check out [documentation directory](./docs).
+
+## Version
+
+You can find [Faythe legacy version](https://github.com/ntk148v/faythe/tree/legacy). This is a just work version with autoscaling & autohealing.

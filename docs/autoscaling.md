@@ -1,17 +1,19 @@
-# OpenStack Autoscaling with Faythe Guideline
+# OpenStack Autoscaling with Faythe guideline
 
-This guide describes how to automatically scale out your Compute instances in response to heavy system usage. By combining with Prometheus pre-defined rules that consider factors such as CPU or memory usage, you can configure OpenStack Orchestration (Heat) to add and remove additional instances automatically, when they are needed.
-
-- [OpenStack Autoscaling with Faythe Guideline](#openstack-autoscaling-with-faythe-guideline)
+- [OpenStack Autoscaling with Faythe guideline](#openstack-autoscaling-with-faythe-guideline)
   - [1. The standard OpenStack Autoscaling approach](#1-the-standard-openstack-autoscaling-approach)
     - [1.1. Main components](#11-main-components)
     - [1.2. Autoscaling process](#12-autoscaling-process)
     - [1.3. Drawbacks](#13-drawbacks)
-  - [2. The new approach with Faythe](#2-the-new-approach-with-faythe)
-    - [2.1. The idea](#21-the-idea)
-    - [2.2. The implementation](#22-the-implementation)
-    - [2.3. Guideline](#23-guideline)
-    - [2.4. Drawbacks and TODO](#24-drawbacks-and-todo)
+  - [2. The approach with Faythe](#2-the-approach-with-faythe)
+  - [3. The implementation](#3-the-implementation)
+    - [3.1. The overall architecture](#31-the-overall-architecture)
+    - [3.2. The workflow](#32-the-workflow)
+  - [4. API](#4-api)
+    - [4.1. Register Cloud provider](#41-register-cloud-provider)
+    - [4.2. Create a scaler](#42-create-a-scaler)
+
+This guide describes how to automatically scale out/scale in your Compute instances in response to heavy system usage. By combining with Prometheus pre-defined rules that consider factors such as CPU or memory usage, you can configure OpenStack Orchestration (Heat) to add & remove additional instances automatically, when they are needed.
 
 ## 1. The standard OpenStack Autoscaling approach
 
@@ -21,9 +23,9 @@ Let's talk about the standard OpenStack Autoscaling approach before goes to the 
 
 - Orchestration: The core component providing automatic scaling is Orchestration (heat). Orchestration allows you to define rules using human-readable YAML templates. These rules are applied to evaluate system load based on Telemetry data to find out whether there is need to more instances into the stack. Once the load has dropped, Orchestration can automatically remove the unused instances again.
 
-- Telemetry: Telemetry does performance monitoring of your OpenStack environment, collecting data on CPU, storage and memory utilization for instances and physical hosts. Orchestration templates examine Telemetry data to access whether any pre-defined action should start.
-  - Ceilometer: a data collection service that provides the ability to normalise and transform data across all current OpenStack core components with work underway to support future OpenStack components.
-  - Gnocchi: provides a time-series resource indexing, metric storage service with enables users to capture OpenStack resources and the metrics associated with them.
+- Telemetry: Telemetry does performance monitoring of your OpenStack environment, collecting data on CPU, storage & memory utilization for instances & physical hosts. Orchestration templates examine Telemetry data to access whether any pre-defined action should start.
+  - Ceilometer: a data collection service that provides the ability to normalise & transform data across all current OpenStack core components with work underway to support future OpenStack components.
+  - Gnocchi: provides a time-series resource indexing, metric storage service with enables users to capture OpenStack resources & the metrics associated with them.
   - Aodh: enables the abiltity to trigger actions based on defined rules against sample or event data collected by Ceilometer.
 
 ### 1.2. Autoscaling process
@@ -32,14 +34,12 @@ For more details, you could check [IBM help documentation](https://ibm-blue-box-
 
 ### 1.3. Drawbacks
 
-- Ceilometer, Aodh are lacking of contribution. Ceilometer API was [deprecated](https://review.opendev.org/#/c/512286/). Either Transform and pipeline was [the same state](https://review.opendev.org/#/c/560854/), it means cpu_util will be unusable soon. In the commit message, @sileht - Ceilometer Core reviewer wrote that "Also backend like Gnocchi offers a better alternative to compute them". But Aodh still [deprecated Gnocchi aggregation API](https://github.com/openstack/aodh/blob/master/aodh/evaluator/gnocchi.py#L140) which doesn't support `rate:mean`. For more details, you can follow the [issue I've opened before](https://github.com/gnocchixyz/gnocchi/issues/999). Be honest, I was gave up on it - 3 projects which was tightly related together, one change might cause a sequence and break the whole stack, how can I handle that?
+- Ceilometer, Aodh are lacking of contribution. Ceilometer API was [deprecated](https://review.opendev.org/#/c/512286/). Either Transform & pipeline was [the same state](https://review.opendev.org/#/c/560854/), it means cpu_util will be unusable soon. In the commit message, @sileht - Ceilometer Core reviewer wrote that "Also backend like Gnocchi offers a better alternative to compute them". But Aodh still [deprecated Gnocchi aggregation API](https://github.com/openstack/aodh/blob/master/aodh/evaluator/gnocchi.py#L140) which doesn't support `rate:mean`. For more details, you can follow the [issue I've opened before](https://github.com/gnocchixyz/gnocchi/issues/999). Be honest, I was gave up on it - 3 projects which was tightly related together, one change might cause a sequence & break the whole stack, how can I handle that?
 - Aodh has its own formula to define rule based on Ceilometer metrics (that were stored in Gnocchi). But it isn't correct sometimes cause the wrong scaling action.
 - In reality, I face the case that Rabbitmq was under heavy load due to Ceilometer workload.
 - IMO, Gnocchi documentation is not good enough. It might be a bias personal opinion.
 
-## 2. The new approach with Faythe
-
-### 2.1. The idea
+## 2. The approach with Faythe
 
 Actually, this isn't a complete new approach, it still leverages Orchestration (heat) to do scaling action. The different comes from Monitor service.
 
@@ -51,268 +51,171 @@ Take a look at [Rico Lin - Heat's PTL, autoscale slide](https://www.slideshare.n
 
 ![](https://image.slidesharecdn.com/auto-scaleaself-healingclusterinopenstack1-180824033106/95/autoscale-a-selfhealing-cluster-in-openstack-with-heat-21-638.jpg?cb=1536873751)
 
-OpenStack Telemetry takes care of `Metering` and `Alarm`. Ok, the new approach is simply using _another service that can take Telemetry roles_.
+OpenStack Telemetry takes care of `Metering` & `Alarm`. Ok, the new approach is simply using _others that can take Telemetry roles_.
 
-The _another service_ is [Prometheus stack](https://prometheus.io/). The question here is why I chose this?
+```
+Gnocchi + Aodh + Ceilometer --> Faythe + Prometheus
+```
 
-- Nice query language: Prometheus provides a functional query language called PromQL (Prometheus Query Language) that lets the user select and aggregate time series data in real time.
-- A wide range of exporter: The more exporter the more metrics I can collect and evaluate.
+**Why Prometheus?**
+
+- Nice query language: Prometheus provides a functional query language called PromQL (Prometheus Query Language) that lets the user select & aggregate time series data in real time.
+- A wide range of exporter: The more exporter the more metrics I can collect & evaluate.
 - Flexibile: Beside the system factor like CPU/Memory usage, I can evaluate any metrics I can collect, for example: JVM metrics.
-- // Take time to investigate about Prometheus and fill it here by yourself
+- Others? _Take time to investigate about Prometheus and fill it here by yourself_
 
-### 2.2. The implementation
+**Why Faythe?**
 
-**The ideal architecture**
+- The one who stays in the middle to connect OpenStack services with external like Prometheus.
+- Our goal is able to trigger an autoscale event after evaluate instance's metrics. Prometheus can collect & evaluate metrics to fire an alarm, it's done the job. How can we trigger the event when an alarm is fired? I used to use Prometheus Alertmanager to send request to webhook. There are 2 types of webook:
+  - **Fixed webhook** - OS::Heat::ScalingPolicy alarm url. It's fixed & can be only used for just 1 stack.
+  - **Dynamic webhook** - Faythe previous version, gets the alerts from request's body then processes to find scale url. But it heavily depends on `labels`. Imagine that we have an OOM instance, Prometheus Alertmanager sends a POST request to the pre-defined url. We have to find an AutoscalingGroup & ScalingPolicy manages this instance. To do it, we need an extra information from request body. Other fields are fixed (`instance`, `started_at`,... - [the structure](https://prometheus.io/docs/alerting/notifications/#alert)), `labels` is the only field we can extract information. We have to change either Prometheus configuration, Prometheus server alert rules, Alertmanager configuration & Heat template. Not all stacks share the same alert rules. Some might be fired when memory is over than 85%, but others can survive even memory is 90%. Therefore, we have to set rule for each stack, reload/restart Prometheus server then. Beside that even we have enough `labels`, it's still hard to find a stack, especially `nested stack resource`. The work becomes a nightmare!
 
-```
-                                               +--------------------------------------------------+
-                                               |                                                  |
-                                               |     +-----------------+  +-----------------+     |
-+---------------------+                        |     |   Instance 1    |  |   Instance 2    |     |
-|                     |                        |     |                 |  |                 |     |
-|                     |            Scrape Metrics    |  +-----------+  |  |  +-----------+  |     |
-|  Prometheus server  <------------------------+--------+Exporter(s)|  |  |  |Exporter(s)|  |     |
-|                     |                        |     |  +-----------+  |  |  +-----------+  |     |
-|                     |                        |     +-----------------+  +-----------------+     |
-+----------+----------+                        |     +--------------------------------------+     |
-           |                                   |     |           Autoscaling Group          |     |
-           | Fire alerts                       |     +--------------------------------------+     |
-           |                                   |                                                  |
-           |                                   |                                                  |
-+----------v------------+                      |     +--------------------------------------+     |
-|                       |         Send scale request |                                      |     |
-|Prometheus Alertmanager+----------------------+----->          Scaling Policy              |     |
-|                       |                      |     |                                      |     |
-+-----------------------+                      |     +--------------------------------------+     |
-                                               |                                                  |
-                                               |                     Heat Stack                   |
-                                               +--------------------------------------------------+
-```
+## 3. The implementation
 
-- Prometheus server scrapes metrics from exporters that launch inside Instance.
-- Prometheus server evaluates metrics with pre-defined rules.
-- Prometheus server fires alert to Prometheus alertmanager.
-- Prometheus alertmanager sends POST Scale request to Heat Scaling policy with webhook configuration.
+### 3.1. The overall architecture
 
-It's a piece of cake, right? But _where is Faythe, I don't see it?_ Let's talk about the solution problems:
+![](imgs/faythe-autoscaling.png)
 
-- Prometheus Alertmanager webhook config doesn't [support additional HTTP headers](https://github.com/prometheus/common/issues/140). And they won't! :cry: Heat Scaling Policy signal url requires `X-Auth-Token` in header and Prometheus can't generate a token itself, either.
-- Heat doesn't recognize the resolved alerts from Prometheus Alertmanager to execute scale in action.
-- How to connect these components together?
+### 3.2. The workflow
 
-We need a 3rd service to solve these problems - `Faythe does some magic`.
+> NOTE: When send a requst to Faythe, you might need a basic auth.
 
-![](https://media.giphy.com/media/12NUbkX6p4xOO4/source.gif)
+- Create Heat stack with AutoscalingGroup & ScalingPolicy.
+- Register your cloud with Faythe - a POST request with the following body. If you already register the cloud, skip this step
 
-**The reality architecture**
-
-```
-                                              ++-------------------------------------------------+
-                                               |                                                  +
-                                               |     +-----------------+  +-----------------+     |
-+---------------------+                        |     |   Instance 1    |  |   Instance 2    |     |
-|                     |                        +     |                 |  |                 |     |
-|                     |            Scrape Metrics    |  +-----------+  |  |  +-----------+  |     |
-|  Prometheus server  <------------------------+--------+Exporter(s)|  |  |  |Exporter(s)|  |     |
-|                     |                        |     |  +-----------+  |  |  +-----------+  |     |
-|                     |                        |     +-----------------+  +-----------------+     |
-+----------+----------+                        |     +--------------------------------------+     |
-           |                                   |     |           Autoscaling Group          |     |
-           | Fire alerts                       |     +--------------------------------------+     |
-           |                                   |                                                  |
-           |                                   |                                                  |
-+----------v------------+                      |     +--------------------------------------+     |
-|                       |                      |     |                                      |     |
-|Prometheus Alertmanager|                      |                Scaling Policy              |     |
-|                       |                      |     |                                      |     |
-+-----------+-----------+                      |     +-----^--------------------------------+     |
-            |                                  |           |                                      |
-            | Send request through             |           |         Heat Stack                   |
-            | pre-configured webhook           +--------------------------------------------------+
-            |                                              |
-+-----------v-----------+                                  |
-|                       |                                  |
-|        Faythe         +----------------------------------+
-|                       |       Send actual scale request
-+-----------------------+
-
+```json
+POST /clouds/openstack
+Req
+{
+  "auth": {
+    "username": "superuser",
+    "auth_url": "http://10.240.201.100:5000", // Require
+    "password": "secretpassword",
+    "project_name": "autoscaling-test"
+  },
+  "monitor": {
+    "backend": "prometheus", // Require
+    "address": "http://10.240.201.233:9091" // Require
+  },
+  "provider": "openstack" // Require
+}
 ```
 
-> NOTE: The stack leverages OpenStack instance metadata and Prometheus labels.
+- Verify.
 
-- Prometheus server scrapes metrics from exporters that launch inside Instance.
-- Prometheus server evaluates metrics with pre-defined rules.
-- Prometheus server fires alert to Prometheus alertmanager.
-- Prometheus alertmanager sends Alerts via pre-configured webhook URL - Faythe endpoint.
-- Faythe receives and processes Alerts (dedup, group alert and generate a Heat signal URL) and creates a POST request to scale endpoint.
-
-### 2.3. Guideline
-
-The current aprroach requires some further setup and configuration from Prometheus and Heat stack. You will see that it's quite complicated.
-
-**The simplify in logic is paid by the complex config steps.**
-
-**Step 1:** Create a stack - the following is the sample template. It has several requirements:
-
-- OS::Heat::ScalingPolicy has to be named as `scaleout_policy` and `scalein_policy`.
-- OS::Heat::AutoScalingGroup's instance metadata has to contain `stack_asg_name` and `stack_asg_id`. It will be used to generate signal URL.
-- Instance should have a cloud init script to enable and start Prometheus exporters automatically.
-
-```yaml
----
-resources:
-  asg:
-    type: OS::Heat::AutoScalingGroup
-    properties:
-      min_size: { get_param: min_size }
-      max_size: { get_param: max_size }
-      resource:
-        type: { get_param: service_template }
-        properties:
-          flavor: { get_param: flavor }
-          image: { get_param: image }
-          key_name: { get_param: key_name }
-          network: { get_param: network }
-          subnet: { get_param: subnet }
-          metadata: {
-              "monitoring": "1", # Required
-              "service": "myservice",
-              "stack_asg_name": { get_param: "OS::stack_name" }, # Required
-              "stack_asg_id": { get_param: "OS::stack_id" }, # Required
+```json
+GET /clouds/
+Resp
+{
+    "Status": "OK",
+    "Data": {
+        "/clouds/7f7bac1277f4c0a83a022a80060dd6cce5bcbf28666da6505c09b4c4e70e3a93": {
+            "provider": "openstack",
+            "id": "7f7bac1277f4c0a83a022a80060dd6cce5bcbf28666da6505c09b4c4e70e3a93",
+            "endpoints": null,
+            "monitor": {
+                "backend": "prometheus",
+                "address": "http://10.240.201.233:9091",
+                "metadata": null
+            },
+            "auth": {
+                "auth_url": "http://10.240.201.100:5000",
+                "region_name": "",
+                "username": "superuser",
+                "userid": "",
+                "password": "secretpassword",
+                "domain_name": "",
+                "domain_id": "",
+                "project_name": "autoscaling-test",
+                "project_id": ""
             }
-          security_group: { get_param: security_group }
-
-  scaleout_policy: # Have to be named as `scaleout_policy`
-    type: OS::Heat::ScalingPolicy
-    properties:
-      adjustment_type: change_in_capacity
-      auto_scaling_group_id: { get_resource: asg }
-      cooldown: { get_param: scale_out_cooldown }
-      scaling_adjustment: { get_param: scaling_out_adjustment }
-
-  scalein_policy: # Have to be named as `scalein_policy`
-    type: OS::Heat::ScalingPolicy
-    properties:
-      adjustment_type: change_in_capacity
-      auto_scaling_group_id: { get_resource: asg }
-      cooldown: { get_param: scale_in_cooldown }
-      scaling_adjustment: { get_param: scaling_in_adjustment }
+        }
+    },
+    "Err": ""
+}
 ```
 
-**Step 2:** Configure Prometheus openstack discovery
+- Create a scaler to watch & handle Stack scale, `7f7bac1277f4c0a83a022a80060dd6cce5bcbf28666da6505c09b4c4e70e3a93` is the cloud provider id which is created by hash its auth-url. Not that, there is a sample query, you can put any Prometheus query there.
 
-```yaml
-- job_name: openstack_scale_test
-  openstack_sd_configs:
-    - role: instance
-      identity_endpoint: "<openstackendpoint>"
-      username: "<openstackusername>"
-      password: "<openstackpassword>"
-      domain_name: "default"
-      port: 9100 # Exporter endpoint
-      refresh_interval: 20s
-      region: "RegionOne"
-      project_name: "<openstackproject>"
-
-  relabel_configs:
-    # Only keep metrics from ACTIVE instance
-    - source_labels: [__meta_openstack_instance_status]
-      action: keep
-      regex: ACTIVE
-
-    # Only scrape from instance with monitoring tag
-    - source_labels: [__meta_openstack_tag_monitoring]
-      action: keep
-      regex: 1
-
-    - source_labels: [__meta_openstack_project_id]
-      target_label: project_id
-      replacement: $1
-
-    - source_labels: [__meta_openstack_tag_stack_asg_name]
-      target_label: stack_asg_name
-      replacement: $1
-
-    - source_labels: [__meta_openstack_tag_stack_asg_id]
-      target_label: stack_asg_id
-      replacement: $1
+```json
+POST /scalers/7f7bac1277f4c0a83a022a80060dd6cce5bcbf28666da6505c09b4c4e70e3a93
+Req
+{
+	"query": "((node_memory_MemTotal_bytes{stack_asg_id=\"cb13f760-8130-4aa4-8821-309e5eec8136\"} - (node_memory_MemFree_bytes{stack_asg_id=\"cb13f760-8130-4aa4-8821-309e5eec8136\"} + node_memory_Buffers_bytes{stack_asg_id=\"cb13f760-8130-4aa4-8821-309e5eec8136\"} + node_memory_Cached_bytes{stack_asg_id=\"cb13f760-8130-4aa4-8821-309e5eec8136\"})) / node_memory_MemTotal_bytes{stack_asg_id=\"cb13f760-8130-4aa4-8821-309e5eec8136\"} * 100) < 20",
+	"duration": "5m",
+	"interval": "30s",
+	"actions": {
+		"scale_in": {
+			"url": "http://10.240.201.100:8000/v1/signal/arn%3Aopenstack%3Aheat%3A%3Ad897ac7ef31143fd85a0474d9010290d%3Astacks/test-autoscale-new-test-service-asg-a67s7kftanzq/cb13f760-8130-4aa4-8821-309e5eec8136/resources/scalein_policy?Timestamp=2019-09-30T02%3A50%3A35Z&SignatureMethod=HmacSHA256&AWSAccessKeyId=c9dfe2470b45476ebd63153d8b2f1c6c&SignatureVersion=2&Signature=Lb4yROkvWDBkRTSQdI222slzzkrCtmZHbgn67Siw7Dw%3D",
+			"attempts": 4,
+			"delay": "50ms",
+			"type": "http",
+			"delay_type": "backoff",
+			"method": "POST"
+		}
+	},
+	"cooldown": "400s",
+	"metadata": {
+		"group": "test"
+	},
+	"active": true
+}
 ```
 
-**Step 3:** Define a Prometheus rule, for example:
+- A scaler is created. If a scaler with the same id was existed, just recreate it, Manager has a registry to manage scaler lifecycle. Faythe leverages [Etcd watch for changes mechanism](https://www.oreilly.com/library/view/coreos-essentials/9781785283949/ch02s04.html) to update the registry. The rule is quite simple.
 
-```yaml
-groups:
-  - name: targets
-    rules:
-      - alert: high_memory_load
-        expr: avg by(stack_asg_id, stack_asg_name, project_id) ((node_memory_MemTotal_bytes{service="myservice"} - node_memory_MemFree_bytes{service="myservice"}) / node_memory_MemTotal_bytes{service="myservice"} * 100) > 80
-        for: 5m
-        labels:
-          severity: critical
-        annotations:
-          summary: "High memory"
-          description: "Instance {{ $labels.instance }} of job {{ $labels.job }} (stack {{ $labels.stack_id }} has been high af for 5m"
+```
+- PUT + Create: start scaler.
+- PUT + Modify: stop, remove scaler then start scaler.
+- DELETE: stop & remove scaler.
 ```
 
-**Step 4:** Configure Prometheus Alertmanager webhook, for example:
+![](imgs/faythe-autoscaling-create-scaler.png)
 
-```yaml
-route:
-  receiver: "custom_alert"
-  group_wait: 20s
-  group_interval: 3m
+- A scaler evaluates a query every 30 seconds (The `interval`).
 
-receivers:
-  - name: "custom_alert"
-    webhook_configs:
-      - send_resolved: true
-        url: http://<faythe-host>:<faythe-port>/openstack/autoscaling/openstack-1f
-        http_config:
-          basic_auth:
-            username: "admin"
-            password: "password"
-```
+![](imgs/faythe-autoscaling-scaler-evaluate.png)
 
-Note that, `openstack-1f` has to be the name of OpenStack configuration group in Faythe config file. It helps Faythe to work with multiple OpenStack.
+- If any metrics are out of range, the Alert won't be fired immediately. After 5 minutes (the `duration`), the alert is still active, fire it! Now the defined actions will be executed. Next cycle, Faythe will disable scaling events untils cooldown period is over.
 
-**Step 5:** Configure Faythe
+## 4. API
 
-```yaml
-# OpenStackConfiguration.
-openstack_configs:
-  openstack-1f:
-    region_name: "RegionOne"
-    domain_name: "Default"
-    auth_url: "<openstackendpoint>"
-    username: "<openstackusername>"
-    password: "<openstackpassword>"
-    project_name: "<openstackproject>"
+### 4.1. Register Cloud provider
 
-server_config:
-  # Example:
-  # "www.example.com"
-  # "([a-z]+).domain.com"
-  # remote_host_pattern: "10.240.202.209.*"
-  basic_auth:
-    username: "admin"
-    password: "password"
-  log_dir: "/whatever/directory/faythe-logs"
-```
+| Parameter             | Required | Default | Description                                                                                           |
+| --------------------- | -------- | ------- | ----------------------------------------------------------------------------------------------------- |
+| provider              | true     |         | The cloud provider type. OpenStack is the only provider supported by now.                             |
+| endpoints             | false    |         | The map of Cloud provider endpoints.                                                                  |
+| monitor               | true     |         | The Cloud monitor.                                                                                    |
+| monitor.backend       | true     |         | The name of monitor service. Prometheus is the only supported by now.                                 |
+| monitor.address       | true     |         | The monitor service's endpoint used to query metrics. Should be in the format: `scheme://host:<port>` |
+| auth (openstack only) | true     |         | Auth stores information needed to authenticate to an OpenStack Cloud.                                 |
+| auth.auth_url         | true     |         | The HTTP endpoint that is required to work with the Identity API of the appropriate version.          |
+| auth.region_name      | false    |         | The OpenStack region.                                                                                 |
+| auth.username         | false    |         | The OpenStack Keystone username.                                                                      |
+| auth.password         | false    |         | The OpenStack Keystone username's password.                                                           |
+| auth.domain_name      | false    |         | The OpenStack Keystone domain name.                                                                   |
+| auth.domain_id        | false    |         | The OpenStack Keystone domain id.                                                                     |
+| auth.project_name     | false    |         | The OpenStack Keystone project name.                                                                  |
+| auth.project_id       | false    |         | The OpenStack Keystone domain id.                                                                     |
 
-**Step 6:** Let's make them work:
+### 4.2. Create a scaler
 
-- Prometheus server.
-- Prometheus alertmanager.
-- Faythe.
-
-![](https://media.giphy.com/media/cLlVn5zC5UOSmQZKJ7/source.gif)
-
-### 2.4. Drawbacks and TODO
-
-**Drawbacks**
-
-- The configuration steps is way too complicated, many manual steps have to be done.
-
-**TODO**
-
-- Simplify strategy, might need a service discovery.
+| Parameter          | Required | Default | Description                                                                                                                                                                                      |
+| ------------------ | -------- | :------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| query              | true     |         | Query that will be executed against the Prometheus API. See [the official documentation](https://prometheus.io/docs/prometheus/latest/querying/basics/) for more details.                        |
+| duration           | true     |         | The time that the `AutoscalingPolicy` must alert the threshold before the policy triggers a scale up or scale down action                                                                        |
+| interval           | true     |         | The time between two continuous evaluate                                                                                                                                                         |
+| actions            | true     |         | The defined scale actions.                                                                                                                                                                       |
+| actions.url        | true     |         | The                                                                                                                                                                                              |
+| actions.type       | false    | http    | The type of action.                                                                                                                                                                              |
+| actions.method     | false    | POST    | The HTTP method                                                                                                                                                                                  |
+| actions.attempts   | false    | 10      | The count of retry.                                                                                                                                                                              |
+| actions.delay      | false    | 100ms   | The delay between retries.                                                                                                                                                                       |
+| actions.delay_type | false    | fixed   | The delay type: `fixed` or `backoff`. BackOffDelay is a DelayType which increases delay between consecutive retries. FixedDelay is a DelayType which keeps delay the same through all iterations |
+| description        | false    |         |                                                                                                                                                                                                  |
+| metadata           | false    |         |                                                                                                                                                                                                  |
+| active             | true     |         | Enable the scaler or not.                                                                                                                                                                        |
+| cooldown           | false    | 600ms   | The period to disable scaling events after a scaling action takes place                                                                                                                          |
+|                    |          |         |                                                                                                                                                                                                  |

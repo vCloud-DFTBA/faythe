@@ -1,4 +1,4 @@
 # Documentation
 
 1. [Getting started](./getting-started.md)
-2. [Autoscaling](./autoscaling.md)
+2. [A complete Autoscaling guideline](./autoscaling.md)

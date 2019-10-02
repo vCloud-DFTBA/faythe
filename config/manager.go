@@ -1,13 +1,29 @@
+// Copyright (c) 2019 Kien Nguyen-Tuan <kiennt2609@gmail.com>
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package config
 
 import (
+	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 	"path/filepath"
 	"sync"
 
 	"github.com/fsnotify/fsnotify"
+	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
 	yaml "gopkg.in/yaml.v2"
 )
@@ -17,11 +33,18 @@ import (
 type Manager struct {
 	configPath        string
 	configPermissions os.FileMode
+	Config            *Config
+	onConfigChange    func(fsnotify.Event)
+	mtx               sync.RWMutex
+	logger            log.Logger
+}
 
-	config         *Config
-	onConfigChange func(fsnotify.Event)
-	mtx            sync.RWMutex
-	log            *log.Logger
+// NewManager returns initialized Manager instance
+func NewManager() *Manager {
+	return &Manager{
+		configPermissions: os.FileMode(0644),
+		Config:            &DefaultConfig,
+	}
 }
 
 var m *Manager
@@ -30,21 +53,12 @@ func init() {
 	m = NewManager()
 }
 
-// NewManager returns an initialized Manager instance
-func NewManager() *Manager {
-	m := new(Manager)
-	m.configPermissions = os.FileMode(0644)
-	m.config = &DefaultConfig
-	m.log = log.New(os.Stdout, "config: ", log.LstdFlags)
-	return m
-}
-
-// SetConfigPath sets the path of config file.
+// SetConfigPath sets the path of config file
 func SetConfigPath(in string) {
 	m.SetConfigPath(in)
 }
 
-// SetConfigPath sets the path of config file.
+// SetConfigPath sets the path of config file
 func (m *Manager) SetConfigPath(in string) {
 	if in != "" {
 		m.configPath = in
@@ -56,22 +70,22 @@ func SetConfigPermissions(perm os.FileMode) {
 	m.SetConfigPermissions(perm)
 }
 
-// SetLog sets the manager's log instance.
-func SetLog(log *log.Logger) {
-	m.SetLog(log)
-}
-
-// SetLog sets the manager's log instance.
-func (m *Manager) SetLog(log *log.Logger) {
-	m.log = log
-}
-
 // SetConfigPermissions sets the permissions for the config file.
 func (m *Manager) SetConfigPermissions(perm os.FileMode) {
 	m.configPermissions = perm.Perm()
 }
 
-// Load parases the YAML input into a Config
+// SetLogger sets the manager's log instance.
+func SetLogger(l log.Logger) {
+	m.SetLogger(l)
+}
+
+// SetLogger sets the manager's log instance.
+func (m *Manager) SetLogger(l log.Logger) {
+	m.logger = l
+}
+
+// Load parses the YAML input s into a Config
 func Load(in string) error {
 	return m.Load(in)
 }
@@ -81,8 +95,8 @@ func (m *Manager) Load(in string) error {
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
 	// Force reinit config
-	m.config = new(Config)
-	err := yaml.UnmarshalStrict([]byte(in), m.config)
+	m.Config = new(Config)
+	err := yaml.UnmarshalStrict([]byte(in), m.Config)
 	if err != nil {
 		return err
 	}
@@ -101,34 +115,34 @@ func (m *Manager) LoadFile(in string) error {
 		return err
 	}
 	m.SetConfigPath(in)
-	err = Load(string(content))
+	err = m.Load(string(content))
 	if err != nil {
-		return errors.Wrapf(err, "parsing YAML file %s", in)
+		return errors.Wrapf(err, "parsing YAML file %s", m.configPath)
 	}
 	return nil
 }
 
-// Get returns Config instance.
-func Get() *Config {
-	return m.Get()
+// Set sets logger and loads Config from the given file path.
+func Set(fp string, l log.Logger) error {
+	return m.Set(fp, l)
 }
 
-// Get returns Config instance.
-func (m *Manager) Get() *Config {
-	m.mtx.RLock()
-	conf := m.config
-	m.mtx.RUnlock()
-	return conf
+// Set sets logger and loads Config from the given file path.
+func (m *Manager) Set(fp string, l log.Logger) error {
+	m.SetLogger(l)
+	return m.LoadFile(fp)
 }
 
-// ShowString returns string represent of Config.
-func ShowString() {
-	m.ShowString()
+// Show returns the represent of Config.
+// For debug purpose only
+func Show() {
+	m.Show()
 }
 
-// ShowString returns string represent of Config.
-func (m *Manager) ShowString() {
-	m.log.Println(m.config.String())
+// Show returns the represent of Config.
+// For debug purpose only
+func (m *Manager) Show() {
+	fmt.Println(m.Config.String())
 }
 
 // OnConfigChange defines the function be called when config file was change.
@@ -153,7 +167,7 @@ func (m *Manager) WatchConfig() {
 	go func() {
 		watcher, err := fsnotify.NewWatcher()
 		if err != nil {
-			m.log.Fatal(err)
+			level.Error(m.logger).Log("msg", "Error creating config file watcher", "err", err)
 		}
 		defer watcher.Close()
 
@@ -170,10 +184,10 @@ func (m *Manager) WatchConfig() {
 					const writeOrCreateMask = fsnotify.Write | fsnotify.Create
 					if filepath.Clean(event.Name) == m.configPath &&
 						event.Op&writeOrCreateMask != 0 {
-						m.log.Printf("Config file %s is changeing...\n", m.configPath)
+						level.Info(m.logger).Log("msg", "Config file is changing...")
 						err := m.LoadFile(m.configPath)
 						if err != nil {
-							m.log.Printf("error reading config file: %v\n", err)
+							level.Error(m.logger).Log("msg", "Error reading config file", "err", err)
 						}
 						if m.onConfigChange != nil {
 							m.onConfigChange(event)
@@ -186,7 +200,7 @@ func (m *Manager) WatchConfig() {
 
 				case err, ok := <-watcher.Errors:
 					if ok { // 'Errors' channel is not closed
-						m.log.Printf("watcher error: %v\n", err)
+						level.Error(m.logger).Log("msg", "Error closing config file watcher", "err", err)
 					}
 					eventsWG.Done()
 					return
@@ -195,7 +209,7 @@ func (m *Manager) WatchConfig() {
 		}()
 		err = watcher.Add(m.configPath)
 		if err != nil {
-			m.log.Fatal(err)
+			level.Error(m.logger).Log("msg", "Error adding config file watcher", "err", err)
 		}
 		initWG.Done()
 		eventsWG.Wait()
@@ -203,34 +217,47 @@ func (m *Manager) WatchConfig() {
 	initWG.Wait()
 }
 
-// Set updates the value of configuration. newConf should be a copy
-// of m.config instance.
-func Set(newConf *Config) {
-	m.Set(newConf)
+// Get returns Config instance.
+func Get() *Config {
+	return m.Get()
 }
 
-// Set updates the value of configuration. newConf should be a copy
+// Get returns Config instance.
+func (m *Manager) Get() *Config {
+	m.mtx.RLock()
+	conf := m.Config
+	m.mtx.RUnlock()
+	return conf
+}
+
+// SetConfig updates the value of configuration. newConf should be a copy
 // of m.config instance.
-func (m *Manager) Set(newConf *Config) {
+func SetConfig(newConf *Config) {
+	m.SetConfig(newConf)
+}
+
+// SetConfig updates the value of configuration. newConf should be a copy
+// of m.config instance.
+func (m *Manager) SetConfig(newConf *Config) {
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
-	m.config = newConf
+	m.Config = newConf
 }
 
-// Write writes the current configuration to a file.
+// Write writes the currnet configuration to a file
 func Write() error {
 	return m.Write()
 }
 
 // Write writes the current configuration to a file.
 func (m *Manager) Write() error {
-	m.log.Println("Attempting to write configuration to file")
+	level.Info(m.logger).Log("msg", "Attempting to write configuration to file")
 
 	raw, _ := yaml.Marshal(m.Get())
 	err := ioutil.WriteFile(m.configPath, raw, m.configPermissions)
 	if err != nil {
 		return err
 	}
-	m.log.Println("Configuration file was updated")
+	level.Info(m.logger).Log("msg", "Configuration file was updated")
 	return nil
 }
