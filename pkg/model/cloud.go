@@ -24,8 +24,6 @@ import (
 var (
 	// DefaultCloudPrefix is the default etcd prefix for Cloud data
 	DefaultCloudPrefix = "/clouds"
-	// DefaultOpenStackPrefix is the default etcd prefix for OpenStack data
-	DefaultOpenStackPrefix = utils.Path(DefaultCloudPrefix, "openstack")
 )
 
 const (
@@ -109,6 +107,11 @@ type OpenStackAuth struct {
 
 // Validate returns nil if all fields of the OpenStack have valid values.
 func (op *OpenStack) Validate() error {
+	switch op.Provider {
+	case "openstack":
+	default:
+		return errors.Errorf("unsupported cloud provider: %s", op.Provider)
+	}
 	// Require at least auth_url
 	if op.Auth.AuthURL == "" {
 		return errors.New("missing `IdentityEndpoint` in OpenStack AuthOpts")
