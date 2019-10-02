@@ -30,7 +30,6 @@ const (
 
 // Scaler represents a Scaler object
 type Scaler struct {
-	Monitor     Monitor            `json:"monitor"`
 	Query       string             `json:"query"`
 	Duration    string             `json:"duration"`
 	Description string             `json:"description,omitempty"`
@@ -49,14 +48,6 @@ func (s *Scaler) Validate() error {
 		if err := a.Validate(); err != nil {
 			return err
 		}
-	}
-
-	// Require Monitor backend
-	if &s.Monitor == nil {
-		return errors.New("missing `Monitor` option")
-	}
-	if err := s.Monitor.Address.Validate(); err != nil {
-		return err
 	}
 
 	if s.Query == "" {
