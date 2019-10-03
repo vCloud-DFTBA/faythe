@@ -19,25 +19,10 @@ import (
 	"fmt"
 	"time"
 
-	yaml "gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v2"
+
+	"github.com/ntk148v/faythe/pkg/utils"
 )
-
-// Secret special type for storing secrets
-type Secret string
-
-// MarshalYAML implements the yaml.Marshaler interface for Secrets.
-func (s Secret) MarshalYAML() (interface{}, error) {
-	if s != "" {
-		return "<secret>", nil
-	}
-	return nil, nil
-}
-
-//UnmarshalYAML implements the yaml.Unmarshaler interface for Secrets.
-func (s *Secret) UnmarshalYAML(unmarshal func(interface{}) error) error {
-	type plain Secret
-	return unmarshal((*plain)(s))
-}
 
 // Config is the top-level configuration for Faythe's config file.
 type Config struct {
@@ -60,8 +45,8 @@ type GlobalConfig struct {
 // BasicAuthentication - HTTP Basic authentication.
 type BasicAuthentication struct {
 	// Usename, Password to implement HTTP basic authentication
-	Username string `yaml:"username"`
-	Password Secret `yaml:"password"`
+	Username string       `yaml:"username"`
+	Password utils.Secret `yaml:"password"`
 }
 
 // EtcdConfig stores Etcd related configurations.
@@ -104,7 +89,7 @@ type EtcdConfig struct {
 	Username string `yaml:"username,omitempty"`
 
 	// Password is a password for authentication.
-	Password Secret `yaml:"password,omitempty"`
+	Password utils.Secret `yaml:"password,omitempty"`
 
 	// RejectOldCluster when set will refuse to create a client against an outdated cluster.
 	RejectOldCluster bool `yaml:"reject_old_cluster,omitempty"`
