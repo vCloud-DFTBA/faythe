@@ -84,7 +84,7 @@ type OpenStackAuth struct {
 	Username string `json:"username"`
 	UserID   string `json:"userid"`
 
-	Password string `json:"password"`
+	Password utils.Secret `json:"password"`
 
 	// At most one of DomainID and DomainName must be provided if using Username
 	// with Identity V3. Otherwise, either are optional.
