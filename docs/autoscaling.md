@@ -11,7 +11,9 @@
     - [3.2. The workflow](#32-the-workflow)
   - [4. API](#4-api)
     - [4.1. Register Cloud provider](#41-register-cloud-provider)
-    - [4.2. Create a scaler](#42-create-a-scaler)
+    - [4.2. List all clouds](#42-list-all-clouds)
+    - [4.3. Create a scaler](#43-create-a-scaler)
+    - [4.4. List scalers](#44-list-scalers)
 
 This guide describes how to automatically scale out/scale in your Compute instances in response to heavy system usage. By combining with Prometheus pre-defined rules that consider factors such as CPU or memory usage, you can configure OpenStack Orchestration (Heat) to add & remove additional instances automatically, when they are needed.
 
@@ -98,7 +100,11 @@ Req
     "backend": "prometheus", // Require
     "address": "http://10.240.201.233:9091" // Require
   },
-  "provider": "openstack" // Require
+  "provider": "openstack",
+  "tags": [
+    "vsmart",
+    "test"
+  ]
 }
 ```
 
@@ -129,7 +135,11 @@ Resp
                 "domain_id": "",
                 "project_name": "autoscaling-test",
                 "project_id": ""
-            }
+            },
+            "tags": [
+              "vsmart",
+              "test"
+            ]
         }
     },
     "Err": ""
@@ -156,8 +166,8 @@ Req
 		}
 	},
 	"cooldown": "400s",
-	"metadata": {
-		"group": "test"
+	"tags": {
+		"vsmart-autoscaling"
 	},
 	"active": true
 }
@@ -183,39 +193,65 @@ Req
 
 ### 4.1. Register Cloud provider
 
-| Parameter             | Required | Default | Description                                                                                           |
-| --------------------- | -------- | ------- | ----------------------------------------------------------------------------------------------------- |
-| provider              | true     |         | The cloud provider type. OpenStack is the only provider supported by now.                             |
-| endpoints             | false    |         | The map of Cloud provider endpoints.                                                                  |
-| monitor               | true     |         | The Cloud monitor.                                                                                    |
-| monitor.backend       | true     |         | The name of monitor service. Prometheus is the only supported by now.                                 |
-| monitor.address       | true     |         | The monitor service's endpoint used to query metrics. Should be in the format: `scheme://host:<port>` |
-| auth (openstack only) | true     |         | Auth stores information needed to authenticate to an OpenStack Cloud.                                 |
-| auth.auth_url         | true     |         | The HTTP endpoint that is required to work with the Identity API of the appropriate version.          |
-| auth.region_name      | false    |         | The OpenStack region.                                                                                 |
-| auth.username         | false    |         | The OpenStack Keystone username.                                                                      |
-| auth.password         | false    |         | The OpenStack Keystone username's password.                                                           |
-| auth.domain_name      | false    |         | The OpenStack Keystone domain name.                                                                   |
-| auth.domain_id        | false    |         | The OpenStack Keystone domain id.                                                                     |
-| auth.project_name     | false    |         | The OpenStack Keystone project name.                                                                  |
-| auth.project_id       | false    |         | The OpenStack Keystone domain id.                                                                     |
+**PATH**: `/clouds/{provider}`
 
-### 4.2. Create a scaler
+| Parameter             | In   | Type   | Required | Default | Description                                                                                           |
+| --------------------- | ---- | ------ | -------- | ------- | ----------------------------------------------------------------------------------------------------- |
+| provider              | body | string | true     |         | The cloud provider type. OpenStack is the only provider supported by now.                             |
+| endpoints             | body | dict   | false    |         | The map of Cloud provider endpoints.                                                                  |
+| monitor               | body | object | true     |         | The Cloud monitor.                                                                                    |
+| monitor.backend       | body | string | true     |         | The name of monitor service. Prometheus is the only supported by now.                                 |
+| monitor.address       | body | string | true     |         | The monitor service's endpoint used to query metrics. Should be in the format: `scheme://host:<port>` |
+| auth (openstack only) | body | object | true     |         | Auth stores information needed to authenticate to an OpenStack Cloud.                                 |
+| auth.auth_url         | body | string | true     |         | The HTTP endpoint that is required to work with the Identity API of the appropriate version.          |
+| auth.region_name      | body | string | false    |         | The OpenStack region.                                                                                 |
+| auth.username         | body | string | false    |         | The OpenStack Keystone username.                                                                      |
+| auth.password         | body | string | false    |         | The OpenStack Keystone username's password.                                                           |
+| auth.domain_name      | body | string | false    |         | The OpenStack Keystone domain name.                                                                   |
+| auth.domain_id        | body | string | false    |         | The OpenStack Keystone domain id.                                                                     |
+| auth.project_name     | body | string | false    |         | The OpenStack Keystone project name.                                                                  |
+| auth.project_id       | body | string | false    |         | The OpenStack Keystone domain id.                                                                     |
 
-| Parameter          | Required | Default | Description                                                                                                                                                                                      |
-| ------------------ | -------- | :------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| query              | true     |         | Query that will be executed against the Prometheus API. See [the official documentation](https://prometheus.io/docs/prometheus/latest/querying/basics/) for more details.                        |
-| duration           | true     |         | The time that the `AutoscalingPolicy` must alert the threshold before the policy triggers a scale up or scale down action                                                                        |
-| interval           | true     |         | The time between two continuous evaluate                                                                                                                                                         |
-| actions            | true     |         | The defined scale actions.                                                                                                                                                                       |
-| actions.url        | true     |         | The                                                                                                                                                                                              |
-| actions.type       | false    | http    | The type of action.                                                                                                                                                                              |
-| actions.method     | false    | POST    | The HTTP method                                                                                                                                                                                  |
-| actions.attempts   | false    | 10      | The count of retry.                                                                                                                                                                              |
-| actions.delay      | false    | 100ms   | The delay between retries.                                                                                                                                                                       |
-| actions.delay_type | false    | fixed   | The delay type: `fixed` or `backoff`. BackOffDelay is a DelayType which increases delay between consecutive retries. FixedDelay is a DelayType which keeps delay the same through all iterations |
-| description        | false    |         |                                                                                                                                                                                                  |
-| metadata           | false    |         |                                                                                                                                                                                                  |
-| active             | true     |         | Enable the scaler or not.                                                                                                                                                                        |
-| cooldown           | false    | 600ms   | The period to disable scaling events after a scaling action takes place                                                                                                                          |
-|                    |          |         |                                                                                                                                                                                                  |
+### 4.2. List all clouds
+
+**PATH**: `/clouds`
+
+| Parameter | In    | Type   | Required | Default | Description                                                                                           |
+| --------- | ----- | ------ | -------- | :------ | ----------------------------------------------------------------------------------------------------- |
+| provider  | query | string | false    |         | Filter cloud list result by provider.                                                                 |
+| id        | query | string | false    |         | Filter cloud list result by id.                                                                       |
+| tags      | query | string | false    |         | A list of tags to filter the cloud list by. Clouds that match all tags in this list will be returned. |
+| tags-any  | query | string | false    |         | A list of tags to filter the cloud list by. Clouds that match any tags in this list will be returned. |
+|           |       |        |          |         |                                                                                                       |
+
+### 4.3. Create a scaler
+
+**PATH**: `/scalers/{provider-id}`
+
+| Parameter          | In   | Type    | Required | Default | Description                                                                                                                                                                                      |
+| ------------------ | ---- | ------- | -------- | :------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| query              | body | string  | true     |         | Query that will be executed against the Prometheus API. See [the official documentation](https://prometheus.io/docs/prometheus/latest/querying/basics/) for more details.                        |
+| duration           | body | string  | true     |         | The time that the `AutoscalingPolicy` must alert the threshold before the policy triggers a scale up or scale down action                                                                        |
+| interval           | body | string  | true     |         | The time between two continuous evaluate                                                                                                                                                         |
+| actions            | body | object  | true     |         | The defined scale actions.                                                                                                                                                                       |
+| actions.url        | body | string  | true     |         | The                                                                                                                                                                                              |
+| actions.type       | body | string  | false    | http    | The type of action.                                                                                                                                                                              |
+| actions.method     | body | string  | false    | POST    | The HTTP method                                                                                                                                                                                  |
+| actions.attempts   | body | integer | false    | 10      | The count of retry.                                                                                                                                                                              |
+| actions.delay      | body | string  | false    | 100ms   | The delay between retries.                                                                                                                                                                       |
+| actions.delay_type | body | string  | false    | fixed   | The delay type: `fixed` or `backoff`. BackOffDelay is a DelayType which increases delay between consecutive retries. FixedDelay is a DelayType which keeps delay the same through all iterations |
+| description        | body | string  | false    |         |                                                                                                                                                                                                  |
+| metadata           | body | string  | false    |         |                                                                                                                                                                                                  |
+| active             | body | boolean | true     | false   | Enable the scaler or not.                                                                                                                                                                        |
+| cooldown           | body | string  | false    | 600ms   | The period to disable scaling events after a scaling action takes place                                                                                                                          |
+|                    |      |         |          |         |                                                                                                                                                                                                  |
+
+### 4.4. List scalers
+
+**PATH**: `/scalers/{provider-id}`
+
+| Parameter | In    | Type   | Required | Default | Description                                                                                             |
+| --------- | ----- | ------ | -------- | :------ | ------------------------------------------------------------------------------------------------------- |
+| tags      | query | string | false    |         | A list of tags to filter the scaler list by. Scalers that match all tags in this list will be returned. |
+| tags-any  | query | string | false    |         | A list of tags to filter the scaler list by. Scalers that match any tags in this list will be returned. |
+|           |       |        |          |         |                                                                                                         |

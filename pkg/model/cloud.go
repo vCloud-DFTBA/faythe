@@ -39,6 +39,7 @@ type Cloud struct {
 	ID        string         `json:"id,omitempty"`
 	Endpoints map[string]URL `json:"endpoints"`
 	Monitor   Monitor        `json:"monitor"`
+	Tags      []string       `json:"tags"`
 }
 
 func (cl *Cloud) Validate() error {

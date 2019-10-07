@@ -19,8 +19,8 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
 
-	"github.com/go-kit/kit/log/level"
 	"github.com/gorilla/mux"
 	etcdv3 "go.etcd.io/etcd/clientv3"
 
@@ -85,43 +85,63 @@ func (a *API) registerCloud(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-// Get all current clouds information from etcd3
+// Get all current clouds information from etcdv3
 func (a *API) listClouds(w http.ResponseWriter, req *http.Request) {
 	var (
-		vars   map[string]string
-		p      string
-		clouds map[string]model.OpenStack
+		clouds map[string]interface{}
+		wg     sync.WaitGroup
 	)
-	vars = mux.Vars(req)
-	p = strings.ToLower(vars["provider"])
-	switch p {
-	case "openstack":
-		resp, err := a.etcdclient.Get(req.Context(), model.DefaultCloudPrefix,
-			etcdv3.WithPrefix(), etcdv3.WithSort(etcdv3.SortByKey, etcdv3.SortAscend))
-		if err != nil {
-			a.respondError(w, apiError{
-				code: http.StatusInternalServerError,
-				err:  err,
-			})
-			return
-		}
+	resp, err := a.etcdclient.Get(req.Context(), model.DefaultCloudPrefix, etcdv3.WithPrefix(),
+		etcdv3.WithSort(etcdv3.SortByKey, etcdv3.SortAscend))
+	if err != nil {
+		a.respondError(w, apiError{
+			code: http.StatusInternalServerError,
+			err:  err,
+		})
+		return
+	}
 
-		clouds = make(map[string]model.OpenStack, len(resp.Kvs))
-
-		for _, ev := range resp.Kvs {
-			var cloud model.OpenStack
-			err = json.Unmarshal(ev.Value, &cloud)
-			if err != nil {
-				level.Error(a.logger).Log("msg", "Error getting cloud from etcd",
-					"cloud", ev.Key, "err", err)
-				continue
+	clouds = make(map[string]interface{}, len(resp.Kvs))
+	for _, ev := range resp.Kvs {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			var cloud model.Cloud
+			_ = json.Unmarshal(ev.Value, &cloud)
+			// Filter
+			if p := strings.ToLower(req.FormValue("provider")); p != "" && p != cloud.Provider {
+				return
+			}
+			if id := strings.ToLower(req.FormValue("id")); id != "" && id != cloud.ID {
+				return
+			}
+			// Clouds that match all tags in this list will be returned
+			if fTags := req.FormValue("tags"); fTags != "" {
+				tags := strings.Split(fTags, ",")
+				if !utils.Find(cloud.Tags, tags, "or") {
+					return
+				}
+			}
+			// Clouds that match any tags in this list will be returned
+			if fTagsAny := req.FormValue("tags-any"); fTagsAny != "" {
+				tags := strings.Split(fTagsAny, ",")
+				if !utils.Find(cloud.Tags, tags, "or") {
+					return
+				}
 			}
 			clouds[string(ev.Key)] = cloud
-		}
-		a.respondSuccess(w, http.StatusOK, clouds)
-		return
-	default:
+			switch cloud.Provider {
+			case "openstack":
+				var ops model.OpenStack
+				_ = json.Unmarshal(ev.Value, &ops)
+				clouds[string(ev.Key)] = ops
+			default:
+			}
+		}()
 	}
+	wg.Wait()
+	a.respondSuccess(w, http.StatusOK, clouds)
+	return
 }
 
 // Remove the cloud information from etcd3
