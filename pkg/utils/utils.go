@@ -17,6 +17,7 @@ package utils
 import (
 	"crypto/sha256"
 	"hash/fnv"
+	"reflect"
 	"strings"
 )
 
@@ -63,4 +64,30 @@ func (s Secret) MarshalJSON() ([]byte, error) {
 		return []byte(`"<secret>"`), nil
 	}
 	return nil, nil
+}
+
+// Find tells whether string contains x.
+// op - boolean operator, expected `AND` `OR` string value.
+// x - could be string or slice of string.
+func Find(a []string, x interface{}, op string) bool {
+	var r bool
+	switch reflect.TypeOf(x).Kind() {
+	case reflect.String:
+		for _, n := range a {
+			if x == n {
+				r = true
+				break
+			}
+		}
+	case reflect.Slice:
+		v := reflect.ValueOf(x)
+		for i := 0; i < v.Len(); i++ {
+			r = Find(a, v.Index(i).String(), op)
+			// If operator is OR, break the loop immediately when found the first match
+			if strings.ToLower(op) == "or" && r {
+				break
+			}
+		}
+	}
+	return r
 }
