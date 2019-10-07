@@ -20,7 +20,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/go-kit/kit/log/level"
 	"github.com/gorilla/mux"
 	etcdv3 "go.etcd.io/etcd/clientv3"
 
@@ -85,43 +84,33 @@ func (a *API) registerCloud(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-// Get all current clouds information from etcd3
+// Get all current clouds information from etcdv3
 func (a *API) listClouds(w http.ResponseWriter, req *http.Request) {
-	var (
-		vars   map[string]string
-		p      string
-		clouds map[string]model.OpenStack
-	)
-	vars = mux.Vars(req)
-	p = strings.ToLower(vars["provider"])
-	switch p {
-	case "openstack":
-		resp, err := a.etcdclient.Get(req.Context(), model.DefaultCloudPrefix,
-			etcdv3.WithPrefix(), etcdv3.WithSort(etcdv3.SortByKey, etcdv3.SortAscend))
-		if err != nil {
-			a.respondError(w, apiError{
-				code: http.StatusInternalServerError,
-				err:  err,
-			})
-			return
-		}
-
-		clouds = make(map[string]model.OpenStack, len(resp.Kvs))
-
-		for _, ev := range resp.Kvs {
-			var cloud model.OpenStack
-			err = json.Unmarshal(ev.Value, &cloud)
-			if err != nil {
-				level.Error(a.logger).Log("msg", "Error getting cloud from etcd",
-					"cloud", ev.Key, "err", err)
-				continue
-			}
-			clouds[string(ev.Key)] = cloud
-		}
-		a.respondSuccess(w, http.StatusOK, clouds)
+	resp, err := a.etcdclient.Get(req.Context(), model.DefaultCloudPrefix, etcdv3.WithPrefix(),
+		etcdv3.WithSort(etcdv3.SortByKey, etcdv3.SortAscend))
+	if err != nil {
+		a.respondError(w, apiError{
+			code: http.StatusInternalServerError,
+			err:  err,
+		})
 		return
-	default:
 	}
+
+	clouds := make(map[string]interface{}, len(resp.Kvs))
+	for _, ev := range resp.Kvs {
+		var cloud model.Cloud
+		_ = json.Unmarshal(ev.Value, &cloud)
+		clouds[string(ev.Key)] = cloud
+		switch cloud.Provider {
+		case "openstack":
+			var ops model.OpenStack
+			_ = json.Unmarshal(ev.Value, &ops)
+			clouds[string(ev.Key)] = ops
+		default:
+		}
+	}
+	a.respondSuccess(w, http.StatusOK, clouds)
+	return
 }
 
 // Remove the cloud information from etcd3

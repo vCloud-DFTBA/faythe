@@ -75,7 +75,7 @@ func (a *API) Register(r *mux.Router) {
 	r.Handle("/status", wrap(a.status)).Methods("GET")
 	// Cloud endpoints
 	r.Handle("/clouds/{provider}", wrap(a.registerCloud)).Methods("POST")
-	r.Handle("/clouds/{provider}", wrap(a.listClouds)).Methods("GET")
+	r.Handle("/clouds/", wrap(a.listClouds)).Methods("GET")
 	r.Handle("/clouds/{id:[a-z 0-9]+}", wrap(a.unregisterCloud)).Methods("DELETE")
 	r.Handle("/clouds/{id:[a-z 0-9]+}", wrap(a.updateCloud)).Methods("PUT")
 
