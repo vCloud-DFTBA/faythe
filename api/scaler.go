@@ -19,8 +19,8 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
 
-	"github.com/go-kit/kit/log/level"
 	"github.com/gorilla/mux"
 	etcdv3 "go.etcd.io/etcd/clientv3"
 
@@ -97,6 +97,7 @@ func (a *API) listScalers(w http.ResponseWriter, req *http.Request) {
 		pid     string
 		path    string
 		scalers map[string]model.Scaler
+		wg      sync.WaitGroup
 	)
 	vars = mux.Vars(req)
 	pid = strings.ToLower(vars["provider_id"])
@@ -113,15 +114,30 @@ func (a *API) listScalers(w http.ResponseWriter, req *http.Request) {
 
 	scalers = make(map[string]model.Scaler, len(resp.Kvs))
 	for _, ev := range resp.Kvs {
-		var s model.Scaler
-		err = json.Unmarshal(ev.Value, &s)
-		if err != nil {
-			level.Error(a.logger).Log("msg", "Error getting scaler from etcd",
-				"scaler", ev.Key, "err", err)
-			continue
-		}
-		scalers[string(ev.Key)] = s
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			var s model.Scaler
+			_ = json.Unmarshal(ev.Value, &s)
+			// Filter
+			// Clouds that match all tags in this list will be returned
+			if fTags := req.FormValue("tags"); fTags != "" {
+				tags := strings.Split(fTags, ",")
+				if !utils.Find(s.Tags, tags, "and") {
+					return
+				}
+			}
+			// Clouds that match any tags in this list will be returned
+			if fTagsAny := req.FormValue("tags-any"); fTagsAny != "" {
+				tags := strings.Split(fTagsAny, ",")
+				if !utils.Find(s.Tags, tags, "or") {
+					return
+				}
+			}
+			scalers[string(ev.Key)] = s
+		}()
 	}
+	wg.Wait()
 	a.respondSuccess(w, http.StatusOK, scalers)
 	return
 }
