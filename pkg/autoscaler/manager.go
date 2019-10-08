@@ -184,7 +184,7 @@ func (m *Manager) save() {
 		m.wg.Add(1)
 		go func(i RegistryItem) {
 			defer m.wg.Done()
-			i.Value.Alert = i.Value.alert.state
+			i.Value.Alert = &i.Value.alert.State
 			raw, err := json.Marshal(&i.Value)
 			if err != nil {
 				level.Error(m.logger).Log("msg", "Error serializing scaler object",
@@ -235,7 +235,7 @@ func (m *Manager) rebalance() {
 
 			if !ok1 {
 				if ok2 {
-					scaler.Alert = scaler.alert.state
+					scaler.Alert = &scaler.alert.State
 					raw, err := json.Marshal(&scaler)
 					if err != nil {
 						level.Error(m.logger).Log("msg", "Error serializing scaler object",
