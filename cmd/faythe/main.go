@@ -144,6 +144,12 @@ func main() {
 		etcdCli.Close()
 		level.Info(logger).Log("msg", "Faythe is stopped, bye bye!")
 	}()
+	defer fas.Stop()
+
+	// Init NResolver
+	nr := nresolver.NewNRManager(log.With(logger, "component", "nresolver"), etcdCli)
+	go nr.Run()
+	defer nr.Stop()
 
 	// Init HTTP server
 	srv := http.Server{Addr: cfg.listenAddress, Handler: router}
