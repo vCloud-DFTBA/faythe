@@ -118,7 +118,7 @@ func (a *API) listClouds(w http.ResponseWriter, req *http.Request) {
 			// Clouds that match all tags in this list will be returned
 			if fTags := req.FormValue("tags"); fTags != "" {
 				tags := strings.Split(fTags, ",")
-				if !utils.Find(cloud.Tags, tags, "or") {
+				if !utils.Find(cloud.Tags, tags, "and") {
 					return
 				}
 			}
