@@ -16,7 +16,6 @@ package main
 
 import (
 	"fmt"
-	"github.com/ntk148v/faythe/pkg/cluster"
 	"net"
 	"net/http"
 	"net/url"
@@ -25,6 +24,8 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
+
+	"github.com/ntk148v/faythe/pkg/cluster"
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
@@ -41,6 +42,7 @@ import (
 	"github.com/ntk148v/faythe/config"
 	"github.com/ntk148v/faythe/middleware"
 	"github.com/ntk148v/faythe/pkg/autoscaler"
+	"github.com/ntk148v/faythe/pkg/cluster"
 )
 
 func main() {
@@ -50,7 +52,7 @@ func main() {
 		url           string
 		externalURL   *url.URL
 		logConfig     promlog.Config
-		clusterConfig config.PeerConfig
+		clusterConfig cluster.Options
 	}{
 		logConfig:     promlog.Config{},
 		clusterConfig: config.DefaultPeerConfig,
@@ -66,26 +68,23 @@ func main() {
 		"The URL under which Faythe is externally reachable.").
 		PlaceHolder("<URL>").StringVar(&cfg.url)
 	// Cluster flags
-	a.Flag("cluster.listen-address", "Listen address for cluster.").
-		StringVar(&cfg.clusterConfig.BindAddr)
+	a.Flag("cluster.listen-address", "Listen address for cluster. Set for empty string to disable cluster mode.").
+		Default("0.0.0.0:8601").StringVar(&cfg.clusterConfig.BindAddr)
 	a.Flag("cluster.advertise-address", "Explicit address to advertise in cluster.").
 		StringVar(&cfg.clusterConfig.AdvertiseAddr)
-	a.Flag("cluster.peers", "Initial address of peer to join on startup.").
-		StringsVar(&cfg.clusterConfig.StartJoin)
-	a.Flag("cluster.reply", "Replay events for startup join").
-		BoolVar(&cfg.clusterConfig.ReplayOnJoin)
-	a.Flag("cluster.tags", "tag pair").
-		StringMapVar(&cfg.clusterConfig.Tags)
-	a.Flag("cluster.broadcast-timeout", "Timeout for broadcast message").
-		DurationVar(&cfg.clusterConfig.BroadcastTimeout)
-	a.Flag("cluster.profile", "Timing profile for Peer. The supported choices are `wan`, `lan`, and `local`. The default is `lan`").
-		StringVar(&cfg.clusterConfig.Profile)
-	a.Flag("cluster.node", "node name").
-		StringVar(&cfg.clusterConfig.NodeName)
-	a.Flag("cluster.reconnect-timeout", "How long we attempt to connect to a failed node removing it from the cluster.").
-		DurationVar(&cfg.clusterConfig.ReconnectTimeout)
-	a.Flag("cluster.reconnect-interval", "How often we attempt to connect to a failed node.").
-		DurationVar(&cfg.clusterConfig.ReconnectInterval)
+	a.Flag("cluster.peers", "Initial peers.").StringVar(&cfg.clusterConfig.Peers)
+	a.Flag("cluster.peer-timeout", "Time to wait between peers to send notification.").
+		DurationVar(&cfg.clusterConfig.PeerTimeout)
+	a.Flag("cluster.gossip-interval", "Interval between sending gossip messages. By lowering this value (more frequent) gossip messages are propagated across the cluster more quickly at the expense of increased bandwidth.").
+		Default(cluster.DefaultGossipInterval.String()).DurationVar(&cfg.clusterConfig.GossipInterval)
+	a.Flag("cluster.pushpull-interval", "Interval for gossip state syncs. Setting this interval lower (more frequent) will increase convergence speeds across larger clusters at the expense of increased bandwidth usage.").
+		Default(cluster.DefaultPushPullInterval.String()).DurationVar(&cfg.clusterConfig.PushPullInterval)
+	a.Flag("cluster.tcp-timeout", "Timeout for establishing a stream connection with a remote node for a full state sync, and for stream read and write operations.").
+		Default(cluster.DefaultTCPTimeout.String()).DurationVar(&cfg.clusterConfig.TCPTimeout)
+	a.Flag("cluster.probe-timeout", "Timeout to wait for an ack from a probed node before assuming it is unhealthy. This should be set to 99-percentile of RTT (round-trip time) on your network.").
+		Default(cluster.DefaultProbeTimeout.String()).DurationVar(&cfg.clusterConfig.ProbeTimeout)
+	a.Flag("cluster.probe-interval", "Interval between random node probes. Setting this lower (more frequent) will cause the cluster to detect failed nodes more quickly at the expense of increased bandwidth usage.").
+		Default(cluster.DefaultProbeInterval.String()).DurationVar(&cfg.clusterConfig.ProbeInterval)
 
 	logflag.AddFlags(a, &cfg.logConfig)
 	_, err := a.Parse(os.Args[1:])
