@@ -30,17 +30,15 @@ import (
 
 type NResolver struct {
 	model.NResolver
-	logger     log.Logger
-	mtx        sync.RWMutex
-	done       chan struct{}
-	terminated chan struct{}
+	logger log.Logger
+	mtx    sync.RWMutex
+	done   chan struct{}
 }
 
 func newNResolver(l log.Logger, data []byte) *NResolver {
 	nr := &NResolver{
-		logger:     l,
-		done:       make(chan struct{}),
-		terminated: make(chan struct{}),
+		logger: l,
+		done:   make(chan struct{}),
 	}
 	err := json.Unmarshal(data, nr)
 	if err != nil {
@@ -50,34 +48,36 @@ func newNResolver(l log.Logger, data []byte) *NResolver {
 }
 
 func (nr *NResolver) run(ctx context.Context, wg *sync.WaitGroup) {
+	interval, _ := time.ParseDuration(nr.Interval)
 	err := metrics.Register("prometheus", nr.Address.String())
 	if err != nil {
 		level.Error(nr.logger).Log("msg", "Error loading metrics backend, stopping..")
 		return
 	}
 	backend, _ := metrics.Get(fmt.Sprintf("%s-%s", "prometheus", nr.Address.String()))
-	interval, _ := time.ParseDuration(nr.Interval)
+	ticker := time.NewTicker(interval)
 	defer func() {
-		close(nr.terminated)
+		wg.Done()
+		ticker.Stop()
 	}()
-	for ticker := time.Tick(interval); ; {
-		result, err := backend.QueryInstant(ctx, model.DefaultNResolverQuery, time.Now())
-		if err != nil {
-			level.Error(nr.logger).Log("msg", "Executing query failed",
-				"query", model.DefaultNResolverQuery, "err", err)
-			return
-		}
-		level.Info(nr.logger).Log("msg", "Execcuting query success", "query", model.DefaultNResolverQuery)
-		nr.mtx.Lock()
-		nr.parseQueryResult(result)
-		nr.mtx.Unlock()
+	for {
 		select {
-		case <-ticker:
-			continue
+		case <-ticker.C:
+			result, err := backend.QueryInstant(ctx, model.DefaultNResolverQuery, time.Now())
+			if err != nil {
+				level.Error(nr.logger).Log("msg", "Executing query failed",
+					"query", model.DefaultNResolverQuery, "err", err)
+				continue
+			}
+			level.Info(nr.logger).Log("msg", "Execcuting query success", "query", model.DefaultNResolverQuery)
+			nr.mtx.Lock()
+			nr.parseQueryResult(result)
+			nr.mtx.Unlock()
 		case <-nr.done:
 			return
 		}
 	}
+
 }
 
 func (nr *NResolver) parseQueryResult(pm pmodel.Vector) {
@@ -92,13 +92,12 @@ func (nr *NResolver) parseQueryResult(pm pmodel.Vector) {
 		if err != nil {
 			level.Error(nr.logger).Log("msg", "Erorr while json-izing metrics result", "err", err)
 		}
-		fmt.Println(nm)
+		// fmt.Println(nm)
 	}
 }
 
 func (nr *NResolver) stop() {
 	level.Debug(nr.logger).Log("msg", "NResolver is stopping", "name", nr.Name)
 	close(nr.done)
-	<-nr.terminated
 	level.Debug(nr.logger).Log("msg", "NResolver is stopped", "name", nr.Name)
 }

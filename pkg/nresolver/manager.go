@@ -84,17 +84,18 @@ func (nrm *NRManager) stopNResolver(name string) {
 func (nrm *NRManager) Stop() {
 	level.Info(nrm.logger).Log("msg", "Cleaning before stopping name resolver managger")
 	nrm.save()
-	nrm.cancel()
+	nrm.wg.Wait()
 	close(nrm.stop)
+	nrm.cancel()
 	level.Info(nrm.logger).Log("msg", "Name resolver manager is stopped!")
 }
 
 func (nrm *NRManager) save() {
 	for e := range nrm.rqt.Iter() {
 		nrm.wg.Add(1)
-		go func() {
+		go func(name string) {
 			defer func() {
-				nrm.stopNResolver(e.Name)
+				nrm.stopNResolver(name)
 				nrm.wg.Done()
 			}()
 
@@ -110,7 +111,7 @@ func (nrm *NRManager) save() {
 					"name", e.Name, "err", err)
 				return
 			}
-		}()
+		}(e.Name)
 	}
 }
 

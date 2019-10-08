@@ -95,17 +95,6 @@ func (a *API) deleteNResolver(rw http.ResponseWriter, req *http.Request) {
 }
 
 func (a *API) listNResolvers(rw http.ResponseWriter, req *http.Request) {
-	// nr := model.NResolver{}
-	// err := a.parseNResolverRequest(&nr, req)
-	// if err != nil {
-	// 	err = fmt.Errorf("Error while parsing NResolver object: %s", err.Error())
-	// 	a.respondError(rw, apiError{
-	// 		code: http.StatusInternalServerError,
-	// 		err:  err,
-	// 	})
-	// 	return
-	// }
-	// path := utils.Path(model.DefaultNResolverPrefix, nr.Name)
 	resp, err := a.etcdclient.Get(req.Context(), model.DefaultNResolverPrefix, etcdv3.WithPrefix(),
 		etcdv3.WithSort(etcdv3.SortByKey, etcdv3.SortAscend))
 	if err != nil {
