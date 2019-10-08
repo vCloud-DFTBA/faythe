@@ -90,8 +90,7 @@ func (a *API) Register(r *mux.Router) {
 	// Name Resolver endpoints
 	r.Handle("/nresolvers", wrap(a.createNResolver)).Methods("POST")
 	r.Handle("/nresolvers", wrap(a.listNResolvers)).Methods("GET")
-	r.Handle("/nresolvers",
-		wrap(a.deleteNResolver)).Methods("DELETE")
+	r.Handle("/nresolvers", wrap(a.deleteNResolver)).Methods("DELETE")
 }
 
 func (a *API) receive(req *http.Request, v interface{}) error {

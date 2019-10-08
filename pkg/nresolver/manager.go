@@ -17,6 +17,7 @@ package nresolver
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"sync"
 
 	"github.com/go-kit/kit/log"
@@ -34,6 +35,8 @@ type NRManager struct {
 	ctx     context.Context
 	cancel  context.CancelFunc
 	wg      *sync.WaitGroup
+	nodes   map[string]string
+	nc      chan NodeMetric
 }
 
 func NewNRManager(l log.Logger, e *etcdv3.Client) *NRManager {
@@ -46,6 +49,8 @@ func NewNRManager(l log.Logger, e *etcdv3.Client) *NRManager {
 		ctx:     ctx,
 		cancel:  cancel,
 		wg:      &sync.WaitGroup{},
+		nodes:   make(map[string]string),
+		nc:      make(chan NodeMetric),
 	}
 	nrm.watch = nrm.etcdcli.Watch(nrm.ctx, model.DefaultNResolverPrefix, etcdv3.WithPrefix())
 	nrm.load()
@@ -69,7 +74,7 @@ func (nrm *NRManager) startNResolver(name string, data []byte) {
 	nrm.rqt.Set(name, nr)
 	go func() {
 		nrm.wg.Add(1)
-		nr.run(nrm.ctx, nrm.wg)
+		nr.run(nrm.ctx, nrm.wg, &nrm.nc)
 	}()
 }
 
@@ -130,6 +135,8 @@ func (nrm *NRManager) Run() {
 					nrm.stopNResolver(name)
 				}
 			}
+		case nm := <-nrm.nc:
+			nrm.nodes[strings.Split(nm.Metric.Instance, ":")[0]] = nm.Metric.Nodename
 		}
 	}
 }

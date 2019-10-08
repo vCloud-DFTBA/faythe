@@ -25,7 +25,6 @@ import (
 	"github.com/go-kit/kit/log/level"
 	"github.com/ntk148v/faythe/pkg/metrics"
 	"github.com/ntk148v/faythe/pkg/model"
-	pmodel "github.com/prometheus/common/model"
 )
 
 type NResolver struct {
@@ -47,7 +46,7 @@ func newNResolver(l log.Logger, data []byte) *NResolver {
 	return nr
 }
 
-func (nr *NResolver) run(ctx context.Context, wg *sync.WaitGroup) {
+func (nr *NResolver) run(ctx context.Context, wg *sync.WaitGroup, nc *chan NodeMetric) {
 	interval, _ := time.ParseDuration(nr.Interval)
 	err := metrics.Register("prometheus", nr.Address.String())
 	if err != nil {
@@ -71,29 +70,24 @@ func (nr *NResolver) run(ctx context.Context, wg *sync.WaitGroup) {
 			}
 			level.Info(nr.logger).Log("msg", "Execcuting query success", "query", model.DefaultNResolverQuery)
 			nr.mtx.Lock()
-			nr.parseQueryResult(result)
+			for _, el := range result {
+				j, err := el.MarshalJSON()
+				if err != nil {
+					level.Error(nr.logger).Log("msg", "Erorr while json-izing metrics result", "err", err)
+				}
+				nm := NodeMetric{}
+				err = json.Unmarshal(j, &nm)
+				if err != nil {
+					level.Error(nr.logger).Log("msg", "Erorr while json-izing metrics result", "err", err)
+				}
+				*nc <- nm
+			}
 			nr.mtx.Unlock()
 		case <-nr.done:
 			return
 		}
 	}
 
-}
-
-func (nr *NResolver) parseQueryResult(pm pmodel.Vector) {
-	for _, el := range pm {
-		j, err := el.MarshalJSON()
-		if err != nil {
-			level.Error(nr.logger).Log("msg", "Erorr while json-izing metrics result", "err", err)
-		}
-
-		nm := NodeMetric{}
-		err = json.Unmarshal(j, &nm)
-		if err != nil {
-			level.Error(nr.logger).Log("msg", "Erorr while json-izing metrics result", "err", err)
-		}
-		// fmt.Println(nm)
-	}
 }
 
 func (nr *NResolver) stop() {
