@@ -15,6 +15,7 @@
 package model
 
 import (
+	"crypto"
 	"fmt"
 	"time"
 
@@ -69,7 +70,7 @@ func (s *Scaler) Validate() error {
 		return err
 	}
 
-	s.ID = fmt.Sprintf("%x", utils.HashSHA(s.Query))
+	s.ID = fmt.Sprintf("%x", utils.Hash(s.Query, crypto.MD5))
 
 	return nil
 }

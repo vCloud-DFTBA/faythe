@@ -15,7 +15,12 @@
 package utils
 
 import (
+	"crypto"
+	"crypto/md5"
+	"crypto/sha1"
 	"crypto/sha256"
+	"crypto/sha512"
+	"hash"
 	"hash/fnv"
 	"reflect"
 	"strings"
@@ -29,10 +34,21 @@ func HashFNV(s string) string {
 	return string(h.Sum64())
 }
 
-// HashSHA generates a new slice of byte hash from a given string
-// using SHA256 hash algorithms.
-func HashSHA(s string) []byte {
-	h := sha256.New()
+// Hash generates a new slice of bytee hash from a given string
+// using a given hash algorithms.
+func Hash(s string, f crypto.Hash) []byte {
+	var h hash.Hash
+	switch f {
+	case crypto.MD5:
+		h = md5.New()
+	case crypto.SHA1:
+		h = sha1.New()
+	case crypto.SHA256:
+		h = sha256.New()
+	case crypto.SHA512:
+		h = sha512.New()
+	default:
+	}
 	h.Write([]byte(s))
 	return h.Sum(nil)
 }

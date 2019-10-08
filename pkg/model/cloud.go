@@ -15,7 +15,9 @@
 package model
 
 import (
+	"crypto"
 	"fmt"
+
 	"github.com/pkg/errors"
 
 	"github.com/ntk148v/faythe/pkg/utils"
@@ -119,7 +121,7 @@ func (op *OpenStack) Validate() error {
 		return errors.New("missing `IdentityEndpoint` in OpenStack AuthOpts")
 	}
 
-	op.ID = fmt.Sprintf("%x", utils.HashSHA(op.Auth.AuthURL))
+	op.ID = fmt.Sprintf("%x", utils.Hash(op.Auth.AuthURL, crypto.MD5))
 
 	return nil
 }
