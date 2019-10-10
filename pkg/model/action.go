@@ -21,6 +21,11 @@ import (
 	"github.com/pkg/errors"
 )
 
+const (
+	FixedDelay   string = "fixed"
+	BackoffDelay string = "backoff"
+)
+
 // Action represents an scale action
 type Action struct {
 	URL       URL    `json:"url"`
@@ -60,9 +65,9 @@ func (a *Action) Validate() error {
 		return err
 	}
 	switch strings.ToLower(a.DelayType) {
-	case "backoff":
+	case BackoffDelay:
 		// BackOffDelay is a DelayType which increases delay between consecutive retries
-	case "fixed":
+	case FixedDelay:
 		// FixedDelay is a DelayType which keeps delay the same through all iterations
 	default:
 		return errors.Errorf("unsupported delay type: %s", a.DelayType)

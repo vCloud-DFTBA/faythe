@@ -33,10 +33,6 @@ type Backend struct {
 	logger     log.Logger
 }
 
-const (
-	prometheusRequestTimeout = 10 * time.Second
-)
-
 // New returns a new client for talking to a Prometheus Backend, or an error
 func New(address string, logger log.Logger) (*Backend, error) {
 	if logger == nil {

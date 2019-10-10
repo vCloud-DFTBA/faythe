@@ -140,7 +140,7 @@ func (m *Manager) getBackend(key string) (metrics.Backend, error) {
 		return nil, err
 	}
 	switch cloud.Provider {
-	case "openstack":
+	case model.OpenStackType:
 		var ops model.OpenStack
 		err = json.Unmarshal(value.Value, &ops)
 		if err != nil {

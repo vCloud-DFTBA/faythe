@@ -46,7 +46,7 @@ func init() {
 
 func (m *Manager) initBackend(btype string, address string) (Backend, error) {
 	switch btype {
-	case "prometheus":
+	case Prometheus:
 		return prometheus.New(address, log.With(m.logger, "component", "metric backend",
 			"name", fmt.Sprintf("%s-%s", btype, address)))
 	default:

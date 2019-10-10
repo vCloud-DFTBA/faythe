@@ -46,7 +46,7 @@ type Cloud struct {
 
 func (cl *Cloud) Validate() error {
 	switch cl.Provider {
-	case "openstack":
+	case OpenStackType:
 	default:
 		return errors.Errorf("unsupported provider %s", cl.Provider)
 	}
@@ -112,7 +112,7 @@ type OpenStackAuth struct {
 // Validate returns nil if all fields of the OpenStack have valid values.
 func (op *OpenStack) Validate() error {
 	switch op.Provider {
-	case "openstack":
+	case OpenStackType:
 	default:
 		return errors.Errorf("unsupported cloud provider: %s", op.Provider)
 	}
