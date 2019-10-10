@@ -161,10 +161,10 @@ func (m *Manager) getBackend(key string) (metrics.Backend, error) {
 func (m *Manager) save() {
 	for i := range m.rgt.Iter() {
 		m.wg.Add(1)
-		go func(wg *sync.WaitGroup) {
+		go func(i RegistryItem) {
 			defer func() {
 				m.stopScaler(i.Key)
-				wg.Done()
+				m.wg.Done()
 			}()
 			i.Value.Alert = i.Value.alert.state
 			raw, err := json.Marshal(&i.Value)
@@ -179,7 +179,7 @@ func (m *Manager) save() {
 					"key", i.Key, "err", err.Error())
 				return
 			}
-		}(m.wg)
+		}(i)
 	}
 }
 
