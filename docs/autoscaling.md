@@ -166,9 +166,10 @@ Req
 		}
 	},
 	"cooldown": "400s",
-	"tags": {
-		"vsmart-autoscaling"
-	},
+	"tags": [
+        "test-project",
+        "autoscaling"
+    ],
 	"active": true
 }
 ```
