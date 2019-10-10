@@ -16,6 +16,7 @@ package cluster
 
 import (
 	"crypto"
+	"fmt"
 	"net"
 	"strconv"
 	"strings"
@@ -29,12 +30,32 @@ import (
 	"github.com/pkg/errors"
 )
 
+// PeerStatus is the state that a peer is in.
+const (
+	StatusNone PeerStatus = iota
+	StatusAlive
+	StatusFailed
+)
+
+func (s PeerStatus) String() string {
+	switch s {
+	case StatusNone:
+		return "none"
+	case StatusAlive:
+		return "alive"
+	case StatusFailed:
+		return "failed"
+	default:
+		panic(fmt.Sprintf("unknown PeerStatus: %d", s))
+	}
+}
+
 const (
 	DefaultGossipInterval   = 200 * time.Millisecond
-	DefaultTCPTimeout       = 10 * time.Second
 	DefaultProbeTimeout     = 500 * time.Millisecond
 	DefaultProbeInterval    = 1 * time.Second
 	DefaultPushPullInterval = 30 * time.Second
+	DefaultRefreshInterval  = 15 * time.Second
 )
 
 type logWriter struct {
@@ -49,7 +70,7 @@ func (l *logWriter) Write(b []byte) (int, error) {
 type Options struct {
 	BindAddr         string
 	AdvertiseAddr    string
-	Peers            string
+	Peers            []string
 	PeerTimeout      time.Duration
 	GossipInterval   time.Duration
 	TCPTimeout       time.Duration
@@ -60,15 +81,30 @@ type Options struct {
 
 // Peer is a single peer in a gossip cluster.
 type Peer struct {
-	mtx    sync.RWMutex
-	logger log.Logger
-	opts   *Options
-	mlist  *memberlist.Memberlist
+	mtx         sync.RWMutex
+	logger      log.Logger
+	opts        *Options
+	mlist       *memberlist.Memberlist
+	peers       map[string]peer
+	failedPeers []peer
+	peerLock    sync.RWMutex
+	initPeers   []string
+	state       PeerStatus
+	shutdownCh  chan struct{}
 }
 
+// peer is an internal type used for bookkeeping. It holds the state of peers
+// in the cluster.
+type peer struct {
+	status    PeerStatus
+	leaveTime time.Time
+
+	*memberlist.Node
+}
+
+// Create creates a new peer.
 // Clone from Prometheus alertmanager
 // https://github.com/prometheus/alertmanager/blob/master/cluster/cluster.go
-// Create creates a new peer.
 func Create(l log.Logger, o *Options) (*Peer, error) {
 	bindHost, bindPortStr, err := net.SplitHostPort(o.BindAddr)
 	if err != nil {
@@ -110,8 +146,12 @@ func Create(l log.Logger, o *Options) (*Peer, error) {
 		advertisePort = bindPort
 	}
 	p := &Peer{
-		logger: l,
-		opts:   o,
+		logger:     l,
+		opts:       o,
+		peers:      map[string]peer{},
+		initPeers:  o.Peers,
+		state:      StatusAlive,
+		shutdownCh: make(chan struct{}),
 	}
 	cfg := memberlist.DefaultLANConfig()
 	cfg.Name = string(utils.Hash(o.BindAddr, crypto.MD5))
@@ -130,9 +170,119 @@ func Create(l log.Logger, o *Options) (*Peer, error) {
 	if advertiseHost != "" {
 		cfg.AdvertiseAddr = advertiseHost
 		cfg.AdvertisePort = advertisePort
+		p.setInitialFailed(p.initPeers, fmt.Sprintf("%s:%d", advertiseHost, advertisePort))
+	} else {
+		p.setInitialFailed(p.initPeers, o.BindAddr)
 	}
 	p.mlist = ml
 	return p, nil
+}
+
+// Join is used to take an init peers and attempt to join a cluster.
+func (p *Peer) Join() error {
+	// Do a quick state check
+	if p.State() != StatusAlive {
+		return fmt.Errorf("Peer can't join after leave or shutdown")
+	}
+	n, err := p.mlist.Join(p.initPeers)
+	// TODO(kiennt): Add retry
+	// reconnectInterval & reconnectTimeout.
+	if err != nil {
+		level.Warn(p.logger).Log("msg", "failed to join cluster", "err", err)
+		return err
+	}
+	level.Debug(p.logger).Log("msg", "joined cluster", "peers", n)
+	return nil
+}
+
+// ClusterSize returns the current number of alive members in the cluster.
+func (p *Peer) ClusterSize() int {
+	return p.mlist.NumMembers()
+}
+
+// Leave the cluster, waiting up to timeout.
+func (p *Peer) Leave(timeout time.Duration) error {
+	level.Debug(p.logger).Log("msg", "leaving cluster")
+	return p.mlist.Leave(timeout)
+}
+
+// State is the current state of this Peer instance.
+func (p *Peer) State() PeerStatus {
+	return p.state
+}
+
+// All peers are initially added to the failed list. They will be removed from
+// this list in peerJoin when making their initial connection.
+func (p *Peer) setInitialFailed(peers []string, myAddr string) {
+	if len(peers) == 0 {
+		return
+	}
+
+	p.peerLock.RLock()
+	defer p.peerLock.RUnlock()
+
+	now := time.Now()
+	for _, peerAddr := range peers {
+		if peerAddr == myAddr {
+			// Don't add ourselves to the initially failing list,
+			// we don't connect to ourselves.
+			continue
+		}
+		host, port, err := net.SplitHostPort(peerAddr)
+		if err != nil {
+			continue
+		}
+		ip := net.ParseIP(host)
+		if ip == nil {
+			// Don't add textual addresses since memberlist only advertises
+			// dotted decimal or IPv6 addresses.
+			continue
+		}
+		portUint, err := strconv.ParseUint(port, 10, 16)
+		if err != nil {
+			continue
+		}
+
+		pr := peer{
+			status:    StatusFailed,
+			leaveTime: now,
+			Node: &memberlist.Node{
+				Addr: ip,
+				Port: uint16(portUint),
+			},
+		}
+		p.failedPeers = append(p.failedPeers, pr)
+		p.peers[peerAddr] = pr
+	}
+}
+
+func (p *Peer) removeFailedPeers(timeout time.Duration) {
+	p.peerLock.Lock()
+	defer p.peerLock.Unlock()
+
+	now := time.Now()
+
+	keep := make([]peer, 0, len(p.failedPeers))
+	for _, pr := range p.failedPeers {
+		if pr.leaveTime.Add(timeout).After(now) {
+			keep = append(keep, pr)
+		} else {
+			level.Debug(p.logger).Log("msg", "failed peer has timed out", "peer", pr.Node, "addr", pr.Address())
+			delete(p.peers, pr.Name)
+		}
+	}
+
+	p.failedPeers = keep
+}
+
+// Name returns the unique ID of this peer in the cluster.
+func (p *Peer) Name() string {
+	return p.mlist.LocalNode().Name
+}
+
+// Peers returns the peers in the cluster.
+func (p *Peer) Peers() []*memberlist.Node {
+	return p.mlist.Members()
 }
 
 func isUnroutable(addr string) bool {
