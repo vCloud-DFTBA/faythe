@@ -15,6 +15,8 @@
 package model
 
 import (
+	"crypto"
+	"fmt"
 	"time"
 
 	"github.com/ntk148v/faythe/pkg/utils"
@@ -50,7 +52,7 @@ func (nr *NResolver) Validate() error {
 	}
 
 	if nr.Name == "" {
-		nr.Name = utils.HashFNV(nr.Address.String())
+		nr.Name = fmt.Sprintf("%x", utils.Hash(nr.Address.String(), crypto.MD5))
 	}
 	return nil
 }

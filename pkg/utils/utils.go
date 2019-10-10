@@ -81,9 +81,9 @@ func WatchContext() (context.Context, context.CancelFunc) {
 // HashFNV generates a new 64-bit number from a given string
 // using 64-bit FNV-1a hash function.
 func HashFNV(s string) string {
-	h := fnv.New32a()
+	h := fnv.New64a()
 	h.Write([]byte(s))
-	return strconv.Itoa(int(h.Sum32()))
+	return string(h.Sum64())
 }
 
 // Hash generates a new slice of bytee hash from a given string

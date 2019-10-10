@@ -26,7 +26,7 @@ import (
 	etcdv3 "go.etcd.io/etcd/clientv3"
 )
 
-type NRManager struct {
+type Manager struct {
 	logger  log.Logger
 	rqt     *Registry
 	stop    chan struct{}
@@ -39,9 +39,9 @@ type NRManager struct {
 	nc      chan NodeMetric
 }
 
-func NewNRManager(l log.Logger, e *etcdv3.Client) *NRManager {
+func NewManager(l log.Logger, e *etcdv3.Client) *Manager {
 	ctx, cancel := context.WithCancel(context.Background())
-	nrm := &NRManager{
+	nrm := &Manager{
 		logger:  l,
 		rqt:     &Registry{items: make(map[string]*NResolver)},
 		stop:    make(chan struct{}),
@@ -57,7 +57,7 @@ func NewNRManager(l log.Logger, e *etcdv3.Client) *NRManager {
 	return nrm
 }
 
-func (nrm *NRManager) load() {
+func (nrm *Manager) load() {
 	r, err := nrm.etcdcli.Get(nrm.ctx, model.DefaultNResolverPrefix, etcdv3.WithPrefix())
 	if err != nil {
 		level.Error(nrm.logger).Log("msg", "Error getting list NResolver", "err", err)
@@ -68,7 +68,7 @@ func (nrm *NRManager) load() {
 	}
 }
 
-func (nrm *NRManager) startNResolver(name string, data []byte) {
+func (nrm *Manager) startNResolver(name string, data []byte) {
 	level.Info(nrm.logger).Log("msg", "Creating name resovler", "name", name)
 	nr := newNResolver(log.With(nrm.logger, "nresolver", name), data)
 	nrm.rqt.Set(name, nr)
@@ -78,7 +78,7 @@ func (nrm *NRManager) startNResolver(name string, data []byte) {
 	}()
 }
 
-func (nrm *NRManager) stopNResolver(name string) {
+func (nrm *Manager) stopNResolver(name string) {
 	if nr, ok := nrm.rqt.Get(name); ok {
 		level.Info(nrm.logger).Log("msg", "Removing name resolver", "name", name)
 		nr.stop()
@@ -86,7 +86,7 @@ func (nrm *NRManager) stopNResolver(name string) {
 	}
 }
 
-func (nrm *NRManager) Stop() {
+func (nrm *Manager) Stop() {
 	level.Info(nrm.logger).Log("msg", "Cleaning before stopping name resolver managger")
 	nrm.save()
 	nrm.wg.Wait()
@@ -95,7 +95,7 @@ func (nrm *NRManager) Stop() {
 	level.Info(nrm.logger).Log("msg", "Name resolver manager is stopped!")
 }
 
-func (nrm *NRManager) save() {
+func (nrm *Manager) save() {
 	for e := range nrm.rqt.Iter() {
 		nrm.wg.Add(1)
 		go func(name string) {
@@ -120,7 +120,7 @@ func (nrm *NRManager) save() {
 	}
 }
 
-func (nrm *NRManager) Run() {
+func (nrm *Manager) Run() {
 	for {
 		select {
 		case <-nrm.stop:
