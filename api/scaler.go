@@ -41,7 +41,7 @@ func (a *API) createScaler(w http.ResponseWriter, req *http.Request) {
 	path = utils.Path(model.DefaultCloudPrefix, vars["provider_id"])
 	resp, _ := a.etcdclient.Get(req.Context(), path, etcdv3.WithCountOnly())
 	if resp.Count == 0 {
-		err := fmt.Errorf("Unknown provider id: %s", vars["provider_id"])
+		err := fmt.Errorf("unknown provider id: %s", vars["provider_id"])
 		a.respondError(w, apiError{
 			code: http.StatusBadRequest,
 			err:  err,
@@ -68,7 +68,7 @@ func (a *API) createScaler(w http.ResponseWriter, req *http.Request) {
 	}
 	resp, _ = a.etcdclient.Get(req.Context(), path, etcdv3.WithCountOnly())
 	if resp.Count > 0 && !force {
-		err := fmt.Errorf("The scaler with id %s is existed", s.ID)
+		err := fmt.Errorf("the scaler with id %s is existed", s.ID)
 		a.respondError(w, apiError{
 			code: http.StatusBadRequest,
 			err:  err,
@@ -78,7 +78,7 @@ func (a *API) createScaler(w http.ResponseWriter, req *http.Request) {
 	v, _ = json.Marshal(&s)
 	_, err := a.etcdclient.Put(req.Context(), path, string(v))
 	if err != nil {
-		err = fmt.Errorf("Error putting a key-value pair into etcd: %s", err.Error())
+		err = fmt.Errorf("error putting a key-value pair into etcd: %s", err.Error())
 		a.respondError(w, apiError{
 			code: http.StatusInternalServerError,
 			err:  err,

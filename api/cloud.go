@@ -61,7 +61,7 @@ func (a *API) registerCloud(w http.ResponseWriter, req *http.Request) {
 		}
 		resp, _ := a.etcdclient.Get(req.Context(), k, etcdv3.WithCountOnly())
 		if resp.Count > 0 && !force {
-			err := fmt.Errorf("The provider with id %s is existed", ops.ID)
+			err := fmt.Errorf("the provider with id %s is existed", ops.ID)
 			a.respondError(w, apiError{
 				code: http.StatusBadRequest,
 				err:  err,
@@ -72,7 +72,7 @@ func (a *API) registerCloud(w http.ResponseWriter, req *http.Request) {
 		v, _ = json.Marshal(&ops)
 		_, err := a.etcdclient.Put(req.Context(), k, string(v))
 		if err != nil {
-			err = fmt.Errorf("Error putting a key-value pair into etcd: %s", err.Error())
+			err = fmt.Errorf("error putting a key-value pair into etcd: %s", err.Error())
 			a.respondError(w, apiError{
 				code: http.StatusInternalServerError,
 				err:  err,
