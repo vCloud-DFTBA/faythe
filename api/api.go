@@ -108,10 +108,10 @@ func (a *API) respondError(w http.ResponseWriter, e apiError) {
 	})
 
 	if err != nil {
-		level.Error(a.logger).Log("msg", "Error marshalling JSON", "err", err.Error())
+		level.Error(a.logger).Log("msg", "Error marshalling JSON", "err", err)
 	} else {
 		if _, err := w.Write(b); err != nil {
-			level.Error(a.logger).Log("msg", "failed to write data to connection", "err", err.Error())
+			level.Error(a.logger).Log("msg", "failed to write data to connection", "err", err)
 		}
 	}
 
@@ -135,10 +135,10 @@ func (a *API) respondSuccess(w http.ResponseWriter, code int, data interface{}) 
 	})
 
 	if err != nil {
-		level.Error(a.logger).Log("msg", "Error marshalling JSON", "err", err.Error())
+		level.Error(a.logger).Log("msg", "Error marshalling JSON", "err", err)
 		return
 	}
 	if _, err := w.Write(b); err != nil {
-		level.Error(a.logger).Log("msg", "failed to write data to connection", "err", err.Error())
+		level.Error(a.logger).Log("msg", "failed to write data to connection", "err", err)
 	}
 }

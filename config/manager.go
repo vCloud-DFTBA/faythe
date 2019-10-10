@@ -167,7 +167,7 @@ func (m *Manager) WatchConfig() {
 	go func() {
 		watcher, err := fsnotify.NewWatcher()
 		if err != nil {
-			level.Error(m.logger).Log("msg", "Error creating config file watcher", "err", err.Error())
+			level.Error(m.logger).Log("msg", "Error creating config file watcher", "err", err)
 		}
 		defer watcher.Close()
 
@@ -187,7 +187,7 @@ func (m *Manager) WatchConfig() {
 						level.Info(m.logger).Log("msg", "Config file is changing...")
 						err := m.LoadFile(m.configPath)
 						if err != nil {
-							level.Error(m.logger).Log("msg", "Error reading config file", "err", err.Error())
+							level.Error(m.logger).Log("msg", "Error reading config file", "err", err)
 						}
 						if m.onConfigChange != nil {
 							m.onConfigChange(event)
@@ -200,7 +200,7 @@ func (m *Manager) WatchConfig() {
 
 				case err, ok := <-watcher.Errors:
 					if ok { // 'Errors' channel is not closed
-						level.Error(m.logger).Log("msg", "Error closing config file watcher", "err", err.Error())
+						level.Error(m.logger).Log("msg", "Error closing config file watcher", "err", err)
 					}
 					eventsWG.Done()
 					return
@@ -209,7 +209,7 @@ func (m *Manager) WatchConfig() {
 		}()
 		err = watcher.Add(m.configPath)
 		if err != nil {
-			level.Error(m.logger).Log("msg", "Error adding config file watcher", "err", err.Error())
+			level.Error(m.logger).Log("msg", "Error adding config file watcher", "err", err)
 		}
 		initWG.Done()
 		eventsWG.Wait()

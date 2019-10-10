@@ -112,7 +112,7 @@ func (m *Manager) startScaler(id string, data []byte) {
 	backend, err := m.getBackend(id)
 	if err != nil {
 		level.Error(m.logger).Log("msg", "Error creating registry backend for scaler",
-			"id", id, "err", err.Error())
+			"id", id, "err", err)
 		return
 	}
 	s := newScaler(log.With(m.logger, "scaler", id), data, backend)
@@ -170,13 +170,13 @@ func (m *Manager) save() {
 			raw, err := json.Marshal(&i.Value)
 			if err != nil {
 				level.Error(m.logger).Log("msg", "Error serializing scaler object",
-					"id", i.Value.ID, "err", err.Error())
+					"id", i.Value.ID, "err", err)
 				return
 			}
 			_, err = m.etcdcli.Put(m.ctx, i.Key, string(raw))
 			if err != nil {
 				level.Error(m.logger).Log("msg", "Error putting scaler object",
-					"key", i.Key, "err", err.Error())
+					"key", i.Key, "err", err)
 				return
 			}
 		}(i)
@@ -187,7 +187,7 @@ func (m *Manager) load() {
 	resp, err := m.etcdcli.Get(m.ctx, model.DefaultScalerPrefix,
 		etcdv3.WithPrefix(), etcdv3.WithSort(etcdv3.SortByKey, etcdv3.SortAscend))
 	if err != nil {
-		level.Error(m.logger).Log("msg", "Error getting scalers", "err", err.Error())
+		level.Error(m.logger).Log("msg", "Error getting scalers", "err", err)
 		return
 	}
 	for _, ev := range resp.Kvs {

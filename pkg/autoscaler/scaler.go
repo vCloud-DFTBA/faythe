@@ -94,7 +94,7 @@ func (s *Scaler) run(ctx context.Context, wg *sync.WaitGroup) {
 				result, err := s.backend.QueryInstant(ctx, s.Query, time.Now())
 				if err != nil {
 					level.Error(s.logger).Log("msg", "Executing query failed, skip current interval",
-						"query", s.Query, "err", err.Error())
+						"query", s.Query, "err", err)
 					continue
 				}
 				level.Debug(s.logger).Log("msg", "Executing query success",
@@ -167,7 +167,7 @@ func (s *Scaler) do() {
 				}),
 			)
 			if err != nil {
-				level.Error(s.logger).Log("msg", "Error doing scale action", "url", a.URL.String(), "err", err.Error())
+				level.Error(s.logger).Log("msg", "Error doing scale action", "url", a.URL.String(), "err", err)
 				return
 			}
 			level.Info(s.logger).Log("msg", "Sending request", "id", s.ID,

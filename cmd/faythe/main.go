@@ -85,7 +85,7 @@ func main() {
 	// Load configurations from file
 	err = config.Set(cfg.configFile, log.With(logger, "component", "config manager"))
 	if err != nil {
-		level.Error(logger).Log("msg", "Error loading configuration file", "err", err.Error())
+		level.Error(logger).Log("msg", "Error loading configuration file", "err", err)
 		os.Exit(2)
 	}
 
@@ -118,12 +118,12 @@ func main() {
 	go func() {
 		level.Info(logger).Log("msg", "Listening", "address", cfg.listenAddress)
 		if err := srv.ListenAndServe(); err != http.ErrServerClosed {
-			level.Error(logger).Log("msg", "Listen error", "err", err.Error())
+			level.Error(logger).Log("msg", "Listen error", "err", err)
 			close(srvc)
 		}
 		defer func() {
 			if err := srv.Close(); err != nil {
-				level.Error(logger).Log("msg", "Error on closing the server", "err", err.Error())
+				level.Error(logger).Log("msg", "Error on closing the server", "err", err)
 			}
 		}()
 	}()
