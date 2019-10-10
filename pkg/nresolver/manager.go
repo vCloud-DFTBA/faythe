@@ -23,12 +23,13 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/ntk148v/faythe/pkg/model"
+	"github.com/ntk148v/faythe/pkg/utils"
 	etcdv3 "go.etcd.io/etcd/clientv3"
 )
 
 type Manager struct {
 	logger  log.Logger
-	rqt     *Registry
+	rqt     *utils.Registry
 	stop    chan struct{}
 	etcdcli *etcdv3.Client
 	watch   etcdv3.WatchChan
@@ -43,7 +44,7 @@ func NewManager(l log.Logger, e *etcdv3.Client) *Manager {
 	ctx, cancel := context.WithCancel(context.Background())
 	nrm := &Manager{
 		logger:  l,
-		rqt:     &Registry{items: make(map[string]*NResolver)},
+		rqt:     &utils.Registry{Items: make(map[string]utils.Worker)},
 		stop:    make(chan struct{}),
 		etcdcli: e,
 		ctx:     ctx,
@@ -81,7 +82,7 @@ func (nrm *Manager) startNResolver(name string, data []byte) {
 func (nrm *Manager) stopNResolver(name string) {
 	if nr, ok := nrm.rqt.Get(name); ok {
 		level.Info(nrm.logger).Log("msg", "Removing name resolver", "name", name)
-		nr.stop()
+		nr.Stop()
 		nrm.rqt.Delete(name)
 	}
 }

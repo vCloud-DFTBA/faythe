@@ -12,25 +12,31 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package nresolver
+package utils
 
-import "sync"
+import (
+	"sync"
+)
 
 type Registry struct {
 	sync.RWMutex
-	items map[string]*NResolver
+	Items map[string]Worker
 }
 
 type RegistryItem struct {
 	Name  string
-	Value *NResolver
+	Value Worker
 }
 
-func (r *Registry) Get(key string) (*NResolver, bool) {
+type Worker interface {
+	Stop()
+}
+
+func (r *Registry) Get(key string) (Worker, bool) {
 	r.RLock()
 	defer r.RUnlock()
 
-	value, ok := r.items[key]
+	value, ok := r.Items[key]
 	return value, ok
 }
 
@@ -38,14 +44,14 @@ func (r *Registry) Delete(key string) {
 	r.Lock()
 	defer r.Unlock()
 
-	delete(r.items, key)
+	delete(r.Items, key)
 }
 
-func (r *Registry) Set(key string, value *NResolver) {
+func (r *Registry) Set(key string, value Worker) {
 	r.Lock()
 	defer r.Unlock()
 
-	r.items[key] = value
+	r.Items[key] = value
 }
 
 func (r *Registry) Iter() <-chan RegistryItem {
@@ -58,7 +64,7 @@ func (r *Registry) Iter() <-chan RegistryItem {
 			close(c)
 		}()
 
-		for k, v := range r.items {
+		for k, v := range r.Items {
 			c <- RegistryItem{k, v}
 		}
 	}()

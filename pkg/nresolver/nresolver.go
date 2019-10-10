@@ -90,7 +90,7 @@ func (nr *NResolver) run(ctx context.Context, wg *sync.WaitGroup, nc *chan NodeM
 
 }
 
-func (nr *NResolver) stop() {
+func (nr *NResolver) Stop() {
 	level.Debug(nr.logger).Log("msg", "NResolver is stopping", "name", nr.Name)
 	close(nr.done)
 	level.Debug(nr.logger).Log("msg", "NResolver is stopped", "name", nr.Name)
