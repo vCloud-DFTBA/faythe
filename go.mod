@@ -24,6 +24,8 @@ require (
 	github.com/grpc-ecosystem/go-grpc-middleware v1.1.0 // indirect
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway v1.9.5 // indirect
+	github.com/hashicorp/go-sockaddr v1.0.2
+	github.com/hashicorp/memberlist v0.1.5
 	github.com/jinzhu/copier v0.0.0-20190625015134-976e0346caa8
 	github.com/jonboulle/clockwork v0.1.0 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
