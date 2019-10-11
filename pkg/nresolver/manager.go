@@ -136,9 +136,8 @@ func (nrm *Manager) Run() {
 						level.Error(nrm.logger).Log("msg", "Error while json-izing cloud object", "err", err)
 					}
 					nr := model.NResolver{
-						Name:     cloud.ID,
-						Monitor:  cloud.Monitor,
-						Interval: "5s",
+						Name:    cloud.ID,
+						Monitor: cloud.Monitor,
 					}
 					nr.Validate()
 					raw, err := json.Marshal(nr)
