@@ -48,12 +48,12 @@ func newNResolver(l log.Logger, data []byte) *NResolver {
 
 func (nr *NResolver) run(ctx context.Context, wg *sync.WaitGroup, nc *chan NodeMetric) {
 	interval, _ := time.ParseDuration(nr.Interval)
-	err := metrics.Register("prometheus", nr.Address.String())
+	err := metrics.Register(nr.Monitor.Backend, nr.Monitor.Address.String())
 	if err != nil {
 		level.Error(nr.logger).Log("msg", "Error loading metrics backend, stopping..")
 		return
 	}
-	backend, _ := metrics.Get(fmt.Sprintf("%s-%s", "prometheus", nr.Address.String()))
+	backend, _ := metrics.Get(fmt.Sprintf("%s-%s", nr.Monitor.Backend, nr.Monitor.Address.String()))
 	ticker := time.NewTicker(interval)
 	defer func() {
 		wg.Done()

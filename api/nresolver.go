@@ -17,82 +17,12 @@ package api
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 
 	"github.com/go-kit/kit/log/level"
 	"github.com/ntk148v/faythe/pkg/model"
-	"github.com/ntk148v/faythe/pkg/utils"
 	etcdv3 "go.etcd.io/etcd/clientv3"
 )
-
-func (a *API) createNResolver(rw http.ResponseWriter, req *http.Request) {
-	nr := model.NResolver{}
-	err := a.parseNResolverRequest(&nr, req)
-	if err != nil {
-		err = fmt.Errorf("Error while parsing NResolver object: %s", err.Error())
-		a.respondError(rw, apiError{
-			code: http.StatusInternalServerError,
-			err:  err,
-		})
-		return
-	}
-	path := utils.Path(model.DefaultNResolverPrefix, nr.Name)
-	resp, _ := a.etcdclient.Get(req.Context(), path, etcdv3.WithCountOnly())
-	if resp.Count > 0 {
-		err := fmt.Errorf("The address exists", nr.Address.String())
-		a.respondError(rw, apiError{
-			code: http.StatusBadRequest,
-			err:  err,
-		})
-		return
-	}
-	b, err := json.Marshal(&nr)
-	if err != nil {
-		err = fmt.Errorf("Error while serializing NResolver object: %s", err.Error())
-		a.respondError(rw, apiError{
-			code: http.StatusInternalServerError,
-			err:  err,
-		})
-		return
-	}
-	_, err = a.etcdclient.Put(req.Context(), path, string(b))
-	if err != nil {
-		err = fmt.Errorf("Error while putting NResolver object to etcd: %s", err.Error())
-		a.respondError(rw, apiError{
-			code: http.StatusInternalServerError,
-			err:  err,
-		})
-		return
-	}
-
-	a.respondSuccess(rw, http.StatusOK, nil)
-}
-
-func (a *API) deleteNResolver(rw http.ResponseWriter, req *http.Request) {
-	nr := model.NResolver{}
-	err := a.parseNResolverRequest(&nr, req)
-	if err != nil {
-		err = fmt.Errorf("Error while parsing NResolver object: %s", err.Error())
-		a.respondError(rw, apiError{
-			code: http.StatusInternalServerError,
-			err:  err,
-		})
-		return
-	}
-	path := utils.Path(model.DefaultNResolverPrefix, nr.Name)
-	_, err = a.etcdclient.Delete(req.Context(), path, etcdv3.WithPrefix())
-	if err != nil {
-		err = fmt.Errorf("Error while deleting NResolver object to etcd: %s", err.Error())
-		a.respondError(rw, apiError{
-			code: http.StatusInternalServerError,
-			err:  err,
-		})
-		return
-	}
-	a.respondSuccess(rw, http.StatusOK, nil)
-	return
-}
 
 func (a *API) listNResolvers(rw http.ResponseWriter, req *http.Request) {
 	resp, err := a.etcdclient.Get(req.Context(), model.DefaultNResolverPrefix, etcdv3.WithPrefix(),
@@ -118,26 +48,4 @@ func (a *API) listNResolvers(rw http.ResponseWriter, req *http.Request) {
 	}
 	a.respondSuccess(rw, http.StatusOK, nresolvers)
 	return
-}
-
-func (a API) parseNResolverRequest(nr *model.NResolver, req *http.Request) error {
-	body, err := ioutil.ReadAll(req.Body)
-	if err != nil {
-		level.Error(a.logger).Log("msg", "Error while reading NResolver body",
-			"err", err.Error())
-		return err
-	}
-	err = json.Unmarshal(body, nr)
-	if err != nil {
-		level.Error(a.logger).Log("msg", "Error while json-izing NResolver object",
-			"err", err.Error())
-		return err
-	}
-	err = nr.Validate()
-	if err != nil {
-		level.Error(a.logger).Log("msg", "Error while parsing NResolver object",
-			"err", err.Error())
-		return err
-	}
-	return nil
 }

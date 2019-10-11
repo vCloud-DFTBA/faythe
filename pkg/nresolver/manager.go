@@ -53,7 +53,7 @@ func NewManager(l log.Logger, e *etcdv3.Client) *Manager {
 		nodes:   make(map[string]string),
 		nc:      make(chan NodeMetric),
 	}
-	nrm.watch = nrm.etcdcli.Watch(nrm.ctx, model.DefaultNResolverPrefix, etcdv3.WithPrefix())
+	nrm.watch = nrm.etcdcli.Watch(nrm.ctx, model.DefaultCloudPrefix, etcdv3.WithPrefix())
 	nrm.load()
 	return nrm
 }
@@ -128,12 +128,29 @@ func (nrm *Manager) Run() {
 			return
 		case watchResp := <-nrm.watch:
 			for _, event := range watchResp.Events {
-				name := string(event.Kv.Key)
+				name := utils.Path(model.DefaultNResolverPrefix, strings.Split(string(event.Kv.Key), "/")[2])
 				if event.IsCreate() {
-					nrm.startNResolver(name, event.Kv.Value)
+					cloud := model.Cloud{}
+					err := json.Unmarshal(event.Kv.Value, &cloud)
+					if err != nil {
+						level.Error(nrm.logger).Log("msg", "Error while json-izing cloud object", "err", err)
+					}
+					nr := model.NResolver{
+						Name:     cloud.ID,
+						Monitor:  cloud.Monitor,
+						Interval: "5s",
+					}
+					nr.Validate()
+					raw, err := json.Marshal(nr)
+					if err != nil {
+						level.Error(nrm.logger).Log("msg", "Error while serializing nresolver object", "err", err)
+					}
+					nrm.etcdcli.Put(nrm.ctx, name, string(raw))
+					nrm.startNResolver(name, raw)
 				}
 				if event.Type == etcdv3.EventTypeDelete {
 					nrm.stopNResolver(name)
+					nrm.etcdcli.Delete(nrm.ctx, name, etcdv3.WithPrefix())
 				}
 			}
 		case nm := <-nrm.nc:

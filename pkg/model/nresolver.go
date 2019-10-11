@@ -15,44 +15,31 @@
 package model
 
 import (
-	"crypto"
-	"fmt"
-	"time"
-
-	"github.com/ntk148v/faythe/pkg/utils"
 	"github.com/pkg/errors"
 )
 
 const (
-	DefaultNResolverPrefix = "/nresolvers"
-	DefaultNResolverQuery  = "node_uname_info"
+	DefaultNResolverPrefix   = "/nresolvers"
+	DefaultNResolverQuery    = "node_uname_info"
+	DefaultNResolverInterval = "600s"
 )
 
 type NResolver struct {
-	Address  URL    `json:"address"`
-	Name     string `json:"name"`
-	Interval string `json:"interval"`
+	Monitor  Monitor `json:"address"`
+	Name     string  `json:"name"`
+	Interval string  `json:"interval"`
 }
 
 func (nr *NResolver) Validate() error {
-	if nr.Address == "" {
-		return errors.New("Missing `Address` option")
+	if &nr.Monitor == nil {
+		return errors.New("missing `Monitor` option")
 	}
-
-	if err := nr.Address.Validate(); err != nil {
+	if err := nr.Monitor.Address.Validate(); err != nil {
 		return err
 	}
 
 	if nr.Interval == "" {
-		nr.Interval = "600s"
-	}
-
-	if _, err := time.ParseDuration(nr.Interval); err != nil {
-		return err
-	}
-
-	if nr.Name == "" {
-		nr.Name = fmt.Sprintf("%x", utils.Hash(nr.Address.String(), crypto.MD5))
+		nr.Interval = DefaultNResolverInterval
 	}
 	return nil
 }
