@@ -111,7 +111,7 @@ func (a *API) listNResolvers(rw http.ResponseWriter, req *http.Request) {
 		err = json.Unmarshal(e.Value, &nrt)
 		if err != nil {
 			level.Error(a.logger).Log("msg", "Error getting nresolver from etcd",
-				"nrsolvere", e.Key, "err", err)
+				"nrsolvere", e.Key, "err", err.Error())
 			continue
 		}
 		nresolvers[string(e.Key)] = nrt
@@ -124,19 +124,19 @@ func (a API) parseNResolverRequest(nr *model.NResolver, req *http.Request) error
 	body, err := ioutil.ReadAll(req.Body)
 	if err != nil {
 		level.Error(a.logger).Log("msg", "Error while reading NResolver body",
-			"err", err)
+			"err", err.Error())
 		return err
 	}
 	err = json.Unmarshal(body, nr)
 	if err != nil {
 		level.Error(a.logger).Log("msg", "Error while json-izing NResolver object",
-			"err", err)
+			"err", err.Error())
 		return err
 	}
 	err = nr.Validate()
 	if err != nil {
 		level.Error(a.logger).Log("msg", "Error while parsing NResolver object",
-			"err", err)
+			"err", err.Error())
 		return err
 	}
 	return nil

@@ -61,7 +61,7 @@ func NewManager(l log.Logger, e *etcdv3.Client) *Manager {
 func (nrm *Manager) load() {
 	r, err := nrm.etcdcli.Get(nrm.ctx, model.DefaultNResolverPrefix, etcdv3.WithPrefix())
 	if err != nil {
-		level.Error(nrm.logger).Log("msg", "Error getting list NResolver", "err", err)
+		level.Error(nrm.logger).Log("msg", "Error getting list NResolver", "err", err.Error())
 		return
 	}
 	for _, e := range r.Kvs {
@@ -108,13 +108,13 @@ func (nrm *Manager) save() {
 			raw, err := json.Marshal(&e.Value)
 			if err != nil {
 				level.Error(nrm.logger).Log("msg", "Error while serializing name resolver object",
-					"name", e.Name, "err", err)
+					"name", e.Name, "err", err.Error())
 				return
 			}
 			_, err = nrm.etcdcli.Put(nrm.ctx, e.Name, string(raw))
 			if err != nil {
 				level.Error(nrm.logger).Log("msg", "Error putting name resolver object",
-					"name", e.Name, "err", err)
+					"name", e.Name, "err", err.Error())
 				return
 			}
 		}(e.Name)
