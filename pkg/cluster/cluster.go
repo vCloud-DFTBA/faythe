@@ -53,8 +53,6 @@ func (s PeerStatus) String() string {
 }
 
 const (
-	DefaultGossipInterval   = 200 * time.Millisecond
-	DefaultTCPTimeout       = 10 * time.Second
 	DefaultProbeTimeout     = 500 * time.Millisecond
 	DefaultProbeInterval    = 1 * time.Second
 	DefaultPushPullInterval = 30 * time.Second
