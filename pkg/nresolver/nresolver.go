@@ -41,7 +41,7 @@ func newNResolver(l log.Logger, data []byte) *NResolver {
 	}
 	err := json.Unmarshal(data, nr)
 	if err != nil {
-		level.Error(nr.logger).Log("msg", "Error while unmarhshaling data", "err", err.Error())
+		level.Error(nr.logger).Log("msg", "Error while unmarhshaling data", "err", err)
 	}
 	return nr
 }
@@ -65,7 +65,7 @@ func (nr *NResolver) run(ctx context.Context, wg *sync.WaitGroup, nc *chan NodeM
 			result, err := backend.QueryInstant(ctx, model.DefaultNResolverQuery, time.Now())
 			if err != nil {
 				level.Error(nr.logger).Log("msg", "Executing query failed",
-					"query", model.DefaultNResolverQuery, "err", err.Error())
+					"query", model.DefaultNResolverQuery, "err", err)
 				continue
 			}
 			level.Info(nr.logger).Log("msg", "Execcuting query success", "query", model.DefaultNResolverQuery)
@@ -73,12 +73,12 @@ func (nr *NResolver) run(ctx context.Context, wg *sync.WaitGroup, nc *chan NodeM
 			for _, el := range result {
 				j, err := el.MarshalJSON()
 				if err != nil {
-					level.Error(nr.logger).Log("msg", "Erorr while json-izing metrics result", "err", err.Error())
+					level.Error(nr.logger).Log("msg", "Erorr while json-izing metrics result", "err", err)
 				}
 				nm := NodeMetric{}
 				err = json.Unmarshal(j, &nm)
 				if err != nil {
-					level.Error(nr.logger).Log("msg", "Erorr while json-izing metrics result", "err", err.Error())
+					level.Error(nr.logger).Log("msg", "Erorr while json-izing metrics result", "err", err)
 				}
 				*nc <- nm
 			}
