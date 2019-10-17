@@ -16,6 +16,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/ntk148v/faythe/pkg/cluster"
 	"net"
 	"net/http"
 	"net/url"
@@ -28,6 +29,7 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/gorilla/mux"
+	"github.com/imdario/mergo"
 	"github.com/jinzhu/copier"
 	"github.com/pkg/errors"
 	"github.com/prometheus/common/promlog"
@@ -48,8 +50,10 @@ func main() {
 		url           string
 		externalURL   *url.URL
 		logConfig     promlog.Config
+		clusterConfig config.PeerConfig
 	}{
-		logConfig: promlog.Config{},
+		logConfig:     promlog.Config{},
+		clusterConfig: config.DefaultPeerConfig,
 	}
 
 	a := kingpin.New(filepath.Base(os.Args[0]), "The Faythe server")
@@ -61,6 +65,27 @@ func main() {
 	a.Flag("external-url",
 		"The URL under which Faythe is externally reachable.").
 		PlaceHolder("<URL>").StringVar(&cfg.url)
+	// Cluster flags
+	a.Flag("cluster.listen-address", "Listen address for cluster.").
+		StringVar(&cfg.clusterConfig.BindAddr)
+	a.Flag("cluster.advertise-address", "Explicit address to advertise in cluster.").
+		StringVar(&cfg.clusterConfig.AdvertiseAddr)
+	a.Flag("cluster.peers", "Initial address of peer to join on startup.").
+		StringsVar(&cfg.clusterConfig.StartJoin)
+	a.Flag("cluster.reply", "Replay events for startup join").
+		BoolVar(&cfg.clusterConfig.ReplayOnJoin)
+	a.Flag("cluster.tags", "tag pair").
+		StringMapVar(&cfg.clusterConfig.Tags)
+	a.Flag("cluster.broadcast-timeout", "Timeout for broadcast message").
+		DurationVar(&cfg.clusterConfig.BroadcastTimeout)
+	a.Flag("cluster.profile", "Timing profile for Peer. The supported choices are `wan`, `lan`, and `local`. The default is `lan`").
+		StringVar(&cfg.clusterConfig.Profile)
+	a.Flag("cluster.node", "node name").
+		StringVar(&cfg.clusterConfig.NodeName)
+	a.Flag("cluster.reconnect-timeout", "How long we attempt to connect to a failed node removing it from the cluster.").
+		DurationVar(&cfg.clusterConfig.ReconnectTimeout)
+	a.Flag("cluster.reconnect-interval", "How often we attempt to connect to a failed node.").
+		DurationVar(&cfg.clusterConfig.ReconnectInterval)
 
 	logflag.AddFlags(a, &cfg.logConfig)
 	_, err := a.Parse(os.Args[1:])
@@ -81,6 +106,7 @@ func main() {
 		fmw      = &middleware.Middleware{}
 		fapi     = &api.API{}
 		fas      = &autoscaler.Manager{}
+		peer     = &cluster.Peer{}
 	)
 	// Load configurations from file
 	err = config.Set(cfg.configFile, log.With(logger, "component", "config manager"))
@@ -90,6 +116,25 @@ func main() {
 	}
 
 	config.WatchConfig()
+
+	// Merge cluster configs from commands and file.
+	// Take config from command flags over config from file
+	clusterConfigFromFile := config.Get().PeerConfig
+	mergo.Merge(&cfg.clusterConfig, clusterConfigFromFile)
+	peer = cluster.Create(cfg.clusterConfig,
+		log.With(logger, "component", "cluster peer"), os.Stderr)
+	if err := peer.Start(); err != nil {
+		level.Error(logger).Log("err", errors.Wrapf(err, "Error instantiating Peer,"))
+		os.Exit(2)
+	}
+	if _, err := peer.Join(cfg.clusterConfig.StartJoin, cfg.clusterConfig.ReplayOnJoin); err != nil {
+		level.Error(logger).Log("err", errors.Wrapf(err, "Error joining cluster."))
+		os.Exit(2)
+	}
+	defer func() {
+		_ = peer.Leave()
+		_ = peer.Shutdown()
+	}()
 
 	// Init Etcdv3 client
 	copier.Copy(&etcdConf, config.Get().EtcdConfig)
