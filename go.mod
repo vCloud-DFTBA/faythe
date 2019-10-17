@@ -7,12 +7,10 @@ require (
 	github.com/fsnotify/fsnotify v1.4.7
 	github.com/go-kit/kit v0.9.0
 	github.com/gorilla/mux v1.7.3
-	github.com/gorilla/websocket v1.4.1 // indirect
-	github.com/grpc-ecosystem/go-grpc-middleware v1.1.0 // indirect
-	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0 // indirect
-	github.com/grpc-ecosystem/grpc-gateway v1.9.5 // indirect
-	github.com/hashicorp/go-sockaddr v1.0.2
+	github.com/hashicorp/go-sockaddr v1.0.2 // indirect
 	github.com/hashicorp/memberlist v0.1.5
+	github.com/hashicorp/serf v0.8.5
+	github.com/imdario/mergo v0.3.8
 	github.com/jinzhu/copier v0.0.0-20190625015134-976e0346caa8
 	github.com/ntk148v/faythe v0.1.0
 	github.com/pkg/errors v0.8.1
