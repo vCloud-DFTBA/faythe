@@ -8,3 +8,4 @@ Faythe instances use the gossip layer to:
 * Keep track of membership.
 * Combining with [Consistent hashing](https://en.wikipedia.org/wiki/Consistent_hashing) - [Chord](https://en.wikipedia.org/wiki/Chord_(peer-to-peer)), execute scalers.
 
+New strategy: Leverage [Hashicorp Serf](https://github.com/hashicorp/serf) to create Faythe cluster.
