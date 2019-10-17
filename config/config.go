@@ -17,8 +17,10 @@ package config
 import (
 	"crypto/tls"
 	"fmt"
+	"os"
 	"time"
 
+	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
 
 	"github.com/ntk148v/faythe/pkg/utils"
@@ -28,6 +30,7 @@ import (
 type Config struct {
 	GlobalConfig GlobalConfig `yaml:"global"`
 	EtcdConfig   EtcdConfig   `yaml:"etcd"`
+	PeerConfig   PeerConfig   `yaml:"cluster"`
 }
 
 // GlobalConfig configures values that are used to config Faythe HTTP server
@@ -102,6 +105,8 @@ const (
 	etcdDefaultDialTimeout      = 2 * time.Second
 	etcdDefaultKeepAliveTime    = 2 * time.Second
 	etcdDefaultKeepAliveTimeOut = 6 * time.Second
+	// minBroadcastTimeout applies a lower bound to the broadcast timeout interval
+	minBroadcastTimeout = time.Second
 )
 
 var (
@@ -109,6 +114,7 @@ var (
 	DefaultConfig = Config{
 		GlobalConfig: DefaultGlobalConfig,
 		EtcdConfig:   DefaultEtcdConfig,
+		PeerConfig:   DefaultPeerConfig,
 	}
 
 	// DefaultGlobalConfig is the default global configuration.
@@ -123,6 +129,15 @@ var (
 		DialTimeout:          etcdDefaultDialTimeout,
 		DialKeepAliveTime:    etcdDefaultKeepAliveTime,
 		DialKeepAliveTimeout: etcdDefaultKeepAliveTimeOut,
+	}
+
+	// DefaultPeerConfig is the default Peer configuration
+	DefaultPeerConfig = PeerConfig{
+		BindAddr:         "0.0.0.0:8601",
+		AdvertiseAddr:    "",
+		ReplayOnJoin:     false,
+		Profile:          "lan",
+		BroadcastTimeout: 5 * time.Second,
 	}
 )
 
@@ -172,4 +187,99 @@ func (c *EtcdConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		return err
 	}
 	return nil
+}
+
+// PeerConfig is the configuration that can be set for an Agent. Some of these
+// configurations are exposed as command-line flags to `faythe`, whereas
+// many of the more advanced configurations can only be set by creating
+// a configuration file.
+type PeerConfig struct {
+	NodeName string `yaml:"node_name"`
+
+	// BindAddr is the address that the Peer's communication ports
+	// will bind to. Peer will use this address to bind for both TCP
+	// and UDP connections. If no port is present in the address, the default
+	// port will be used.
+	BindAddr string `yaml:"bind"`
+
+	// AdvertiseAddr is the address that the Peer will advertise to other
+	// members of the cluster. Can be used for basic NAT traversal where
+	// where both the internal ip:port and external ip:port are known.
+	AdvertiseAddr string `yaml:"advertise"`
+
+	// Tags are used to attach key/value metadata to a node.
+	Tags map[string]string `yaml:"tags"`
+
+	// ReplayOnJoin tells Serf to replay past user events
+	// when joining based on a `StartJoin`.
+	ReplayOnJoin bool `yaml:"replay_on_join"`
+
+	// StartJoin is a list of addresses to attempt to join when the
+	// Peer starts. If Peer is unable to communicate with any of these addresses,
+	// then the agent will error and exit.
+	StartJoin []string `yaml:"start_join"`
+
+	// ReconnectInterval controls how often we attempt to connect to a failed node.
+	ReconnectInterval time.Duration `yaml:"reconnect_interval"`
+
+	// ReconnectTimeout controls for how long we attempt to connect to a failed node
+	// removing it from the cluster.
+	ReconnectTimeout time.Duration `yaml:"reconnect_timeout"`
+
+	// BroadcastTimeout is the string retry interval. This interval
+	// controls the timeout for broadcast events. This defaults to 5 seconds.
+	BroadcastTimeout time.Duration `yaml:"broadcast_timeout"`
+
+	// Profile is used to select a timing profile for Peer. The supported choices
+	// are "wan", "lan", and "local". The default is "lan"
+	Profile string `yaml:"profile"`
+}
+
+func (c *PeerConfig) Validate() error {
+	_, _, err := utils.AddParts(c.BindAddr)
+	if err != nil {
+		return err
+	}
+	if c.AdvertiseAddr != "" {
+		_, _, err := utils.AddParts(c.AdvertiseAddr)
+		if err != nil {
+			return err
+		}
+	}
+
+	if c.NodeName == "" {
+		hostname, err := os.Hostname()
+		if err != nil {
+			return errors.Wrap(err, "setting Peer's node name as hostname")
+			c.NodeName = hostname
+		}
+	}
+
+	// Check for sane broadcast timeout
+	if c.BroadcastTimeout < minBroadcastTimeout {
+		// If broadcastTimeout is too low, setting to 1s.
+		c.BroadcastTimeout = minBroadcastTimeout
+	}
+
+	switch c.Profile {
+	case "lan":
+	case "wan":
+	case "local":
+	default:
+		return errors.Errorf("Unknown profile: %s", c.Profile)
+	}
+
+	return nil
+}
+
+func (c *PeerConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	*c = DefaultPeerConfig
+	// We want to set c to the defaults and then overwrite it with the input.
+	// To make unmarshal fill the plain data struct rather than calling UnmarshalYAML
+	// again, we have to hide it using a type indirection.
+	type plain PeerConfig
+	if err := unmarshal((*plain)(c)); err != nil {
+		return err
+	}
+	return c.Validate()
 }
