@@ -16,6 +16,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/ntk148v/faythe/pkg/cluster"
 	"net"
 	"net/http"
 	"net/url"
@@ -51,6 +52,7 @@ func main() {
 		url           string
 		externalURL   *url.URL
 		logConfig     promlog.Config
+		clusterConfig config.PeerConfig
 	}{
 		logConfig:     promlog.Config{},
 		clusterConfig: config.DefaultPeerConfig,
@@ -65,6 +67,27 @@ func main() {
 	a.Flag("external-url",
 		"The URL under which Faythe is externally reachable.").
 		PlaceHolder("<URL>").StringVar(&cfg.url)
+	// Cluster flags
+	a.Flag("cluster.listen-address", "Listen address for cluster.").
+		StringVar(&cfg.clusterConfig.BindAddr)
+	a.Flag("cluster.advertise-address", "Explicit address to advertise in cluster.").
+		StringVar(&cfg.clusterConfig.AdvertiseAddr)
+	a.Flag("cluster.peers", "Initial address of peer to join on startup.").
+		StringsVar(&cfg.clusterConfig.StartJoin)
+	a.Flag("cluster.reply", "Replay events for startup join").
+		BoolVar(&cfg.clusterConfig.ReplayOnJoin)
+	a.Flag("cluster.tags", "tag pair").
+		StringMapVar(&cfg.clusterConfig.Tags)
+	a.Flag("cluster.broadcast-timeout", "Timeout for broadcast message").
+		DurationVar(&cfg.clusterConfig.BroadcastTimeout)
+	a.Flag("cluster.profile", "Timing profile for Peer. The supported choices are `wan`, `lan`, and `local`. The default is `lan`").
+		StringVar(&cfg.clusterConfig.Profile)
+	a.Flag("cluster.node", "node name").
+		StringVar(&cfg.clusterConfig.NodeName)
+	a.Flag("cluster.reconnect-timeout", "How long we attempt to connect to a failed node removing it from the cluster.").
+		DurationVar(&cfg.clusterConfig.ReconnectTimeout)
+	a.Flag("cluster.reconnect-interval", "How often we attempt to connect to a failed node.").
+		DurationVar(&cfg.clusterConfig.ReconnectInterval)
 
 	logflag.AddFlags(a, &cfg.logConfig)
 	_, err := a.Parse(os.Args[1:])
