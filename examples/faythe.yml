@@ -16,3 +16,9 @@ etcd:
   dial_timeout: 2s
   dial_keep_alive_time: 2s
   dial_keep_alive_timeout: 6s
+
+# cluster configuration
+cluster:
+  bind: "127.0.0.1:8601"
+  start_join: "192.168.1.3:8601,192.168.1.4:8601"
+  profile: "lan"
