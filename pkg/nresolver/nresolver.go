@@ -39,10 +39,7 @@ func newNResolver(l log.Logger, data []byte) *NResolver {
 		logger: l,
 		done:   make(chan struct{}),
 	}
-	err := json.Unmarshal(data, nr)
-	if err != nil {
-		level.Error(nr.logger).Log("msg", "Error while unmarhshaling data", "err", err)
-	}
+	json.Unmarshal(data, nr)
 	return nr
 }
 
@@ -73,12 +70,12 @@ func (nr *NResolver) run(ctx context.Context, wg *sync.WaitGroup, nc *chan NodeM
 			for _, el := range result {
 				j, err := el.MarshalJSON()
 				if err != nil {
-					level.Error(nr.logger).Log("msg", "Erorr while json-izing metrics result", "err", err)
+					level.Error(nr.logger).Log("msg", "Error while unmarshalling metrics result", "err", err)
 				}
 				nm := NodeMetric{}
 				err = json.Unmarshal(j, &nm)
 				if err != nil {
-					level.Error(nr.logger).Log("msg", "Erorr while json-izing metrics result", "err", err)
+					level.Error(nr.logger).Log("msg", "Error while unmarshalling metrics result", "err", err)
 				}
 				*nc <- nm
 			}

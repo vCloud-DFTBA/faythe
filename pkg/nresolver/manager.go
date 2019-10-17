@@ -107,7 +107,7 @@ func (nrm *Manager) save() {
 
 			raw, err := json.Marshal(&e.Value)
 			if err != nil {
-				level.Error(nrm.logger).Log("msg", "Error while serializing name resolver object",
+				level.Error(nrm.logger).Log("msg", "Error while marshalling name resolver object",
 					"name", e.Name, "err", err)
 				return
 			}
@@ -133,7 +133,7 @@ func (nrm *Manager) Run() {
 					cloud := model.Cloud{}
 					err := json.Unmarshal(event.Kv.Value, &cloud)
 					if err != nil {
-						level.Error(nrm.logger).Log("msg", "Error while json-izing cloud object", "err", err)
+						level.Error(nrm.logger).Log("msg", "Error while unmarshalling cloud object", "err", err)
 					}
 					nr := model.NResolver{
 						Name:    cloud.ID,
@@ -142,7 +142,7 @@ func (nrm *Manager) Run() {
 					nr.Validate()
 					raw, err := json.Marshal(nr)
 					if err != nil {
-						level.Error(nrm.logger).Log("msg", "Error while serializing nresolver object", "err", err)
+						level.Error(nrm.logger).Log("msg", "Error while marshalling nresolver object", "err", err)
 					}
 					nrm.etcdcli.Put(nrm.ctx, name, string(raw))
 					nrm.startNResolver(name, raw)

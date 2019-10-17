@@ -187,8 +187,8 @@ func (m *Manager) save() {
 			i.Value.Alert = i.Value.alert.state
 			raw, err := json.Marshal(&i.Value)
 			if err != nil {
-				level.Error(m.logger).Log("msg", "Error serializing scaler object",
-					"id", i.Key, "err", err)
+				level.Error(m.logger).Log("msg", "Error marshalling scaler object",
+					"id", i.Value.ID, "err", err)
 				return
 			}
 			_, err = m.etcdcli.Put(context.Background(), i.Key, string(raw))
