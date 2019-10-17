@@ -22,7 +22,10 @@ import (
 	"crypto/sha512"
 	"hash"
 	"hash/fnv"
+	"net"
 	"reflect"
+	"runtime"
+	"strconv"
 	"strings"
 )
 
@@ -106,4 +109,32 @@ func Find(a []string, x interface{}, op string) bool {
 		}
 	}
 	return r
+}
+
+// AddParts returns the parts of the address
+func AddParts(address string) (string, int, error) {
+	_, _, err := net.SplitHostPort(address)
+	if err != nil {
+		return "", 0, err
+	}
+
+	// Get the address
+	addr, err := net.ResolveTCPAddr("tcp", address)
+	if err != nil {
+		return "", 0, err
+	}
+
+	return addr.IP.String(), addr.Port, nil
+}
+
+// RuntimeStats is used to return various runtime information
+func RuntimeStats() map[string]string {
+	return map[string]string{
+		"os":         runtime.GOOS,
+		"arch":       runtime.GOARCH,
+		"version":    runtime.Version(),
+		"max_procs":  strconv.FormatInt(int64(runtime.GOMAXPROCS(0)), 10),
+		"goroutines": strconv.FormatInt(int64(runtime.NumGoroutine()), 10),
+		"cpu_count":  strconv.FormatInt(int64(runtime.NumCPU()), 10),
+	}
 }
