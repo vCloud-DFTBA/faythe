@@ -147,7 +147,7 @@ func main() {
 	defer fas.Stop()
 
 	// Init NResolver
-	nr := nresolver.NewManager(log.With(logger, "component", "nresolver"), etcdCli)
+	nr := autohealer.NewManager(log.With(logger, "component", "nresolver"), etcdCli)
 	go nr.Run()
 	defer nr.Stop()
 

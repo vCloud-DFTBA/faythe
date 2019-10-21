@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package nresolver
+package autohealer
 
 import (
 	"context"
@@ -42,7 +42,7 @@ type Manager struct {
 
 func NewManager(l log.Logger, e *etcdv3.Client) *Manager {
 	ctx, cancel := context.WithCancel(context.Background())
-	nrm := &Manager{
+	hm := &Manager{
 		logger:  l,
 		rqt:     &utils.Registry{Items: make(map[string]utils.Worker)},
 		stop:    make(chan struct{}),
@@ -53,67 +53,67 @@ func NewManager(l log.Logger, e *etcdv3.Client) *Manager {
 		nodes:   make(map[string]string),
 		nc:      make(chan NodeMetric),
 	}
-	nrm.watch = nrm.etcdcli.Watch(nrm.ctx, model.DefaultCloudPrefix, etcdv3.WithPrefix())
-	nrm.load()
-	return nrm
+	hm.watch = hm.etcdcli.Watch(hm.ctx, model.DefaultCloudPrefix, etcdv3.WithPrefix())
+	hm.load()
+	return hm
 }
 
-func (nrm *Manager) load() {
-	r, err := nrm.etcdcli.Get(nrm.ctx, model.DefaultNResolverPrefix, etcdv3.WithPrefix())
+func (hm *Manager) load() {
+	r, err := hm.etcdcli.Get(hm.ctx, model.DefaultNResolverPrefix, etcdv3.WithPrefix())
 	if err != nil {
-		level.Error(nrm.logger).Log("msg", "Error getting list NResolver", "err", err)
+		level.Error(hm.logger).Log("msg", "Error getting list NResolver", "err", err)
 		return
 	}
 	for _, e := range r.Kvs {
-		nrm.startNResolver(string(e.Key), e.Value)
+		hm.startNResolver(string(e.Key), e.Value)
 	}
 }
 
-func (nrm *Manager) startNResolver(name string, data []byte) {
-	level.Info(nrm.logger).Log("msg", "Creating name resovler", "name", name)
-	nr := newNResolver(log.With(nrm.logger, "nresolver", name), data)
-	nrm.rqt.Set(name, nr)
+func (hm *Manager) startNResolver(name string, data []byte) {
+	level.Info(hm.logger).Log("msg", "Creating name resovler", "name", name)
+	nr := newNResolver(log.With(hm.logger, "nresolver", name), data)
+	hm.rqt.Set(name, nr)
 	go func() {
-		nrm.wg.Add(1)
-		nr.run(nrm.ctx, nrm.wg, &nrm.nc)
+		hm.wg.Add(1)
+		nr.run(hm.ctx, hm.wg, &hm.nc)
 	}()
 }
 
-func (nrm *Manager) stopNResolver(name string) {
-	if nr, ok := nrm.rqt.Get(name); ok {
-		level.Info(nrm.logger).Log("msg", "Removing name resolver", "name", name)
+func (hm *Manager) stopNResolver(name string) {
+	if nr, ok := hm.rqt.Get(name); ok {
+		level.Info(hm.logger).Log("msg", "Removing name resolver", "name", name)
 		nr.Stop()
-		nrm.rqt.Delete(name)
+		hm.rqt.Delete(name)
 	}
 }
 
-func (nrm *Manager) Stop() {
-	level.Info(nrm.logger).Log("msg", "Cleaning before stopping name resolver managger")
-	nrm.save()
-	nrm.wg.Wait()
-	close(nrm.stop)
-	nrm.cancel()
-	level.Info(nrm.logger).Log("msg", "Name resolver manager is stopped!")
+func (hm *Manager) Stop() {
+	level.Info(hm.logger).Log("msg", "Cleaning before stopping name autohealer managger")
+	hm.save()
+	hm.wg.Wait()
+	close(hm.stop)
+	hm.cancel()
+	level.Info(hm.logger).Log("msg", "Name autohealer manager is stopped!")
 }
 
-func (nrm *Manager) save() {
-	for e := range nrm.rqt.Iter() {
-		nrm.wg.Add(1)
+func (hm *Manager) save() {
+	for e := range hm.rqt.Iter() {
+		hm.wg.Add(1)
 		go func(name string) {
 			defer func() {
-				nrm.stopNResolver(name)
-				nrm.wg.Done()
+				hm.stopNResolver(name)
+				hm.wg.Done()
 			}()
 
 			raw, err := json.Marshal(&e.Value)
 			if err != nil {
-				level.Error(nrm.logger).Log("msg", "Error while marshalling name resolver object",
+				level.Error(hm.logger).Log("msg", "Error while marshalling name resolver object",
 					"name", e.Name, "err", err)
 				return
 			}
-			_, err = nrm.etcdcli.Put(nrm.ctx, e.Name, string(raw))
+			_, err = hm.etcdcli.Put(hm.ctx, e.Name, string(raw))
 			if err != nil {
-				level.Error(nrm.logger).Log("msg", "Error putting name resolver object",
+				level.Error(hm.logger).Log("msg", "Error putting name resolver object",
 					"name", e.Name, "err", err)
 				return
 			}
@@ -121,19 +121,19 @@ func (nrm *Manager) save() {
 	}
 }
 
-func (nrm *Manager) Run() {
+func (hm *Manager) Run() {
 	for {
 		select {
-		case <-nrm.stop:
+		case <-hm.stop:
 			return
-		case watchResp := <-nrm.watch:
+		case watchResp := <-hm.watch:
 			for _, event := range watchResp.Events {
 				name := utils.Path(model.DefaultNResolverPrefix, strings.Split(string(event.Kv.Key), "/")[2])
 				if event.IsCreate() {
 					cloud := model.Cloud{}
 					err := json.Unmarshal(event.Kv.Value, &cloud)
 					if err != nil {
-						level.Error(nrm.logger).Log("msg", "Error while unmarshalling cloud object", "err", err)
+						level.Error(hm.logger).Log("msg", "Error while unmarshalling cloud object", "err", err)
 					}
 					nr := model.NResolver{
 						Name:    cloud.ID,
@@ -142,18 +142,18 @@ func (nrm *Manager) Run() {
 					nr.Validate()
 					raw, err := json.Marshal(nr)
 					if err != nil {
-						level.Error(nrm.logger).Log("msg", "Error while marshalling nresolver object", "err", err)
+						level.Error(hm.logger).Log("msg", "Error while marshalling nresolver object", "err", err)
 					}
-					nrm.etcdcli.Put(nrm.ctx, name, string(raw))
-					nrm.startNResolver(name, raw)
+					hm.etcdcli.Put(hm.ctx, name, string(raw))
+					hm.startNResolver(name, raw)
 				}
 				if event.Type == etcdv3.EventTypeDelete {
-					nrm.stopNResolver(name)
-					nrm.etcdcli.Delete(nrm.ctx, name, etcdv3.WithPrefix())
+					hm.stopNResolver(name)
+					hm.etcdcli.Delete(hm.ctx, name, etcdv3.WithPrefix())
 				}
 			}
-		case nm := <-nrm.nc:
-			nrm.nodes[strings.Split(nm.Metric.Instance, ":")[0]] = nm.Metric.Nodename
+		case nm := <-hm.nc:
+			hm.nodes[strings.Split(nm.Metric.Instance, ":")[0]] = nm.Metric.Nodename
 		}
 	}
 }
