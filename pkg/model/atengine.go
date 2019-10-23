@@ -14,32 +14,8 @@
 
 package model
 
-import (
-	"github.com/pkg/errors"
-)
-
-const (
-	DefaultNResolverPrefix   = "/nresolvers"
-	DefaultNResolverQuery    = "node_uname_info"
-	DefaultNResolverInterval = "600s"
-)
-
-type NResolver struct {
-	Monitor  Monitor `json:"address"`
-	ID       string  `json:"ID"`
-	Interval string  `json:"interval"`
-}
-
-func (nr *NResolver) Validate() error {
-	if &nr.Monitor == nil {
-		return errors.New("missing `Monitor` option")
-	}
-	if err := nr.Monitor.Address.Validate(); err != nil {
-		return err
-	}
-
-	if nr.Interval == "" {
-		nr.Interval = DefaultNResolverInterval
-	}
-	return nil
+type ATEngine struct {
+	Backend  string            `json:"backend"`
+	Address  URL               `json:"address"`
+	Metadata map[string]string `json:"metadata"`
 }

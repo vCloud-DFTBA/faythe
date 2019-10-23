@@ -14,32 +14,35 @@
 
 package model
 
-import (
-	"github.com/pkg/errors"
-)
-
-const (
-	DefaultNResolverPrefix   = "/nresolvers"
-	DefaultNResolverQuery    = "node_uname_info"
-	DefaultNResolverInterval = "600s"
-)
-
-type NResolver struct {
-	Monitor  Monitor `json:"address"`
-	ID       string  `json:"ID"`
-	Interval string  `json:"interval"`
+type ActionHTTP struct {
+	Action
+	URL    URL    `json:"url"`
+	Method string `json:"method,omitempty"`
 }
 
-func (nr *NResolver) Validate() error {
-	if &nr.Monitor == nil {
-		return errors.New("missing `Monitor` option")
-	}
-	if err := nr.Monitor.Address.Validate(); err != nil {
+// Validate returns nil if all fields of the Action have valid values.
+func (a *ActionHTTP) Validate() error {
+
+	if err := a.Validate(); err != nil {
 		return err
 	}
 
-	if nr.Interval == "" {
-		nr.Interval = DefaultNResolverInterval
+	if err := a.URL.Validate(); err != nil {
+		return err
 	}
+
+	if a.Delay == "" {
+		a.Delay = "100ms"
+	}
+	if a.DelayType == "" {
+		a.DelayType = "fixed"
+	}
+	if a.Method == "" {
+		a.Method = "POST"
+	}
+	if a.Attempts == 0 {
+		a.Attempts = 10
+	}
+
 	return nil
 }

@@ -39,6 +39,7 @@ type Cloud struct {
 	ID        string         `json:"id,omitempty"`
 	Endpoints map[string]URL `json:"endpoints"`
 	Monitor   Monitor        `json:"monitor"`
+	ATEngine  ATEngine       `json:"atengine"`
 	Tags      []string       `json:"tags"`
 }
 
@@ -54,6 +55,15 @@ func (cl *Cloud) Validate() error {
 			return err
 		}
 	}
+
+	if &cl.ATEngine == nil {
+		return errors.New("missing `ATEngine` option")
+	}
+
+	if err := cl.ATEngine.Address.Validate(); err != nil {
+		return err
+	}
+
 	// Require Monitor backend
 	if &cl.Monitor == nil {
 		return errors.New("missing `Monitor` option")

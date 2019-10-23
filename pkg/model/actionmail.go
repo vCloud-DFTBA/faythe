@@ -14,32 +14,25 @@
 
 package model
 
-import (
-	"github.com/pkg/errors"
-)
+type Receivers []string
 
-const (
-	DefaultNResolverPrefix   = "/nresolvers"
-	DefaultNResolverQuery    = "node_uname_info"
-	DefaultNResolverInterval = "600s"
-)
-
-type NResolver struct {
-	Monitor  Monitor `json:"address"`
-	ID       string  `json:"ID"`
-	Interval string  `json:"interval"`
+type ActionMail struct {
+	Action
+	Receivers Receivers `json:"receivers"`
 }
 
-func (nr *NResolver) Validate() error {
-	if &nr.Monitor == nil {
-		return errors.New("missing `Monitor` option")
-	}
-	if err := nr.Monitor.Address.Validate(); err != nil {
+func (a *ActionMail) Validate() error {
+	if err := a.Validate(); err != nil {
 		return err
 	}
-
-	if nr.Interval == "" {
-		nr.Interval = DefaultNResolverInterval
+	if a.Delay == "" {
+		a.Delay = "100ms"
+	}
+	if a.DelayType == "" {
+		a.DelayType = "fixed"
+	}
+	if a.Attempts == 0 {
+		a.Attempts = 10
 	}
 	return nil
 }

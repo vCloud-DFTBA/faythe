@@ -17,7 +17,6 @@ package autohealer
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"sync"
 	"time"
 
@@ -29,15 +28,17 @@ import (
 
 type NResolver struct {
 	model.NResolver
-	logger log.Logger
-	mtx    sync.RWMutex
-	done   chan struct{}
+	logger  log.Logger
+	mtx     sync.RWMutex
+	done    chan struct{}
+	backend metrics.Backend
 }
 
-func newNResolver(l log.Logger, data []byte) *NResolver {
+func newNResolver(l log.Logger, data []byte, b metrics.Backend) *NResolver {
 	nr := &NResolver{
-		logger: l,
-		done:   make(chan struct{}),
+		logger:  l,
+		done:    make(chan struct{}),
+		backend: b,
 	}
 	json.Unmarshal(data, nr)
 	return nr
@@ -45,12 +46,6 @@ func newNResolver(l log.Logger, data []byte) *NResolver {
 
 func (nr *NResolver) run(ctx context.Context, wg *sync.WaitGroup, nc *chan NodeMetric) {
 	interval, _ := time.ParseDuration(nr.Interval)
-	err := metrics.Register(nr.Monitor.Backend, nr.Monitor.Address.String())
-	if err != nil {
-		level.Error(nr.logger).Log("msg", "Error loading metrics backend, stopping..")
-		return
-	}
-	backend, _ := metrics.Get(fmt.Sprintf("%s-%s", nr.Monitor.Backend, nr.Monitor.Address.String()))
 	ticker := time.NewTicker(interval)
 	defer func() {
 		wg.Done()
@@ -59,7 +54,7 @@ func (nr *NResolver) run(ctx context.Context, wg *sync.WaitGroup, nc *chan NodeM
 	for {
 		select {
 		case <-ticker.C:
-			result, err := backend.QueryInstant(ctx, model.DefaultNResolverQuery, time.Now())
+			result, err := nr.backend.QueryInstant(ctx, model.DefaultNResolverQuery, time.Now())
 			if err != nil {
 				level.Error(nr.logger).Log("msg", "Executing query failed",
 					"query", model.DefaultNResolverQuery, "err", err)
@@ -88,7 +83,7 @@ func (nr *NResolver) run(ctx context.Context, wg *sync.WaitGroup, nc *chan NodeM
 }
 
 func (nr *NResolver) Stop() {
-	level.Debug(nr.logger).Log("msg", "NResolver is stopping", "name", nr.Name)
+	level.Debug(nr.logger).Log("msg", "NResolver is stopping", "name", nr.ID)
 	close(nr.done)
-	level.Debug(nr.logger).Log("msg", "NResolver is stopped", "name", nr.Name)
+	level.Debug(nr.logger).Log("msg", "NResolver is stopped", "name", nr.ID)
 }

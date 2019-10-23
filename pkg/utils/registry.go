@@ -14,7 +14,9 @@
 
 package utils
 
-import "sync"
+import (
+	"sync"
+)
 
 type Registry struct {
 	sync.RWMutex

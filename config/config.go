@@ -28,6 +28,15 @@ import (
 type Config struct {
 	GlobalConfig GlobalConfig `yaml:"global"`
 	EtcdConfig   EtcdConfig   `yaml:"etcd"`
+	MailConfig   MailConfig   `yaml:"mail,omitempty"`
+}
+
+type MailConfig struct {
+	Host     string       `yaml:"host"`
+	Protocol string       `yaml:"protocol"`
+	Port     int          `yaml:"port"`
+	Username string       `yaml:"username"`
+	Password utils.Secret `yaml:"password"`
 }
 
 // GlobalConfig configures values that are used to config Faythe HTTP server
@@ -168,6 +177,15 @@ func (c *EtcdConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	// To make unmarshal fill the plain data struct rather than calling UnmarshalYAML
 	// again, we have to hide it using a type indirection.
 	type plain EtcdConfig
+	if err := unmarshal((*plain)(c)); err != nil {
+		return err
+	}
+	return nil
+}
+
+// UnmarshalYAML implements the yaml.Unmarshaler interface
+func (c *MailConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	type plain MailConfig
 	if err := unmarshal((*plain)(c)); err != nil {
 		return err
 	}

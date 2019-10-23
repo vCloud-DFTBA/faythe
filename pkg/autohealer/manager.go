@@ -17,11 +17,13 @@ package autohealer
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"sync"
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
+	"github.com/ntk148v/faythe/pkg/metrics"
 	"github.com/ntk148v/faythe/pkg/model"
 	"github.com/ntk148v/faythe/pkg/utils"
 	etcdv3 "go.etcd.io/etcd/clientv3"
@@ -37,7 +39,8 @@ type Manager struct {
 	cancel  context.CancelFunc
 	wg      *sync.WaitGroup
 	nodes   map[string]string
-	nc      chan NodeMetric
+	ncin    chan NodeMetric
+	ncout   chan string
 }
 
 func NewManager(l log.Logger, e *etcdv3.Client) *Manager {
@@ -51,7 +54,8 @@ func NewManager(l log.Logger, e *etcdv3.Client) *Manager {
 		cancel:  cancel,
 		wg:      &sync.WaitGroup{},
 		nodes:   make(map[string]string),
-		nc:      make(chan NodeMetric),
+		ncin:    make(chan NodeMetric),
+		ncout:   make(chan string),
 	}
 	hm.watch = hm.etcdcli.Watch(hm.ctx, model.DefaultCloudPrefix, etcdv3.WithPrefix())
 	hm.load()
@@ -59,41 +63,57 @@ func NewManager(l log.Logger, e *etcdv3.Client) *Manager {
 }
 
 func (hm *Manager) load() {
-	r, err := hm.etcdcli.Get(hm.ctx, model.DefaultNResolverPrefix, etcdv3.WithPrefix())
+	for _, p := range []string{model.DefaultNResolverPrefix, model.DefaultHealerPrefix} {
+		r, err := hm.etcdcli.Get(hm.ctx, p, etcdv3.WithPrefix())
+		if err != nil {
+			level.Error(hm.logger).Log("msg", "Error getting list Workers", "err", err)
+			return
+		}
+		for _, e := range r.Kvs {
+			hm.startWorker(p, string(e.Key), e.Value)
+		}
+	}
+}
+
+func (hm *Manager) startWorker(p string, name string, data []byte) {
+	level.Info(hm.logger).Log("msg", "Creating worker", "name", name)
+	backend, err := hm.getBackend(name)
 	if err != nil {
-		level.Error(hm.logger).Log("msg", "Error getting list NResolver", "err", err)
+		level.Error(hm.logger).Log("msg", "Error creating registry backend for worker",
+			"id", name, "err", err)
 		return
 	}
-	for _, e := range r.Kvs {
-		hm.startNResolver(string(e.Key), e.Value)
+	if p == model.DefaultNResolverPrefix {
+		nr := newNResolver(log.With(hm.logger, "nresolver", name), data, backend)
+		go func() {
+			hm.wg.Add(1)
+			nr.run(hm.ctx, hm.wg, &hm.ncin)
+		}()
+	} else {
+		h := newHealer(log.With(hm.logger, "healer", name), data, backend)
+		hm.rqt.Set(name, h)
+		go func() {
+			hm.wg.Add(1)
+			h.run(hm.ctx, hm.wg, &hm.ncout)
+		}()
 	}
 }
 
-func (hm *Manager) startNResolver(name string, data []byte) {
-	level.Info(hm.logger).Log("msg", "Creating name resovler", "name", name)
-	nr := newNResolver(log.With(hm.logger, "nresolver", name), data)
-	hm.rqt.Set(name, nr)
-	go func() {
-		hm.wg.Add(1)
-		nr.run(hm.ctx, hm.wg, &hm.nc)
-	}()
-}
-
-func (hm *Manager) stopNResolver(name string) {
-	if nr, ok := hm.rqt.Get(name); ok {
-		level.Info(hm.logger).Log("msg", "Removing name resolver", "name", name)
-		nr.Stop()
+func (hm *Manager) stopWorker(name string) {
+	if w, ok := hm.rqt.Get(name); ok {
+		level.Info(hm.logger).Log("msg", "Removing worker", "name", name)
+		w.Stop()
 		hm.rqt.Delete(name)
 	}
 }
 
 func (hm *Manager) Stop() {
-	level.Info(hm.logger).Log("msg", "Cleaning before stopping name autohealer managger")
+	level.Info(hm.logger).Log("msg", "Cleaning before stopping autohealer managger")
 	hm.save()
 	hm.wg.Wait()
 	close(hm.stop)
 	hm.cancel()
-	level.Info(hm.logger).Log("msg", "Name autohealer manager is stopped!")
+	level.Info(hm.logger).Log("msg", "Autohealer manager is stopped!")
 }
 
 func (hm *Manager) save() {
@@ -101,19 +121,19 @@ func (hm *Manager) save() {
 		hm.wg.Add(1)
 		go func(name string) {
 			defer func() {
-				hm.stopNResolver(name)
+				hm.stopWorker(name)
 				hm.wg.Done()
 			}()
 
 			raw, err := json.Marshal(&e.Value)
 			if err != nil {
-				level.Error(hm.logger).Log("msg", "Error while marshalling name resolver object",
+				level.Error(hm.logger).Log("msg", "Error while marshalling worker object",
 					"name", e.Name, "err", err)
 				return
 			}
 			_, err = hm.etcdcli.Put(hm.ctx, e.Name, string(raw))
 			if err != nil {
-				level.Error(hm.logger).Log("msg", "Error putting name resolver object",
+				level.Error(hm.logger).Log("msg", "Error putting worker object",
 					"name", e.Name, "err", err)
 				return
 			}
@@ -135,8 +155,9 @@ func (hm *Manager) Run() {
 					if err != nil {
 						level.Error(hm.logger).Log("msg", "Error while unmarshalling cloud object", "err", err)
 					}
+					// NResolver
 					nr := model.NResolver{
-						Name:    cloud.ID,
+						ID:      cloud.ID,
 						Monitor: cloud.Monitor,
 					}
 					nr.Validate()
@@ -145,15 +166,53 @@ func (hm *Manager) Run() {
 						level.Error(hm.logger).Log("msg", "Error while marshalling nresolver object", "err", err)
 					}
 					hm.etcdcli.Put(hm.ctx, name, string(raw))
-					hm.startNResolver(name, raw)
+					hm.startWorker(model.DefaultNResolverPrefix, name, raw)
 				}
 				if event.Type == etcdv3.EventTypeDelete {
-					hm.stopNResolver(name)
+					hm.stopWorker(name)
 					hm.etcdcli.Delete(hm.ctx, name, etcdv3.WithPrefix())
 				}
 			}
-		case nm := <-hm.nc:
+		case nm := <-hm.ncin:
 			hm.nodes[strings.Split(nm.Metric.Instance, ":")[0]] = nm.Metric.Nodename
+		case nm := <-hm.ncout:
+			if m, ok := hm.nodes[nm]; ok {
+				hm.ncout <- m
+			}
 		}
 	}
+}
+
+func (hm *Manager) getBackend(key string) (metrics.Backend, error) {
+	// There is format -> Cloud provider id
+	providerID := strings.Split(key, "/")[2]
+	resp, err := hm.etcdcli.Get(hm.ctx, utils.Path(model.DefaultCloudPrefix, providerID))
+	if err != nil {
+		return nil, err
+	}
+	value := resp.Kvs[0]
+	var (
+		cloud   model.Cloud
+		backend metrics.Backend
+	)
+	err = json.Unmarshal(value.Value, &cloud)
+	if err != nil {
+		return nil, err
+	}
+	switch cloud.Provider {
+	case model.OpenStackType:
+		var ops model.OpenStack
+		err = json.Unmarshal(value.Value, &ops)
+		if err != nil {
+			return nil, err
+		}
+		// Force register
+		err := metrics.Register(ops.Monitor.Backend, string(ops.Monitor.Address))
+		if err != nil {
+			return nil, err
+		}
+		backend, _ = metrics.Get(fmt.Sprintf("%s-%s", ops.Monitor.Backend, ops.Monitor.Address))
+	default:
+	}
+	return backend, nil
 }

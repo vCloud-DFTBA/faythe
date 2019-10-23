@@ -12,34 +12,34 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package model
+package alert
 
 import (
-	"github.com/pkg/errors"
+	"crypto/tls"
+	"strings"
+
+	"github.com/ntk148v/faythe/config"
+	"github.com/ntk148v/faythe/pkg/model"
+	"gopkg.in/mail.v2"
 )
 
-const (
-	DefaultNResolverPrefix   = "/nresolvers"
-	DefaultNResolverQuery    = "node_uname_info"
-	DefaultNResolverInterval = "600s"
-)
-
-type NResolver struct {
-	Monitor  Monitor `json:"address"`
-	ID       string  `json:"ID"`
-	Interval string  `json:"interval"`
+type AlertMail struct {
+	model.AlertMail
 }
 
-func (nr *NResolver) Validate() error {
-	if &nr.Monitor == nil {
-		return errors.New("missing `Monitor` option")
-	}
-	if err := nr.Monitor.Address.Validate(); err != nil {
-		return err
-	}
+func (am AlertMail) Send() error {
+	m := mail.NewMessage()
+	mc := config.Get().MailConfig
+	m.SetHeader("From", mc.Username)
+	m.SetHeader("To", strings.Join(am.ActionMail.Receivers, ","))
+	m.SetHeader("Subject", "Test Subject")
+	m.SetBody("text/html", "Test Mail")
 
-	if nr.Interval == "" {
-		nr.Interval = DefaultNResolverInterval
+	d := mail.NewDialer(mc.Host, mc.Port, mc.Username, string(mc.Password))
+	d.TLSConfig = &tls.Config{InsecureSkipVerify: true}
+
+	if err := d.DialAndSend(m); err != nil {
+		return err
 	}
 	return nil
 }

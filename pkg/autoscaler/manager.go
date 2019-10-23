@@ -183,8 +183,11 @@ func (m *Manager) save() {
 	for i := range m.rgt.Iter() {
 		m.wg.Add(1)
 		go func(i RegistryItem) {
-			defer m.wg.Done()
-			i.Value.Alert = i.Value.alert.state
+			defer func() {
+				m.stopScaler(i.Key)
+				m.wg.Done()
+			}()
+			i.Value.Alert = &i.Value.alert.State
 			raw, err := json.Marshal(&i.Value)
 			if err != nil {
 				level.Error(m.logger).Log("msg", "Error marshalling scaler object",
