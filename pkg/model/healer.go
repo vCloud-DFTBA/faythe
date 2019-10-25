@@ -17,6 +17,7 @@ package model
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -38,13 +39,13 @@ type Healer struct {
 
 func (h *Healer) Validate() error {
 	if h.Interval == "" {
-		h.Interval = "30s"
+		h.Interval = DefaultHealerInterval
 	}
 	if h.Cooldown == "" {
-		h.Cooldown = "600s"
+		h.Cooldown = DefaultHealerCooldown
 	}
 	if h.Duration == "" {
-		h.Duration = "300s"
+		h.Duration = DefaultHealerDuration
 	}
 
 	if _, err := time.ParseDuration(h.Duration); err != nil {
@@ -65,7 +66,7 @@ func (h *Healer) Validate() error {
 			if err := json.Unmarshal(v, &a); err != nil {
 				return err
 			}
-			switch a.Type {
+			switch strings.ToLower(a.Type) {
 			case "mail":
 				am := &ActionMail{}
 				if err := json.Unmarshal(v, am); err != nil {

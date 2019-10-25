@@ -16,10 +16,13 @@ const (
 	// DefaultCloudPrefix is the default etcd prefix for Cloud data
 	DefaultCloudPrefix string = "/clouds"
 
-	DefaultHealerPrefix string = "/healers"
-	DefaultHealerQuery  string = "up{job=~\".*compute-cadvisor.*|.*compute-node.*\"} < 1"
+	DefaultHealerPrefix   string = "/healers"
+	DefaultHealerQuery    string = "up{job=~\".*compute-cadvisor.*|.*compute-node.*\"} < 1"
+	DefaultHealerInterval string = "30s"
+	DefaultHealerCooldown string = "10m"
+	DefaultHealerDuration string = "5m"
 
-	DefaultNResolverPrefix  string = "/nresolvers"
+	DefaultNResolverPrefix   string = "/nresolvers"
 	DefaultNResolverQuery    string = "node_uname_info"
 	DefaultNResolverInterval string = "60s"
 

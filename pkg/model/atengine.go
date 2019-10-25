@@ -14,8 +14,32 @@
 
 package model
 
+import (
+	"fmt"
+	"strings"
+
+	"github.com/ntk148v/faythe/pkg/utils"
+)
+
 type ATEngine struct {
 	Backend  string            `json:"backend"`
 	Address  URL               `json:"address"`
 	Metadata map[string]string `json:"metadata"`
+	Username string            `json:"username,omitempty"`
+	Password utils.Secret      `json:"password,omitempty"`
+	APIKey   utils.Secret      `json:"apikey,omitempty"`
+}
+
+func (at ATEngine) Validate() error {
+	if err := at.Address.Validate(); err != nil {
+		return err
+	}
+
+	switch strings.ToLower(at.Backend) {
+	case "stackstorm":
+	default:
+		return fmt.Errorf("unsupported backend type: %s", at.Backend)
+	}
+
+	return nil
 }

@@ -50,7 +50,7 @@ func (cl *Cloud) Validate() error {
 		return errors.New("missing `ATEngine` option")
 	}
 
-	if err := cl.ATEngine.Address.Validate(); err != nil {
+	if err := cl.ATEngine.Validate(); err != nil {
 		return err
 	}
 
