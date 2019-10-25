@@ -16,6 +16,7 @@ package autohealer
 
 import (
 	"context"
+	"crypto"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -34,7 +35,8 @@ type Manager struct {
 	rqt     *utils.Registry
 	stop    chan struct{}
 	etcdcli *etcdv3.Client
-	watch   etcdv3.WatchChan
+	watchc  etcdv3.WatchChan
+	watchh  etcdv3.WatchChan
 	ctx     context.Context
 	cancel  context.CancelFunc
 	wg      *sync.WaitGroup
@@ -57,7 +59,8 @@ func NewManager(l log.Logger, e *etcdv3.Client) *Manager {
 		ncin:    make(chan NodeMetric),
 		ncout:   make(chan string),
 	}
-	hm.watch = hm.etcdcli.Watch(hm.ctx, model.DefaultCloudPrefix, etcdv3.WithPrefix())
+	hm.watchc = hm.etcdcli.Watch(hm.ctx, model.DefaultCloudPrefix, etcdv3.WithPrefix())
+	hm.watchh = hm.etcdcli.Watch(hm.ctx, model.DefaultHealerPrefix, etcdv3.WithPrefix())
 	hm.load()
 	return hm
 }
@@ -146,9 +149,10 @@ func (hm *Manager) Run() {
 		select {
 		case <-hm.stop:
 			return
-		case watchResp := <-hm.watch:
+		case watchResp := <-hm.watchc:
 			for _, event := range watchResp.Events {
-				name := utils.Path(model.DefaultNResolverPrefix, strings.Split(string(event.Kv.Key), "/")[2])
+				name := utils.Path(model.DefaultNResolverPrefix, strings.Split(string(event.Kv.Key), "/")[2],
+					fmt.Sprintf("%x", utils.Hash(strings.Split(string(event.Kv.Key), "/")[2], crypto.MD5)))
 				if event.IsCreate() {
 					cloud := model.Cloud{}
 					err := json.Unmarshal(event.Kv.Value, &cloud)
@@ -157,7 +161,7 @@ func (hm *Manager) Run() {
 					}
 					// NResolver
 					nr := model.NResolver{
-						ID:      cloud.ID,
+						ID:      fmt.Sprintf("%x", utils.Hash(cloud.ID, crypto.MD5)),
 						Monitor: cloud.Monitor,
 					}
 					nr.Validate()
@@ -171,6 +175,20 @@ func (hm *Manager) Run() {
 				if event.Type == etcdv3.EventTypeDelete {
 					hm.stopWorker(name)
 					hm.etcdcli.Delete(hm.ctx, name, etcdv3.WithPrefix())
+					hname := strings.ReplaceAll(name, model.DefaultNResolverPrefix, model.DefaultHealerPrefix)
+					hm.stopWorker(hname)
+					hm.etcdcli.Delete(hm.ctx, hname, etcdv3.WithPrefix())
+				}
+			}
+		case watchResp := <-hm.watchh:
+			for _, event := range watchResp.Events {
+				name := utils.Path(model.DefaultHealerPrefix, strings.Split(string(event.Kv.Key), "/")[2],
+					fmt.Sprintf("%x", utils.Hash(strings.Split(string(event.Kv.Key), "/")[2], crypto.MD5)))
+				if event.IsCreate() {
+					hm.startWorker(model.DefaultHealerPrefix, name, event.Kv.Value)
+				}
+				if event.Type == etcdv3.EventTypeDelete {
+					hm.stopWorker(name)
 				}
 			}
 		case nm := <-hm.ncin:
@@ -179,6 +197,7 @@ func (hm *Manager) Run() {
 			if m, ok := hm.nodes[nm]; ok {
 				hm.ncout <- m
 			}
+		default:
 		}
 	}
 }

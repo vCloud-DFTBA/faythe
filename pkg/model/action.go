@@ -38,7 +38,7 @@ type ActionInterface interface {
 	Validate() error
 }
 
-func (a Action) Validate() error {
+func (a Action) validate() error {
 	if a.Type == "" {
 		return errors.Errorf("Missing action type")
 	}

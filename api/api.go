@@ -89,6 +89,12 @@ func (a *API) Register(r *mux.Router) {
 
 	// Name Resolver endpoints
 	r.Handle("/nresolvers", wrap(a.listNResolvers)).Methods("GET")
+	// Healer endpoints
+	r.Handle("/healers/{provider_id:[a-z 0-9]+}", wrap(a.createHealer)).Methods("POST")
+	r.Handle("/healers/{provider_id:[a-z 0-9]+}", wrap(a.listHealers)).Methods("GET")
+	r.Handle("/healers/{provider_id:[a-z 0-9]+}/{id:[a-z 0-9]+}",
+		wrap(a.deleteHealer)).Methods("DELETE")
+
 }
 
 func (a *API) receive(req *http.Request, v interface{}) error {

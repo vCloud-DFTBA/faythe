@@ -18,6 +18,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -104,26 +105,32 @@ func (h *Healer) do() {
 		Timeout:   httpTimeout,
 	}
 
+	h.alert.Fire(time.Now())
 	for _, a := range h.Actions {
 		switch at := a.(type) {
 		case *model.ActionHTTP:
 			go func(url string) {
 				wg.Add(1)
 				defer wg.Done()
-				if err := alert.Send(h.logger, cli, at); err != nil {
+				if err := alert.SendHTTP(h.logger, cli, at); err != nil {
 					level.Error(h.logger).Log("msg", "Error doing HTTP action",
 						"url", at.URL.String(), "err", err)
 					return
 				}
 				level.Info(h.logger).Log("msg", "Sending request", "id", h.ID,
 					"url", url, "method", at.Method)
-				h.alert.Fire(time.Now())
 			}(string(at.URL))
 		case *model.ActionMail:
 			go func() {
 				wg.Add(1)
 				defer wg.Done()
-				if err :=  
+				if err := alert.SendMail(at); err != nil {
+					level.Error(h.logger).Log("msg", "Error doing Mail action",
+						"err", err)
+					return
+				}
+				level.Info(h.logger).Log("msg", "Sending mail to", strings.Join(at.Receivers, ","),
+					"id", h.ID)
 			}()
 		}
 	}

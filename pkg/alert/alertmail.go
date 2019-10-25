@@ -23,15 +23,11 @@ import (
 	"gopkg.in/mail.v2"
 )
 
-type AlertMail struct {
-	model.AlertMail
-}
-
-func (am AlertMail) Send() error {
+func SendMail(a *model.ActionMail) error {
 	m := mail.NewMessage()
 	mc := config.Get().MailConfig
 	m.SetHeader("From", mc.Username)
-	m.SetHeader("To", strings.Join(am.ActionMail.Receivers, ","))
+	m.SetHeader("To", strings.Join(a.Receivers, ","))
 	m.SetHeader("Subject", "Test Subject")
 	m.SetBody("text/html", "Test Mail")
 

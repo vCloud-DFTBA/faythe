@@ -23,7 +23,7 @@ type ActionHTTP struct {
 // Validate returns nil if all fields of the Action have valid values.
 func (a *ActionHTTP) Validate() error {
 
-	if err := a.Validate(); err != nil {
+	if err := a.validate(); err != nil {
 		return err
 	}
 

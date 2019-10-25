@@ -22,7 +22,7 @@ type ActionMail struct {
 }
 
 func (a *ActionMail) Validate() error {
-	if err := a.Validate(); err != nil {
+	if err := a.validate(); err != nil {
 		return err
 	}
 	if a.Delay == "" {

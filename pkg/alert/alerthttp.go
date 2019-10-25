@@ -24,7 +24,7 @@ import (
 	"github.com/ntk148v/faythe/pkg/model"
 )
 
-func Send(l log.Logger, cli *http.Client, a *model.ActionHTTP) error {
+func SendHTTP(l log.Logger, cli *http.Client, a *model.ActionHTTP) error {
 	delay, _ := time.ParseDuration(a.Delay)
 	err := retry.Do(
 		func() error {

@@ -171,6 +171,7 @@ func (s *Scaler) do() {
 		Timeout:   httpTimeout,
 	}
 
+	s.alert.Fire(time.Now())
 	for _, a := range s.Actions {
 		go func(a *model.Action) {
 			wg.Add(1)
@@ -212,7 +213,6 @@ func (s *Scaler) do() {
 			}
 			level.Info(s.logger).Log("msg", "Sending request", "id", s.ID,
 				"url", url, "method", a.Method)
-			s.alert.Fire(time.Now())
 			defer wg.Done()
 		}(a)
 	}
