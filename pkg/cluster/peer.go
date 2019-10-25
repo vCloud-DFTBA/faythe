@@ -16,17 +16,18 @@ package cluster
 
 import (
 	"fmt"
-	"github.com/go-kit/kit/log/level"
-	"github.com/hashicorp/memberlist"
-	"github.com/ntk148v/faythe/config"
-	"github.com/ntk148v/faythe/pkg/utils"
-	"github.com/pkg/errors"
 	"io"
 	"os"
 	"sync"
 
 	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
+	"github.com/hashicorp/memberlist"
 	"github.com/hashicorp/serf/serf"
+	"github.com/pkg/errors"
+
+	"github.com/ntk148v/faythe/config"
+	"github.com/ntk148v/faythe/pkg/utils"
 )
 
 // Peer starts and manage a Serf instance
