@@ -72,6 +72,7 @@ func (a *API) createHealer(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	h.ID = fmt.Sprintf("%x", utils.Hash(c.ID, crypto.MD5))
 	h.Monitor = c.Monitor
 	h.ATEngine = c.ATEngine
 
@@ -117,7 +118,7 @@ func (a *API) deleteHealer(w http.ResponseWriter, req *http.Request) {
 	pid := strings.ToLower(vars["provider_id"])
 	sid := strings.ToLower(vars["id"])
 	path := utils.Path(model.DefaultHealerPrefix, pid, sid)
-	resp, err := a.etcdclient.Delete(req.Context(), path, etcdv3.WithPrefix())
+	_, err := a.etcdclient.Delete(req.Context(), path, etcdv3.WithPrefix())
 	if err != nil {
 		a.respondError(w, apiError{
 			code: http.StatusInternalServerError,
@@ -125,7 +126,6 @@ func (a *API) deleteHealer(w http.ResponseWriter, req *http.Request) {
 		})
 		return
 	}
-	fmt.Printf("%+v", resp)
 	a.respondSuccess(w, http.StatusOK, nil)
 	return
 }

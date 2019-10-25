@@ -60,7 +60,7 @@ func (nr *NResolver) run(ctx context.Context, wg *sync.WaitGroup, nc *chan NodeM
 					"query", model.DefaultNResolverQuery, "err", err)
 				continue
 			}
-			level.Info(nr.logger).Log("msg", "Execcuting query success", "query", model.DefaultNResolverQuery)
+			level.Debug(nr.logger).Log("msg", "Execcuting query success", "query", model.DefaultNResolverQuery)
 			nr.mtx.Lock()
 			for _, el := range result {
 				j, err := el.MarshalJSON()

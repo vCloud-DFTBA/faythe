@@ -88,6 +88,7 @@ func (hm *Manager) startWorker(p string, name string, data []byte) {
 	}
 	if p == model.DefaultNResolverPrefix {
 		nr := newNResolver(log.With(hm.logger, "nresolver", name), data, backend)
+		hm.rqt.Set(name, nr)
 		go func() {
 			hm.wg.Add(1)
 			nr.run(hm.ctx, hm.wg, &hm.ncin)

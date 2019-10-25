@@ -24,7 +24,7 @@ import (
 // Healer represents a Healer instance
 type Healer struct {
 	ID          string                     `json:"id,omitempty"`
-	Actions     map[string]ActionInterface `json:"-"`
+	Actions     map[string]ActionInterface `json:"ractions"`
 	ActionsRaw  map[string]json.RawMessage `json:"actions"`
 	Cooldown    string                     `json:"cooldown"`
 	Interval    string                     `json:"interval"`
