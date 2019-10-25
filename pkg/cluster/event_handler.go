@@ -14,9 +14,59 @@
 
 package cluster
 
-import "github.com/hashicorp/serf/serf"
+import (
+	"sync"
+
+	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
+	"github.com/hashicorp/serf/serf"
+	"github.com/serialx/hashring"
+)
 
 // EventHandler is a handler that does things when events happen.
 type EventHandler interface {
-	HandleEvent(serf.Event)
+	HandleEvent(e serf.Event)
+}
+
+// ReloadHandler is a handler that reload Faythe component's.
+type ReloadHandler struct {
+	logger     log.Logger
+	reloadCh   chan bool
+	lock       sync.Mutex
+	consistent *hashring.HashRing
+}
+
+func (h *ReloadHandler) HandleEvent(e serf.Event) {
+	me := e.(serf.MemberEvent)
+	h.lock.Lock()
+	defer h.lock.Unlock()
+	ms := make([]string, len(me.Members))
+	for _, i := range me.Members {
+		// NOTE(kiennt): Use Name or may be use Addr:Port?
+		ms = append(ms, i.Name)
+	}
+	switch e.EventType() {
+	case serf.EventMemberJoin:
+		if h.consistent == nil {
+			h.consistent = hashring.New(ms)
+		} else {
+			for _, m := range ms {
+				// TODO(kiennt): Use AddWeightNode (calculate weight based on node resource)
+				h.consistent.AddNode(m)
+				level.Info(h.logger).Log("msg", "add node to consistent hash ring", "node", m)
+			}
+		}
+	case serf.EventMemberLeave, serf.EventMemberFailed:
+		if h.consistent != nil {
+			for _, m := range ms {
+				h.consistent.RemoveNode(m)
+				level.Info(h.logger).Log("msg", "remove node to consistent hash ring", "node", m)
+			}
+		}
+	case serf.EventMemberUpdate, serf.EventMemberReap:
+	default:
+		level.Error(h.logger).Log("msg", "unknown event", "event", e.String())
+		return
+	}
+	h.reloadCh <- true
 }
