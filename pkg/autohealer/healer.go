@@ -49,6 +49,7 @@ func newHealer(l log.Logger, data []byte, b metrics.Backend) *Healer {
 		backend: b,
 	}
 	json.Unmarshal(data, h)
+	h.Validate()
 	return h
 }
 
@@ -132,6 +133,7 @@ func (h *Healer) do() {
 				level.Info(h.logger).Log("msg", "Sending mail to", strings.Join(at.Receivers, ","),
 					"id", h.ID)
 			}()
+		default:
 		}
 	}
 	wg.Wait()
