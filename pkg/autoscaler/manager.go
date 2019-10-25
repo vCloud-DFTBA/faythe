@@ -18,6 +18,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/ntk148v/faythe/pkg/cluster"
 	"strings"
 	"sync"
 
@@ -40,6 +41,7 @@ type Manager struct {
 	ctx     context.Context
 	cancel  context.CancelFunc
 	wg      *sync.WaitGroup
+	peer    cluster.Peer
 }
 
 // NewManager returns an Autoscale Manager
@@ -109,6 +111,14 @@ func (m *Manager) stopScaler(id string) {
 
 func (m *Manager) startScaler(id string, data []byte) {
 	level.Info(m.logger).Log("msg", "Creating scaler", "id", id)
+	// Check if the local node is the worker which has responsibility
+	// for starting the scaler. If not, skip it.
+	local := m.peer.Serf().LocalMember().Name
+	if worker, ok := m.peer.Consistent().GetNode(id); !ok || local != worker {
+		level.Debug(m.logger).Log("msg",
+			fmt.Sprintf("Ignoring scaler %s, node %s will take it", id, worker))
+		return
+	}
 	backend, err := m.getBackend(id)
 	if err != nil {
 		level.Error(m.logger).Log("msg", "Error creating registry backend for scaler",
@@ -193,4 +203,10 @@ func (m *Manager) load() {
 	for _, ev := range resp.Kvs {
 		m.startScaler(string(ev.Key), ev.Value)
 	}
+}
+
+// Reload simply stop and start all scalers. Dummy strategy, just use it by now.
+func (m *Manager) Reload() {
+	m.save()
+	m.load()
 }

@@ -121,8 +121,9 @@ func main() {
 	// Take config from command flags over config from file
 	clusterConfigFromFile := config.Get().PeerConfig
 	mergo.Merge(&cfg.clusterConfig, clusterConfigFromFile)
+	reloadCh := make(chan bool)
 	peer = cluster.Create(cfg.clusterConfig,
-		log.With(logger, "component", "cluster peer"), os.Stderr)
+		log.With(logger, "component", "cluster peer"), os.Stderr, reloadCh)
 	if err := peer.Start(); err != nil {
 		level.Error(logger).Log("err", errors.Wrapf(err, "Error instantiating Peer,"))
 		os.Exit(2)
@@ -159,6 +160,15 @@ func main() {
 	// Init HTTP server
 	srv := http.Server{Addr: cfg.listenAddress, Handler: mux}
 	srvc := make(chan struct{})
+
+	go func() {
+		for {
+			select {
+			case <-reloadCh:
+				fas.Reload()
+			}
+		}
+	}()
 
 	go func() {
 		level.Info(logger).Log("msg", "Listening", "address", cfg.listenAddress)
