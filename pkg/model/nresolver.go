@@ -18,12 +18,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-const (
-	DefaultNResolverPrefix   = "/nresolvers"
-	DefaultNResolverQuery    = "node_uname_info"
-	DefaultNResolverInterval = "600s"
-)
-
 type NResolver struct {
 	Monitor  Monitor `json:"address"`
 	ID       string  `json:"ID"`

@@ -23,11 +23,6 @@ import (
 	"github.com/vCloud-DFTBA/faythe/pkg/utils"
 )
 
-const (
-	// DefaultScalerPrefix is the etcd default prefix for scaler
-	DefaultScalerPrefix string = "/scalers"
-)
-
 // Scaler represents a Scaler object
 type Scaler struct {
 	Query       string                 `json:"query"`

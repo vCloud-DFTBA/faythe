@@ -20,11 +20,6 @@ import (
 	"time"
 )
 
-const (
-	DefaultHealerPrefix string = "/healers"
-	DefaultHealerQuery  string = "up{job=~\".*compute-cadvisor.*|.*compute-node.*\"} < 1"
-)
-
 // Healer represents a Healer instance
 type Healer struct {
 	ID          string                     `json:"id,omitempty"`

@@ -21,16 +21,6 @@ import (
 	"github.com/vCloud-DFTBA/faythe/pkg/utils"
 )
 
-var (
-	// DefaultCloudPrefix is the default etcd prefix for Cloud data
-	DefaultCloudPrefix = "/clouds"
-)
-
-const (
-	// OpenStackType represents a OpenStack type
-	OpenStackType string = "openstack"
-)
-
 // Cloud represents Cloud information. Other cloud provider models
 // have to inherited this struct
 type Cloud struct {

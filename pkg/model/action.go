@@ -21,11 +21,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-const (
-	FixedDelay   string = "fixed"
-	BackoffDelay string = "backoff"
-)
-
 // Action represents an scale action
 type Action struct {
 	Type      string `json:"type"`
