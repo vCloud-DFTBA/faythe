@@ -16,6 +16,7 @@ package cluster
 
 import (
 	"fmt"
+	"github.com/serialx/hashring"
 	"io"
 	"os"
 	"sync"
@@ -50,10 +51,12 @@ type Peer struct {
 	shutdown     bool
 	shutdownCh   chan struct{}
 	shutdownLock sync.Mutex
+
+	consistent *hashring.HashRing
 }
 
 // Create creates a new peer, potentially returning an error
-func Create(c config.PeerConfig, l log.Logger, lo io.Writer) *Peer {
+func Create(c config.PeerConfig, l log.Logger, lo io.Writer, rc chan bool) *Peer {
 	if l == nil {
 		l = log.NewNopLogger()
 	}
@@ -104,6 +107,16 @@ func Create(c config.PeerConfig, l log.Logger, lo io.Writer) *Peer {
 		eventHandlers: make(map[EventHandler]struct{}),
 		shutdownCh:    make(chan struct{}),
 	}
+
+	p.consistent = hashring.New([]string{c.BindAddr})
+
+	// Register handler(s)
+	rh := &ReloadHandler{
+		logger:     log.With(l, "handler", "reload"),
+		reloadCh:   rc,
+		consistent: p.consistent,
+	}
+	p.RegisterEventHandler(rh)
 	return p
 }
 
@@ -168,6 +181,11 @@ func (p *Peer) ShutdownCh() <-chan struct{} {
 // Serf returns the Serf agent of the running Peer.
 func (p *Peer) Serf() *serf.Serf {
 	return p.serf
+}
+
+// Consistent returns the consistent hash ring of the running Peer.
+func (p *Peer) Consistent() *hashring.HashRing {
+	return p.consistent
 }
 
 // SerfConfig returns the Serf config of the running Peer.
