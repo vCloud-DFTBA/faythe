@@ -18,7 +18,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/ntk148v/faythe/pkg/cluster"
 	"strings"
 	"sync"
 
@@ -26,9 +25,10 @@ import (
 	"github.com/go-kit/kit/log/level"
 	etcdv3 "go.etcd.io/etcd/clientv3"
 
-	"github.com/vCloud-DFTBA/faythe/pkg/metrics"
-	"github.com/vCloud-DFTBA/faythe/pkg/model"
-	"github.com/vCloud-DFTBA/faythe/pkg/utils"
+	"github.com/ntk148v/faythe/pkg/cluster"
+	"github.com/ntk148v/faythe/pkg/metrics"
+	"github.com/ntk148v/faythe/pkg/model"
+	"github.com/ntk148v/faythe/pkg/utils"
 )
 
 // Manager manages a set of Scaler instances.
@@ -111,14 +111,6 @@ func (m *Manager) stopScaler(id string) {
 
 func (m *Manager) startScaler(id string, data []byte) {
 	level.Info(m.logger).Log("msg", "Creating scaler", "id", id)
-	// Check if the local node is the worker which has responsibility
-	// for starting the scaler. If not, skip it.
-	local := m.peer.Serf().LocalMember().Name
-	if worker, ok := m.peer.Consistent().GetNode(id); !ok || local != worker {
-		level.Debug(m.logger).Log("msg",
-			fmt.Sprintf("Ignoring scaler %s, node %s will take it", id, worker))
-		return
-	}
 	backend, err := m.getBackend(id)
 	if err != nil {
 		level.Error(m.logger).Log("msg", "Error creating registry backend for scaler",
@@ -170,6 +162,14 @@ func (m *Manager) getBackend(key string) (metrics.Backend, error) {
 // save puts scalers to etcd
 func (m *Manager) save() {
 	for i := range m.rgt.Iter() {
+		// Check if the local node is the worker which has responsibility
+		// for starting the scaler. If not, skip it.
+		local := m.peer.Serf().LocalMember().Name
+		if worker, ok := m.peer.Consistent().GetNode(i.Key); !ok || local != worker {
+			level.Debug(m.logger).Log("msg",
+				fmt.Sprintf("Ignoring scaler %s, node %s will take it", i.Key, worker))
+			continue
+		}
 		m.wg.Add(1)
 		go func(i RegistryItem) {
 			defer func() {
@@ -200,8 +200,18 @@ func (m *Manager) load() {
 		level.Error(m.logger).Log("msg", "Error getting scalers", "err", err)
 		return
 	}
+	var sid string
 	for _, ev := range resp.Kvs {
-		m.startScaler(string(ev.Key), ev.Value)
+		sid = string(ev.Key)
+		// Check if the local node is the worker which has responsibility
+		// for starting the scaler. If not, skip it.
+		local := m.peer.Serf().LocalMember().Name
+		if worker, ok := m.peer.Consistent().GetNode(sid); !ok || local != worker {
+			level.Debug(m.logger).Log("msg",
+				fmt.Sprintf("Ignoring scaler %s, node %s will take it", sid, worker))
+			continue
+		}
+		m.startScaler(sid, ev.Value)
 	}
 }
 

@@ -36,6 +36,7 @@ type ReloadHandler struct {
 	consistent *hashring.HashRing
 }
 
+// HandleEvent triggers component reloads when event is coming.
 func (h *ReloadHandler) HandleEvent(e serf.Event) {
 	me := e.(serf.MemberEvent)
 	h.lock.Lock()
