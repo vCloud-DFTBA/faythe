@@ -42,6 +42,9 @@ func (h *ReloadHandler) HandleEvent(e serf.Event) {
 	defer h.lock.Unlock()
 	ms := make([]string, len(me.Members))
 	for _, i := range me.Members {
+		if i.Status != serf.StatusAlive {
+			continue
+		}
 		// NOTE(kiennt): Use Name or may be use Addr:Port?
 		ms = append(ms, i.Name)
 	}
