@@ -1,11 +1,30 @@
-# Faythe cluster
+# Faythe cluster specs
 
-## Idea
+Leverage Etcd to manage and keep cluster state.
 
-Instances of a Faythe cluster communicate on top of a gossip protocol managed via [Hashicorp Memberlist](https://github.com/hashicorp/memberlist).
+1. We can leverage namepspace mechanism to avoid corrupting between clusters. Users have to configure the `etcd namespace` of cluster when starting a node. It can be done by [etcd configuration](../config/config.go).
 
-Faythe instances use the gossip layer to:
-* Keep track of membership.
-* Combining with [Consistent hashing](https://en.wikipedia.org/wiki/Consistent_hashing) - [Chord](https://en.wikipedia.org/wiki/Chord_(peer-to-peer)), execute scalers.
+2. The cluster data model, stores with key `cluster/` in Etcd.
 
-New strategy: Leverage [Hashicorp Serf](https://github.com/hashicorp/serf) to create Faythe cluster.
+```golang
+
+type Cluster struct {
+	Name    string            `json:"name"`
+	Members map[string]Member `json:"members"`
+}
+
+type Member struct {
+	Name    string      `json:"name"`
+	Address net.IP      `json:"address"`
+	State   MemberState `json:"state"`
+	Tags    []string    `json:"tags"`
+}
+```
+
+3. Beside the Etcd cluster data, a node initializes a consistent hashring to hold the abstract nodes. Every nodes belong to cluster keeps watching on a `cluster/` key:
+* Event `PUT` -> Init if not exist/Add node to hash ring.
+* Event `DELETE` -> Remove node from hash ring.
+
+5. Each node manages a subset of workers. To locate a worker, we can leverage consistent hashring.
+
+6. When a node is joining a cluster, it puts a key-value pair with [lease](https://etcd.io/docs/v3.4.0/dev-guide/interacting_v3/#grant-leases). When a key is attached to a lease, its lifetime is bound to the lease’s lifetime which in turn is governed by a time-to-live (TTL). Periodically, node refreshs lease's TTL to keep it alive. Therefore, when a node goes down, a lease will expire and the attached key will be deleted. Other nodes that is watching for the `cluster/` key catches the DELETE event then update their hash ring and reload workers.
