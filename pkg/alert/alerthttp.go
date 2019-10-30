@@ -36,6 +36,7 @@ func SendHTTP(l log.Logger, cli *http.Client, a *model.ActionHTTP, add ...map[st
 				return err
 			}
 			if add != nil {
+				req.Header.Set("Content-Type", "application/json")
 				if header, ok := add[0]["header"]; ok {
 					if apikey, ok := header["apikey"]; ok {
 						req.Header.Add("St2-Api-Key", apikey)
@@ -54,11 +55,10 @@ func SendHTTP(l log.Logger, cli *http.Client, a *model.ActionHTTP, add ...map[st
 					req.ContentLength = int64(len(b))
 				}
 			}
-			resp, err := cli.Do(req)
+			_, err = cli.Do(req)
 			if err != nil {
 				return err
 			}
-			defer resp.Body.Close()
 			return nil
 		},
 		retry.DelayType(func(n uint, config *retry.Config) time.Duration {

@@ -57,6 +57,7 @@ func (h *Healer) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string
 	interval, _ := time.ParseDuration(h.Interval)
 	duration, _ := time.ParseDuration(h.Duration)
 	ticker := time.NewTicker(interval)
+	chans := make(map[string]chan struct{})
 	defer func() {
 		wg.Done()
 		ticker.Stop()
@@ -76,16 +77,29 @@ func (h *Healer) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string
 				continue
 			}
 			level.Debug(h.logger).Log("msg", "Executing query success", "query", model.DefaultHealerQuery)
-			chans := make(map[string]chan struct{})
-			if len(r) == 0 {
+			if len(r) == 0 || len(r) > 3 {
 				for _, c := range chans {
 					close(c)
 				}
 				continue
 			}
+			// Remove redundant goroutine if exists
+		clear:
+			for k, c := range chans {
+				for _, e := range r {
+					if k == strings.Split(string(e.Metric["instance"]), ":")[0] {
+						continue clear
+					}
+				}
+				close(c)
+				delete(chans, k)
+			}
+
 			for _, e := range r {
 				instance := strings.Split(string(e.Metric["instance"]), ":")[0]
-				if c, ok := chans[instance]; !ok {
+				if _, ok := chans[instance]; !ok {
+					ci := make(chan struct{})
+					chans[instance] = ci
 					go func(ch chan struct{}, instance string, nc chan map[string]string) {
 						var compute string
 					wait:
@@ -104,20 +118,23 @@ func (h *Healer) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string
 						}
 						a := alert.Alert{}
 						a.Reset()
-						select {
-						case <-c:
-							return
-						default:
-							if !a.IsActive() {
-								a.Start()
-							}
-							if a.ShouldFire(duration) {
-								h.do(compute)
+						for {
+							select {
+							case <-ch:
 								return
-							}
+							default:
+								if !a.IsActive() {
+									a.Start()
+								}
+								if a.ShouldFire(duration) {
+									h.do(compute)
+									delete(chans, instance)
+									return
+								}
 
+							}
 						}
-					}(c, instance, nc)
+					}(ci, instance, nc)
 				}
 			}
 		}
@@ -146,9 +163,11 @@ func (h *Healer) do(compute string) {
 				params := make(map[string]map[string]string)
 				switch h.at.Backend {
 				case "stackstorm":
-					if apikey := string(h.at.APIKey); apikey != "" {
-						params["header"]["apikey"] = apikey
-					} else {
+					params["header"] = make(map[string]string)
+					params["body"] = make(map[string]string)
+					if apikey := h.at.APIKey; apikey != "" {
+						params["header"]["apikey"] = string(apikey)
+					} else if username := h.at.Username; username != "" {
 						params["header"]["username"] = h.at.Username
 						params["header"]["password"] = string(h.at.Password)
 					}
@@ -163,17 +182,16 @@ func (h *Healer) do(compute string) {
 					"url", url, "method", at.Method)
 			}(string(at.URL), compute)
 		case *model.ActionMail:
-			go func() {
+			go func(compute string) {
 				wg.Add(1)
 				defer wg.Done()
-				if err := alert.SendMail(at); err != nil {
+				if err := alert.SendMail(at, compute, h.Duration); err != nil {
 					level.Error(h.logger).Log("msg", "Error doing Mail action",
 						"err", err)
 					return
 				}
-				level.Info(h.logger).Log("msg", "Sending mail to", strings.Join(at.Receivers, ","),
-					"id", h.ID)
-			}()
+				level.Info(h.logger).Log("msg", "Sending mail to", "receivers", strings.Join(at.Receivers, ","))
+			}(compute)
 		default:
 		}
 	}

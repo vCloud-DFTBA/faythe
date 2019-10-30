@@ -16,20 +16,22 @@ package alert
 
 import (
 	"crypto/tls"
-	"strings"
+	"fmt"
 
 	"github.com/ntk148v/faythe/config"
 	"github.com/ntk148v/faythe/pkg/model"
 	"gopkg.in/mail.v2"
 )
 
-func SendMail(a *model.ActionMail) error {
+func SendMail(a *model.ActionMail, compute string, time string) error {
 	m := mail.NewMessage()
 	mc := config.Get().MailConfig
-	m.SetHeader("From", mc.Username)
-	m.SetHeader("To", strings.Join(a.Receivers, ","))
-	m.SetHeader("Subject", "Test Subject")
-	m.SetBody("text/html", "Test Mail")
+	m.SetHeaders(map[string][]string{
+		"From":    {mc.Username},
+		"To":      a.Receivers,
+		"Subject": {"Node down, Autohealing triggering"},
+	})
+	m.SetBody("text/html", fmt.Sprintf("Node: %s has been down for more than %s.", compute, time))
 
 	d := mail.NewDialer(mc.Host, mc.Port, mc.Username, string(mc.Password))
 	d.TLSConfig = &tls.Config{InsecureSkipVerify: true}

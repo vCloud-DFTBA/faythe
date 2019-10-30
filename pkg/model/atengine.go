@@ -17,8 +17,6 @@ package model
 import (
 	"fmt"
 	"strings"
-
-	"github.com/ntk148v/faythe/pkg/utils"
 )
 
 type ATEngine struct {
@@ -26,8 +24,8 @@ type ATEngine struct {
 	Address  URL               `json:"address"`
 	Metadata map[string]string `json:"metadata"`
 	Username string            `json:"username,omitempty"`
-	Password utils.Secret      `json:"password,omitempty"`
-	APIKey   utils.Secret      `json:"apikey,omitempty"`
+	Password string            `json:"password,omitempty"`
+	APIKey   string            `json:"apikey,omitempty"`
 }
 
 func (at ATEngine) Validate() error {
