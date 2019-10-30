@@ -39,6 +39,7 @@ type Healer struct {
 	done    chan struct{}
 	backend metrics.Backend
 	at      model.ATEngine
+	wl      map[string]struct{}
 }
 
 func newHealer(l log.Logger, data []byte, b metrics.Backend, atengine model.ATEngine) *Healer {
@@ -47,6 +48,7 @@ func newHealer(l log.Logger, data []byte, b metrics.Backend, atengine model.ATEn
 		done:    make(chan struct{}),
 		backend: b,
 		at:      atengine,
+		wl:      make(map[string]struct{}),
 	}
 	json.Unmarshal(data, h)
 	h.Validate()
@@ -84,19 +86,31 @@ func (h *Healer) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string
 				continue
 			}
 			// Remove redundant goroutine if exists
-		clear:
+			// TODO: Improvement instead of 2 loops?
+		clearChans:
 			for k, c := range chans {
 				for _, e := range r {
 					if k == strings.Split(string(e.Metric["instance"]), ":")[0] {
-						continue clear
+						continue clearChans
 					}
 				}
 				close(c)
 				delete(chans, k)
 			}
-
+		clearWhiteList:
+			for i, _ := range h.wl {
+				for _, e := range r {
+					if i == strings.Split(string(e.Metric["instance"]), ":")[0] {
+						continue clearWhiteList
+					}
+				}
+				delete(h.wl, i)
+			}
 			for _, e := range r {
 				instance := strings.Split(string(e.Metric["instance"]), ":")[0]
+				if _, ok := h.wl[instance]; ok {
+					continue
+				}
 				if _, ok := chans[instance]; !ok {
 					ci := make(chan struct{})
 					chans[instance] = ci
@@ -128,6 +142,7 @@ func (h *Healer) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string
 								}
 								if a.ShouldFire(duration) {
 									h.do(compute)
+									h.wl[instance] = struct{}{}
 									delete(chans, instance)
 									return
 								}

@@ -17,7 +17,7 @@ const (
 	DefaultCloudPrefix string = "/clouds"
 
 	DefaultHealerPrefix   string = "/healers"
-	DefaultHealerQuery    string = "up{job=~\".*compute-cadvisor.*|.*compute-node.*\"} < 2"
+	DefaultHealerQuery    string = "up{job=~\".*compute-cadvisor.*|.*compute-node.*\"} < 1"
 	DefaultHealerInterval string = "30s"
 	DefaultHealerCooldown string = "10m"
 	DefaultHealerDuration string = "5m"
