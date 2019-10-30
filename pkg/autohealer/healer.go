@@ -35,27 +35,26 @@ const (
 
 type Healer struct {
 	model.Healer
-	alert   alert.Alert
 	logger  log.Logger
-	mtx     sync.RWMutex
 	done    chan struct{}
 	backend metrics.Backend
+	at      model.ATEngine
 }
 
-func newHealer(l log.Logger, data []byte, b metrics.Backend) *Healer {
+func newHealer(l log.Logger, data []byte, b metrics.Backend, atengine model.ATEngine) *Healer {
 	h := &Healer{
 		logger:  l,
 		done:    make(chan struct{}),
 		backend: b,
+		at:      atengine,
 	}
 	json.Unmarshal(data, h)
 	h.Validate()
 	return h
 }
 
-func (h *Healer) run(ctx context.Context, wg *sync.WaitGroup, nc *chan string) {
+func (h *Healer) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string]string) {
 	interval, _ := time.ParseDuration(h.Interval)
-	cooldown, _ := time.ParseDuration(h.Cooldown)
 	duration, _ := time.ParseDuration(h.Duration)
 	ticker := time.NewTicker(interval)
 	defer func() {
@@ -77,23 +76,55 @@ func (h *Healer) run(ctx context.Context, wg *sync.WaitGroup, nc *chan string) {
 				continue
 			}
 			level.Debug(h.logger).Log("msg", "Executing query success", "query", model.DefaultHealerQuery)
-			h.mtx.Lock()
+			chans := make(map[string]chan struct{})
 			if len(r) == 0 {
-				h.alert.Reset()
+				for _, c := range chans {
+					close(c)
+				}
 				continue
 			}
-			if !h.alert.IsActive() {
-				h.alert.Start()
+			for _, e := range r {
+				instance := strings.Split(string(e.Metric["instance"]), ":")[0]
+				if c, ok := chans[instance]; !ok {
+					go func(ch chan struct{}, instance string, nc chan map[string]string) {
+						var compute string
+					wait:
+						for {
+							select {
+							case c := <-nc:
+								if com, ok := c[instance]; ok {
+									compute = com
+									break wait
+								}
+								continue
+							default:
+								nc <- map[string]string{"instance": instance}
+								continue
+							}
+						}
+						a := alert.Alert{}
+						a.Reset()
+						select {
+						case <-c:
+							return
+						default:
+							if !a.IsActive() {
+								a.Start()
+							}
+							if a.ShouldFire(duration) {
+								h.do(compute)
+								return
+							}
+
+						}
+					}(c, instance, nc)
+				}
 			}
-			if h.alert.ShouldFire(duration) && !h.alert.IsCoolingDown(cooldown) {
-				h.do()
-			}
-			h.mtx.Unlock()
 		}
 	}
 }
 
-func (h *Healer) do() {
+func (h *Healer) do(compute string) {
 	var (
 		wg  sync.WaitGroup
 		tr  *http.Transport
@@ -106,21 +137,31 @@ func (h *Healer) do() {
 		Timeout:   httpTimeout,
 	}
 
-	h.alert.Fire(time.Now())
 	for _, a := range h.Actions {
 		switch at := a.(type) {
 		case *model.ActionHTTP:
-			go func(url string) {
+			go func(url string, compute string) {
 				wg.Add(1)
 				defer wg.Done()
-				if err := alert.SendHTTP(h.logger, cli, at); err != nil {
+				params := make(map[string]map[string]string)
+				switch h.at.Backend {
+				case "stackstorm":
+					if apikey := string(h.at.APIKey); apikey != "" {
+						params["header"]["apikey"] = apikey
+					} else {
+						params["header"]["username"] = h.at.Username
+						params["header"]["password"] = string(h.at.Password)
+					}
+					params["body"]["compute"] = compute
+				}
+				if err := alert.SendHTTP(h.logger, cli, at, params); err != nil {
 					level.Error(h.logger).Log("msg", "Error doing HTTP action",
 						"url", at.URL.String(), "err", err)
 					return
 				}
 				level.Info(h.logger).Log("msg", "Sending request", "id", h.ID,
 					"url", url, "method", at.Method)
-			}(string(at.URL))
+			}(string(at.URL), compute)
 		case *model.ActionMail:
 			go func() {
 				wg.Add(1)

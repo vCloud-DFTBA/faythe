@@ -42,7 +42,7 @@ type Manager struct {
 	wg      *sync.WaitGroup
 	nodes   map[string]string
 	ncin    chan NodeMetric
-	ncout   chan string
+	ncout   chan map[string]string
 }
 
 func NewManager(l log.Logger, e *etcdv3.Client) *Manager {
@@ -57,7 +57,7 @@ func NewManager(l log.Logger, e *etcdv3.Client) *Manager {
 		wg:      &sync.WaitGroup{},
 		nodes:   make(map[string]string),
 		ncin:    make(chan NodeMetric),
-		ncout:   make(chan string),
+		ncout:   make(chan map[string]string),
 	}
 	hm.watchc = hm.etcdcli.Watch(hm.ctx, model.DefaultCloudPrefix, etcdv3.WithPrefix())
 	hm.watchh = hm.etcdcli.Watch(hm.ctx, model.DefaultHealerPrefix, etcdv3.WithPrefix())
@@ -94,11 +94,16 @@ func (hm *Manager) startWorker(p string, name string, data []byte) {
 			nr.run(hm.ctx, hm.wg, &hm.ncin)
 		}()
 	} else {
-		h := newHealer(log.With(hm.logger, "healer", name), data, backend)
+		atengine, err := hm.getATEngine(name)
+		if err != nil {
+			level.Error(hm.logger).Log("msg", "Error getting automation engine for worker",
+				"id", name, "err", err)
+		}
+		h := newHealer(log.With(hm.logger, "healer", name), data, backend, atengine)
 		hm.rqt.Set(name, h)
 		go func() {
 			hm.wg.Add(1)
-			h.run(hm.ctx, hm.wg, &hm.ncout)
+			h.run(hm.ctx, hm.wg, hm.ncout)
 		}()
 	}
 }
@@ -195,8 +200,10 @@ func (hm *Manager) Run() {
 		case nm := <-hm.ncin:
 			hm.nodes[strings.Split(nm.Metric.Instance, ":")[0]] = nm.Metric.Nodename
 		case nm := <-hm.ncout:
-			if m, ok := hm.nodes[nm]; ok {
-				hm.ncout <- m
+			if len(hm.nodes) != 0 {
+				if m, ok := hm.nodes[nm["instance"]]; ok {
+					hm.ncout <- map[string]string{nm["instance"]: m}
+				}
 			}
 		default:
 		}
@@ -235,4 +242,33 @@ func (hm *Manager) getBackend(key string) (metrics.Backend, error) {
 	default:
 	}
 	return backend, nil
+}
+
+func (hm *Manager) getATEngine(key string) (model.ATEngine, error) {
+	providerID := strings.Split(key, "/")[2]
+	resp, err := hm.etcdcli.Get(hm.ctx, utils.Path(model.DefaultCloudPrefix, providerID))
+	if err != nil {
+		return model.ATEngine{}, err
+	}
+	value := resp.Kvs[0]
+	var (
+		cloud    model.Cloud
+		atengine model.ATEngine
+	)
+	err = json.Unmarshal(value.Value, &cloud)
+	if err != nil {
+		return model.ATEngine{}, err
+	}
+	switch cloud.Provider {
+	case model.OpenStackType:
+		var ops model.OpenStack
+		err = json.Unmarshal(value.Value, &ops)
+		if err != nil {
+			return model.ATEngine{}, err
+		}
+
+		atengine = ops.ATEngine
+	default:
+	}
+	return atengine, nil
 }

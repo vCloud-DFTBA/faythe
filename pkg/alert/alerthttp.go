@@ -15,6 +15,9 @@
 package alert
 
 import (
+	"bytes"
+	"encoding/json"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"time"
@@ -24,13 +27,32 @@ import (
 	"github.com/ntk148v/faythe/pkg/model"
 )
 
-func SendHTTP(l log.Logger, cli *http.Client, a *model.ActionHTTP) error {
+func SendHTTP(l log.Logger, cli *http.Client, a *model.ActionHTTP, add ...map[string]map[string]string) error {
 	delay, _ := time.ParseDuration(a.Delay)
 	err := retry.Do(
 		func() error {
 			req, err := http.NewRequest(a.Method, string(a.URL), nil)
 			if err != nil {
 				return err
+			}
+			if add != nil {
+				if header, ok := add[0]["header"]; ok {
+					if apikey, ok := header["apikey"]; ok {
+						req.Header.Add("St2-Api-Key", apikey)
+					} else {
+						req.SetBasicAuth(header["username"], header["password"])
+					}
+				}
+
+				if body, ok := add[0]["body"]; ok {
+					b, err := json.Marshal(body)
+					if err != nil {
+						return err
+					}
+
+					req.Body = ioutil.NopCloser(bytes.NewReader(b))
+					req.ContentLength = int64(len(b))
+				}
 			}
 			resp, err := cli.Do(req)
 			if err != nil {
