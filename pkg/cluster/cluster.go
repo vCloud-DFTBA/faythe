@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/go-kit/kit/log"
@@ -139,28 +140,37 @@ func (c *Cluster) Run(rc chan bool) {
 			}
 			level.Debug(c.logger).Log("msg", "Renew lease for cluster member")
 		case watchResp := <-c.watch:
+			reload := false
 			for _, event := range watchResp.Events {
-				var m model.Member
-				err := json.Unmarshal(event.Kv.Value, &m)
-				if err != nil {
-					continue
-				}
 				if event.Type == etcdv3.EventTypePut {
+					var m model.Member
+					err := json.Unmarshal(event.Kv.Value, &m)
+					if err != nil {
+						level.Error(c.logger).Log("msg", "Error unmarshaling event value",
+							"err", err)
+						continue
+					}
 					level.Debug(c.logger).Log("msg", "A new member is joined",
 						"name", m.Name, "address", m.Address)
 					c.ring.AddNode(m.ID)
 					c.members[m.ID] = m
 				}
 				if event.Type == etcdv3.EventTypeDelete {
+					id := strings.TrimPrefix(string(event.Kv.Key), model.DefaultClusterPrefix)
+					id = strings.Trim(id, "/")
 					level.Debug(c.logger).Log("msg", "A new member is left",
-						"name", m.Name, "address", m.Address)
-					c.ring.RemoveNode(m.ID)
-					delete(c.members, m.ID)
+						"name", c.members[id].Name, "address", c.members[id].Address)
+					c.ring.RemoveNode(id)
+					delete(c.members, id)
 				}
 				level.Debug(c.logger).Log("msg", "The current cluster state",
 					"members", fmt.Sprintf("%+v", c.members))
+				reload = true
 			}
-			rc <- true
+			// Reload only if there is at least one correct event
+			if reload {
+				rc <- true
+			}
 		}
 	}
 }
