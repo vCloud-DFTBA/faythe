@@ -11,11 +11,7 @@ global:
 
 # Etcd configuration
 etcd:
-<<<<<<< HEAD
-  endpoints: ["127.0.01:2379"]
-=======
   endpoints: ["etcd:2379"]
->>>>>>> Add docker-compose file for cluster
   auto_sync_interval: 30s
   dial_timeout: 2s
   dial_keep_alive_time: 2s
