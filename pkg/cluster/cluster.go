@@ -34,8 +34,8 @@ import (
 	"github.com/vCloud-DFTBA/faythe/pkg/utils"
 )
 
-// Default etcd lease time-to-live in seconds
-const DefaultLeaseTTL int64 = 15
+// DefaultLeaseTTL etcd lease time-to-live in seconds
+const DefaultLeaseTTL int64 = 30
 
 // Cluster manages a set of member and the consistent hash ring as well.
 type Cluster struct {
@@ -122,7 +122,7 @@ func New(cid, bindAddr string, l log.Logger, e *etcdv3.Client) (*Cluster, error)
 
 // Run watches the cluster state's changes and does its job
 func (c *Cluster) Run(rc chan bool) {
-	ticker := time.NewTicker(time.Duration(DefaultLeaseTTL)*time.Second - 3)
+	ticker := time.NewTicker(time.Duration(DefaultLeaseTTL) * time.Second / 2)
 	for {
 		select {
 		case <-c.stopCh:
