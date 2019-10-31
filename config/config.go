@@ -102,8 +102,6 @@ const (
 	etcdDefaultDialTimeout      = 2 * time.Second
 	etcdDefaultKeepAliveTime    = 2 * time.Second
 	etcdDefaultKeepAliveTimeOut = 6 * time.Second
-	// minBroadcastTimeout applies a lower bound to the broadcast timeout interval
-	minBroadcastTimeout = time.Second
 )
 
 var (
