@@ -120,6 +120,7 @@ func New(cid, bindAddr string, l log.Logger, e *etcdv3.Client) (*Cluster, error)
 	return c, nil
 }
 
+// Run watches the cluster state's changes and does its job
 func (c *Cluster) Run(rc chan bool) {
 	ticker := time.NewTicker(time.Duration(DefaultLeaseTTL)*time.Second - 3)
 	for {
@@ -138,7 +139,10 @@ func (c *Cluster) Run(rc chan bool) {
 		case watchResp := <-c.watch:
 			for _, event := range watchResp.Events {
 				var m model.Member
-				_ = json.Unmarshal(event.Kv.Value, &m)
+				err := json.Unmarshal(event.Kv.Value, &m)
+				if err != nil {
+					continue
+				}
 				if event.Type == etcdv3.EventTypePut {
 					level.Debug(c.logger).Log("msg", "A new member is joined",
 						"name", m.Name, "address", m.Address)
@@ -151,14 +155,15 @@ func (c *Cluster) Run(rc chan bool) {
 					c.ring.RemoveNode(m.ID)
 					delete(c.members, m.ID)
 				}
+				level.Debug(c.logger).Log("msg", "The current cluster state",
+					"members", fmt.Sprintf("%+v", c.members))
 			}
 			rc <- true
-			level.Debug(c.logger).Log("msg", "The current cluster state",
-				"members", fmt.Sprintf("%+v", c.members))
 		}
 	}
 }
 
+// Stop stops the member as well as the watch process
 func (c *Cluster) Stop() {
 	level.Info(c.logger).Log("msg", "A member of cluster is stopping...",
 		"name", c.local.Name, "address", c.local.Address)
@@ -168,10 +173,12 @@ func (c *Cluster) Stop() {
 		"name", c.local.Name, "address", c.local.Address)
 }
 
+// LocalMember returns the current local node
 func (c *Cluster) LocalMember() model.Member {
 	return c.local
 }
 
+// HashRing returns the cluster's consistent hash ring
 func (c *Cluster) HashRing() *hashring.HashRing {
 	return c.ring
 }
