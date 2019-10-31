@@ -66,6 +66,8 @@ func New(cid, bindAddr string, l log.Logger, e *etcdv3.Client) (*Cluster, error)
 	if cid == "" {
 		cid = utils.RandToken()
 	}
+	level.Info(c.logger).Log("msg", "A new cluster is starting... Use the cluster id to join",
+		"id", cid)
 	// Override the client interface with namespace
 	c.etcdcli.KV = namespace.NewKV(c.etcdcli.KV, cid)
 	c.etcdcli.Watcher = namespace.NewWatcher(c.etcdcli.Watcher, cid)
