@@ -75,7 +75,7 @@ func (a *API) createHealer(rw http.ResponseWriter, req *http.Request) {
 	h.ATEngine = c.ATEngine
 
 	r, _ := json.Marshal(&h)
-	_, err := a.etcdclient.Put(req.Context(), path, string(r))
+	_, err := a.etcdclient.Put(req.Context(), utils.Path(path, h.ID), string(r))
 	if err != nil {
 		err = fmt.Errorf("error putting a key-value pair into etcd: %s", err.Error())
 		a.respondError(rw, apiError{
