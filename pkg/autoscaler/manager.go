@@ -41,7 +41,7 @@ type Manager struct {
 	ctx     context.Context
 	cancel  context.CancelFunc
 	wg      *sync.WaitGroup
-	peer    cluster.Peer
+	cluster cluster.Cluster
 }
 
 // NewManager returns an Autoscale Manager
@@ -164,8 +164,8 @@ func (m *Manager) save() {
 	for i := range m.rgt.Iter() {
 		// Check if the local node is the worker which has responsibility
 		// for starting the scaler. If not, skip it.
-		local := m.peer.Serf().LocalMember().Name
-		if worker, ok := m.peer.Consistent().GetNode(i.Key); !ok || local != worker {
+		local := m.cluster.LocalMember().Name
+		if worker, ok := m.cluster.HashRing().GetNode(i.Key); !ok || local != worker {
 			level.Debug(m.logger).Log("msg",
 				fmt.Sprintf("Ignoring scaler %s, node %s will take it", i.Key, worker))
 			continue
@@ -205,8 +205,8 @@ func (m *Manager) load() {
 		sid = string(ev.Key)
 		// Check if the local node is the worker which has responsibility
 		// for starting the scaler. If not, skip it.
-		local := m.peer.Serf().LocalMember().Name
-		if worker, ok := m.peer.Consistent().GetNode(sid); !ok || local != worker {
+		local := m.cluster.LocalMember().Name
+		if worker, ok := m.cluster.HashRing().GetNode(sid); !ok || local != worker {
 			level.Debug(m.logger).Log("msg",
 				fmt.Sprintf("Ignoring scaler %s, node %s will take it", sid, worker))
 			continue

@@ -16,8 +16,3 @@ etcd:
   dial_timeout: 2s
   dial_keep_alive_time: 2s
   dial_keep_alive_timeout: 6s
-
-# cluster configuration
-# cluster:
-#   start_join: ["faythe1:8601,faythe2:8601"]
-#   profile: "lan"
