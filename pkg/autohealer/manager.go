@@ -162,7 +162,7 @@ func (hm *Manager) Run() {
 		case watchResp := <-hm.watchc:
 			for _, event := range watchResp.Events {
 				name := utils.Path(model.DefaultNResolverPrefix, strings.Split(string(event.Kv.Key), "/")[2],
-					fmt.Sprintf("%x", utils.Hash(strings.Split(string(event.Kv.Key), "/")[2], crypto.MD5)))
+					utils.Hash(strings.Split(string(event.Kv.Key), "/")[2], crypto.MD5))
 				if event.IsCreate() {
 					cloud := model.Cloud{}
 					err := json.Unmarshal(event.Kv.Value, &cloud)
@@ -171,7 +171,7 @@ func (hm *Manager) Run() {
 					}
 					// NResolver
 					nr := model.NResolver{
-						ID:      fmt.Sprintf("%x", utils.Hash(cloud.ID, crypto.MD5)),
+						ID:      utils.Hash(cloud.ID, crypto.MD5),
 						Monitor: cloud.Monitor,
 					}
 					nr.Validate()
@@ -193,7 +193,7 @@ func (hm *Manager) Run() {
 		case watchResp := <-hm.watchh:
 			for _, event := range watchResp.Events {
 				name := utils.Path(model.DefaultHealerPrefix, strings.Split(string(event.Kv.Key), "/")[2],
-					fmt.Sprintf("%x", utils.Hash(strings.Split(string(event.Kv.Key), "/")[2], crypto.MD5)))
+					utils.Hash(strings.Split(string(event.Kv.Key), "/")[2], crypto.MD5))
 				if event.IsCreate() {
 					hm.startWorker(model.DefaultHealerPrefix, name, event.Kv.Value)
 				}

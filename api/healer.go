@@ -70,7 +70,7 @@ func (a *API) createHealer(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	h.ID = fmt.Sprintf("%x", utils.Hash(c.ID, crypto.MD5))
+	h.ID = utils.Hash(c.ID, crypto.MD5)
 	h.Monitor = c.Monitor
 	h.ATEngine = c.ATEngine
 
