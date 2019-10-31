@@ -158,7 +158,7 @@ func (c *Cluster) Run(rc chan bool) {
 				if event.Type == etcdv3.EventTypeDelete {
 					id := strings.TrimPrefix(string(event.Kv.Key), model.DefaultClusterPrefix)
 					id = strings.Trim(id, "/")
-					level.Debug(c.logger).Log("msg", "A new member is left",
+					level.Debug(c.logger).Log("msg", "A member is left",
 						"name", c.members[id].Name, "address", c.members[id].Address)
 					c.ring.RemoveNode(id)
 					delete(c.members, id)
