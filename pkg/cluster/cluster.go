@@ -67,8 +67,8 @@ func New(cid, bindAddr string, l log.Logger, e *etcdv3.Client) (*Cluster, error)
 	if cid == "" {
 		cid = utils.RandToken()
 	}
-	level.Info(c.logger).Log("msg", "A new cluster is starting... Use the cluster id to join",
-		"id", cid)
+	level.Info(c.logger).Log("msg", "A new cluster is starting...")
+	level.Info(c.logger).Log("msg", "Use the cluster id to join", "id", cid)
 	// Override the client interface with namespace
 	c.etcdcli.KV = namespace.NewKV(c.etcdcli.KV, cid)
 	c.etcdcli.Watcher = namespace.NewWatcher(c.etcdcli.Watcher, cid)
@@ -138,7 +138,9 @@ func (c *Cluster) Run(rc chan bool) {
 					"err", err)
 				continue
 			}
-			level.Debug(c.logger).Log("msg", "Renew lease for cluster member")
+			ttlResp, _ := c.etcdcli.TimeToLive(c.ctx, c.lease)
+			level.Debug(c.logger).Log("msg", "Renew lease for cluster member",
+				"id", ttlResp.ID, "ttl", ttlResp.TTL)
 		case watchResp := <-c.watch:
 			reload := false
 			for _, event := range watchResp.Events {
