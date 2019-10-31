@@ -45,7 +45,7 @@ type Manager struct {
 }
 
 // NewManager returns an Autoscale Manager
-func NewManager(l log.Logger, e *etcdv3.Client) *Manager {
+func NewManager(l log.Logger, e *etcdv3.Client, c cluster.Cluster) *Manager {
 	ctx, cancel := context.WithCancel(context.Background())
 	m := &Manager{
 		logger:  l,
@@ -55,6 +55,7 @@ func NewManager(l log.Logger, e *etcdv3.Client) *Manager {
 		ctx:     ctx,
 		wg:      &sync.WaitGroup{},
 		cancel:  cancel,
+		cluster: c,
 	}
 	m.watch = m.etcdcli.Watch(m.ctx, model.DefaultScalerPrefix, etcdv3.WithPrefix())
 	// Load at init

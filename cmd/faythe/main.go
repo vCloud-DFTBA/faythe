@@ -121,7 +121,8 @@ func main() {
 	fapi.Register(router)
 	router.Use(fmw.Logging, fmw.RestrictDomain, fmw.Authenticate)
 
-	fas = autoscaler.NewManager(log.With(logger, "component", "autoscale manager"), etcdCli)
+	fas = autoscaler.NewManager(log.With(logger, "component", "autoscale manager"),
+		etcdCli, *cls)
 	go fas.Run()
 	defer func() {
 		fas.Stop()

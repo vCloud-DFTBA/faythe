@@ -112,12 +112,11 @@ func New(cid, bindAddr string, l log.Logger, e *etcdv3.Client) (*Cluster, error)
 		}
 	}
 	defer c.mtx.Unlock(c.ctx)
-
 	// Init a HashRing
-	nodes := make([]string, len(c.members))
+	nodes := make([]string, 0)
 	for _, m := range c.members {
 		// Use node's name/id/address?
-		nodes = append(nodes, m.ID)
+		nodes = append(nodes, m.Name)
 	}
 	c.ring = hashring.New(nodes)
 	return c, nil
