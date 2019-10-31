@@ -39,6 +39,7 @@ import (
 	"github.com/vCloud-DFTBA/faythe/config"
 	"github.com/vCloud-DFTBA/faythe/middleware"
 	"github.com/vCloud-DFTBA/faythe/pkg/autoscaler"
+	"github.com/vCloud-DFTBA/faythe/pkg/cluster"
 )
 
 func main() {
@@ -48,6 +49,7 @@ func main() {
 		url           string
 		externalURL   *url.URL
 		logConfig     promlog.Config
+		clusterID     string
 	}{
 		logConfig: promlog.Config{},
 	}
@@ -61,6 +63,8 @@ func main() {
 	a.Flag("external-url",
 		"The URL under which Faythe is externally reachable.").
 		PlaceHolder("<URL>").StringVar(&cfg.url)
+	a.Flag("cluster-id", "The unique ID of the cluster, leave it empty to initialize a new cluster.").
+		StringVar(&cfg.clusterID)
 
 	logflag.AddFlags(a, &cfg.logConfig)
 	_, err := a.Parse(os.Args[1:])
@@ -77,10 +81,11 @@ func main() {
 	var (
 		etcdConf = etcdv3.Config{}
 		etcdCli  = &etcdv3.Client{}
-		mux      = mux.NewRouter()
+		router   = mux.NewRouter()
 		fmw      = &middleware.Middleware{}
 		fapi     = &api.API{}
 		fas      = &autoscaler.Manager{}
+		cls      = &cluster.Cluster{}
 	)
 	// Load configurations from file
 	err = config.Set(cfg.configFile, log.With(logger, "component", "config manager"))
@@ -100,20 +105,43 @@ func main() {
 		os.Exit(2)
 	}
 
-	defer etcdCli.Close()
+	// Init cluster
+	cls, err = cluster.New(cfg.clusterID, cfg.listenAddress,
+		log.With(logger, "component", "cluster"), etcdCli)
+	if err != nil {
+		level.Error(logger).Log("err", errors.Wrap(err, "Error initializing Cluster"))
+		os.Exit(2)
+	}
+	reloadCh := make(chan bool)
+	go cls.Run(reloadCh)
 
 	fmw = middleware.New(log.With(logger, "component", "transport middleware"))
 
 	fapi = api.New(log.With(logger, "component", "api"), etcdCli)
-	fapi.Register(mux)
-	mux.Use(fmw.Logging, fmw.RestrictDomain, fmw.Authenticate)
+	fapi.Register(router)
+	router.Use(fmw.Logging, fmw.RestrictDomain, fmw.Authenticate)
 
 	fas = autoscaler.NewManager(log.With(logger, "component", "autoscale manager"), etcdCli)
 	go fas.Run()
-	defer fas.Stop()
+	defer func() {
+		fas.Stop()
+		cls.Stop()
+		etcdCli.Close()
+		level.Info(logger).Log("msg", "Faythe is stopped, bye bye!")
+	}()
+
 	// Init HTTP server
-	srv := http.Server{Addr: cfg.listenAddress, Handler: mux}
+	srv := http.Server{Addr: cfg.listenAddress, Handler: router}
 	srvc := make(chan struct{})
+
+	go func() {
+		for {
+			select {
+			case <-reloadCh:
+				fas.Reload()
+			}
+		}
+	}()
 
 	go func() {
 		level.Info(logger).Log("msg", "Listening", "address", cfg.listenAddress)

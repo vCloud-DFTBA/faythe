@@ -26,6 +26,7 @@ import (
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
+	"go.etcd.io/etcd/clientv3/concurrency"
 
 	"github.com/vCloud-DFTBA/faythe/pkg/metrics"
 	"github.com/vCloud-DFTBA/faythe/pkg/model"
@@ -44,6 +45,7 @@ type Scaler struct {
 	done       chan struct{}
 	terminated chan struct{}
 	backend    metrics.Backend
+	dlock      concurrency.Mutex
 }
 
 func newScaler(l log.Logger, data []byte, b metrics.Backend) *Scaler {

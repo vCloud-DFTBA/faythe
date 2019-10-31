@@ -25,6 +25,7 @@ import (
 	"github.com/go-kit/kit/log/level"
 	etcdv3 "go.etcd.io/etcd/clientv3"
 
+	"github.com/vCloud-DFTBA/faythe/pkg/cluster"
 	"github.com/vCloud-DFTBA/faythe/pkg/metrics"
 	"github.com/vCloud-DFTBA/faythe/pkg/model"
 	"github.com/vCloud-DFTBA/faythe/pkg/utils"
@@ -40,6 +41,7 @@ type Manager struct {
 	ctx     context.Context
 	cancel  context.CancelFunc
 	wg      *sync.WaitGroup
+	cluster cluster.Cluster
 }
 
 // NewManager returns an Autoscale Manager
@@ -160,6 +162,14 @@ func (m *Manager) getBackend(key string) (metrics.Backend, error) {
 // save puts scalers to etcd
 func (m *Manager) save() {
 	for i := range m.rgt.Iter() {
+		// Check if the local node is the worker which has responsibility
+		// for starting the scaler. If not, skip it.
+		local := m.cluster.LocalMember().Name
+		if worker, ok := m.cluster.HashRing().GetNode(i.Key); !ok || local != worker {
+			level.Debug(m.logger).Log("msg",
+				fmt.Sprintf("Ignoring scaler %s, node %s will take it", i.Key, worker))
+			continue
+		}
 		m.wg.Add(1)
 		go func(i RegistryItem) {
 			defer func() {
@@ -190,7 +200,23 @@ func (m *Manager) load() {
 		level.Error(m.logger).Log("msg", "Error getting scalers", "err", err)
 		return
 	}
+	var sid string
 	for _, ev := range resp.Kvs {
-		m.startScaler(string(ev.Key), ev.Value)
+		sid = string(ev.Key)
+		// Check if the local node is the worker which has responsibility
+		// for starting the scaler. If not, skip it.
+		local := m.cluster.LocalMember().Name
+		if worker, ok := m.cluster.HashRing().GetNode(sid); !ok || local != worker {
+			level.Debug(m.logger).Log("msg",
+				fmt.Sprintf("Ignoring scaler %s, node %s will take it", sid, worker))
+			continue
+		}
+		m.startScaler(sid, ev.Value)
 	}
+}
+
+// Reload simply stop and start all scalers. Dummy strategy, just use it by now.
+func (m *Manager) Reload() {
+	m.save()
+	m.load()
 }

@@ -17,13 +17,20 @@ package utils
 import (
 	"crypto"
 	"crypto/md5"
+	"crypto/rand"
 	"crypto/sha1"
 	"crypto/sha256"
 	"crypto/sha512"
+	"fmt"
 	"hash"
 	"hash/fnv"
+	"net"
 	"reflect"
+	"runtime"
+	"strconv"
 	"strings"
+
+	"github.com/pkg/errors"
 )
 
 // HashFNV generates a new 64-bit number from a given string
@@ -36,7 +43,7 @@ func HashFNV(s string) string {
 
 // Hash generates a new slice of bytee hash from a given string
 // using a given hash algorithms.
-func Hash(s string, f crypto.Hash) []byte {
+func Hash(s string, f crypto.Hash) string {
 	var h hash.Hash
 	switch f {
 	case crypto.MD5:
@@ -50,7 +57,14 @@ func Hash(s string, f crypto.Hash) []byte {
 	default:
 	}
 	h.Write([]byte(s))
-	return h.Sum(nil)
+	return fmt.Sprintf("%x", h.Sum(nil))
+}
+
+// RandToken generates a random 16-bit token
+func RandToken() string {
+	b := make([]byte, 16)
+	_, _ = rand.Read(b)
+	return fmt.Sprintf("%x", b)
 }
 
 // Path returns a etcd key path.
@@ -106,4 +120,70 @@ func Find(a []string, x interface{}, op string) bool {
 		}
 	}
 	return r
+}
+
+// AddParts returns the parts of the address
+func AddParts(address string) (string, int, error) {
+	_, _, err := net.SplitHostPort(address)
+	if err != nil {
+		return "", 0, err
+	}
+
+	// Get the address
+	addr, err := net.ResolveTCPAddr("tcp", address)
+	if err != nil {
+		return "", 0, err
+	}
+
+	return addr.IP.String(), addr.Port, nil
+}
+
+// RuntimeStats is used to return various runtime information
+func RuntimeStats() map[string]string {
+	return map[string]string{
+		"os":         runtime.GOOS,
+		"arch":       runtime.GOARCH,
+		"version":    runtime.Version(),
+		"max_procs":  strconv.FormatInt(int64(runtime.GOMAXPROCS(0)), 10),
+		"goroutines": strconv.FormatInt(int64(runtime.NumGoroutine()), 10),
+		"cpu_count":  strconv.FormatInt(int64(runtime.NumCPU()), 10),
+	}
+}
+
+// ExternalIP returns an external ip address of the current host
+func ExternalIP() (string, error) {
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return "", err
+	}
+	for _, iface := range ifaces {
+		if iface.Flags&net.FlagUp == 0 {
+			continue // interface down
+		}
+		if iface.Flags&net.FlagLoopback != 0 {
+			continue // loopback interface
+		}
+		addrs, err := iface.Addrs()
+		if err != nil {
+			return "", err
+		}
+		for _, addr := range addrs {
+			var ip net.IP
+			switch v := addr.(type) {
+			case *net.IPNet:
+				ip = v.IP
+			case *net.IPAddr:
+				ip = v.IP
+			}
+			if ip == nil || ip.IsLoopback() {
+				continue
+			}
+			ip = ip.To4()
+			if ip == nil {
+				continue // not an ipv4 address
+			}
+			return ip.String(), nil
+		}
+	}
+	return "", errors.New("a node didn't connect to any networks")
 }

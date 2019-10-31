@@ -1,11 +1,33 @@
 version: '3'
 services:
-  faythe:
+  faythe1:
     build: .
     ports:
       - 8600:8600
     volumes:
       - ./examples/faythe.yml:/etc/faythe/config.yml
+    restart: always
+    depends_on:
+      - etcd
+    command:
+      - --config.file=/etc/faythe/config.yml
+      - --cluster-id=averycomplexclusterid
+      - --log.level=debug
+
+  faythe2:
+    build: .
+    ports:
+      - 8601:8600
+    volumes:
+      - ./examples/faythe.yml:/etc/faythe/config.yml
+    restart: always
+    depends_on:
+      - faythe1
+      - etcd
+    command:
+      - --config.file=/etc/faythe/config.yml
+      - --cluster-id=averycomplexclusterid
+      - --log.level=debug
 
   etcd:
     image: bitnami/etcd:3
@@ -16,7 +38,6 @@ services:
       - 2380:2380
     volumes:
       - etcd_data:/binami
-
 
 volumes:
   etcd_data:
