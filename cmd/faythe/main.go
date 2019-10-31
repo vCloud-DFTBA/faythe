@@ -16,7 +16,6 @@ package main
 
 import (
 	"fmt"
-	"github.com/ntk148v/faythe/pkg/cluster"
 	"net"
 	"net/http"
 	"net/url"
@@ -40,6 +39,7 @@ import (
 	"github.com/ntk148v/faythe/config"
 	"github.com/ntk148v/faythe/middleware"
 	"github.com/ntk148v/faythe/pkg/autoscaler"
+	"github.com/ntk148v/faythe/pkg/cluster"
 )
 
 func main() {
