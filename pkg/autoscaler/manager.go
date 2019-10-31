@@ -25,10 +25,10 @@ import (
 	"github.com/go-kit/kit/log/level"
 	etcdv3 "go.etcd.io/etcd/clientv3"
 
-	"github.com/ntk148v/faythe/pkg/cluster"
-	"github.com/ntk148v/faythe/pkg/metrics"
-	"github.com/ntk148v/faythe/pkg/model"
-	"github.com/ntk148v/faythe/pkg/utils"
+	"github.com/vCloud-DFTBA/faythe/pkg/cluster"
+	"github.com/vCloud-DFTBA/faythe/pkg/metrics"
+	"github.com/vCloud-DFTBA/faythe/pkg/model"
+	"github.com/vCloud-DFTBA/faythe/pkg/utils"
 )
 
 // Manager manages a set of Scaler instances.
