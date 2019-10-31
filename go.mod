@@ -1,4 +1,4 @@
-module github.com/ntk148v/faythe
+module github.com/vCloud-DFTBA/faythe
 
 go 1.12
 

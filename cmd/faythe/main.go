@@ -35,11 +35,11 @@ import (
 	etcdv3 "go.etcd.io/etcd/clientv3"
 	"gopkg.in/alecthomas/kingpin.v2"
 
-	"github.com/ntk148v/faythe/api"
-	"github.com/ntk148v/faythe/config"
-	"github.com/ntk148v/faythe/middleware"
-	"github.com/ntk148v/faythe/pkg/autoscaler"
-	"github.com/ntk148v/faythe/pkg/cluster"
+	"github.com/vCloud-DFTBA/faythe/api"
+	"github.com/vCloud-DFTBA/faythe/config"
+	"github.com/vCloud-DFTBA/faythe/middleware"
+	"github.com/vCloud-DFTBA/faythe/pkg/autoscaler"
+	"github.com/vCloud-DFTBA/faythe/pkg/cluster"
 )
 
 func main() {

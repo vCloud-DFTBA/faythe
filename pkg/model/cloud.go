@@ -18,7 +18,7 @@ import (
 	"crypto"
 	"github.com/pkg/errors"
 
-	"github.com/ntk148v/faythe/pkg/utils"
+	"github.com/vCloud-DFTBA/faythe/pkg/utils"
 )
 
 var (

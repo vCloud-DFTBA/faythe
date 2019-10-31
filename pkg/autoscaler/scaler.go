@@ -28,8 +28,8 @@ import (
 	"github.com/go-kit/kit/log/level"
 	"go.etcd.io/etcd/clientv3/concurrency"
 
-	"github.com/ntk148v/faythe/pkg/metrics"
-	"github.com/ntk148v/faythe/pkg/model"
+	"github.com/vCloud-DFTBA/faythe/pkg/metrics"
+	"github.com/vCloud-DFTBA/faythe/pkg/model"
 )
 
 const (
