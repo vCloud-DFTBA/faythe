@@ -132,6 +132,7 @@ func (c *Cluster) Run(rc chan bool) {
 			if err != nil {
 				level.Error(c.logger).Log("msg", "Error refreshing lease for cluster member",
 					"err", err)
+				continue
 			}
 			level.Debug(c.logger).Log("msg", "Renew lease for cluster member")
 		case watchResp := <-c.watch:
