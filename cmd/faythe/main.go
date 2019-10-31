@@ -39,6 +39,7 @@ import (
 	"github.com/vCloud-DFTBA/faythe/api"
 	"github.com/vCloud-DFTBA/faythe/config"
 	"github.com/vCloud-DFTBA/faythe/middleware"
+	"github.com/vCloud-DFTBA/faythe/pkg/autohealer"
 	"github.com/vCloud-DFTBA/faythe/pkg/autoscaler"
 	"github.com/vCloud-DFTBA/faythe/pkg/cluster"
 	"github.com/vCloud-DFTBA/faythe/pkg/utils"
