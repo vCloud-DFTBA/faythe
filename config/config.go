@@ -21,7 +21,7 @@ import (
 
 	"gopkg.in/yaml.v2"
 
-	"github.com/ntk148v/faythe/pkg/utils"
+	"github.com/vCloud-DFTBA/faythe/pkg/utils"
 )
 
 // Config is the top-level configuration for Faythe's config file.

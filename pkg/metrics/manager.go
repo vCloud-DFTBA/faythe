@@ -20,7 +20,7 @@ import (
 	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
 
-	"github.com/ntk148v/faythe/pkg/metrics/backends/prometheus"
+	"github.com/vCloud-DFTBA/faythe/pkg/metrics/backends/prometheus"
 )
 
 // Manager maintains a set of Backends.
