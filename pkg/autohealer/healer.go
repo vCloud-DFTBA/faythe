@@ -33,6 +33,8 @@ const (
 	httpTimeout = time.Second * 15
 )
 
+// Healer scrape metrics from metrics backend priodically
+// and evaluate whether it is necessary to do healing action
 type Healer struct {
 	model.Healer
 	logger  log.Logger
@@ -85,27 +87,33 @@ func (h *Healer) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string
 				}
 				continue
 			}
+
+			// Make a dict contains list of instances
+			ris := make(map[string]struct{})
+			for _, e := range r {
+				instance := strings.Split(string(e.Metric["instance"]), ":")[0]
+				if _, ok := ris[instance]; !ok {
+					ris[instance] = struct{}{}
+				}
+			}
+
 			// Remove redundant goroutine if exists
-			// TODO: Improvement instead of 2 loops?
-		clearChans:
 			for k, c := range chans {
-				for _, e := range r {
-					if k == strings.Split(string(e.Metric["instance"]), ":")[0] {
-						continue clearChans
-					}
+				if _, ok := ris[k]; ok {
+					continue
 				}
 				close(c)
 				delete(chans, k)
 			}
-		clearWhiteList:
-			for i, _ := range h.wl {
-				for _, e := range r {
-					if i == strings.Split(string(e.Metric["instance"]), ":")[0] {
-						continue clearWhiteList
-					}
+
+			// Clear entry in whitelist if instance goes up again
+			for k := range h.wl {
+				if _, ok := ris[k]; ok {
+					continue
 				}
-				delete(h.wl, i)
+				delete(h.wl, k)
 			}
+
 			for _, e := range r {
 				instance := strings.Split(string(e.Metric["instance"]), ":")[0]
 				if _, ok := h.wl[instance]; ok {
@@ -116,17 +124,19 @@ func (h *Healer) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string
 					chans[instance] = ci
 					go func(ch chan struct{}, instance string, nc chan map[string]string) {
 						var compute string
+						key := MakeKey(h.ID, instance)
 					wait:
+						//	wait for correct compute-instance pair
 						for {
 							select {
 							case c := <-nc:
-								if com, ok := c[instance]; ok {
+								if com, ok := c[key]; ok {
 									compute = com
 									break wait
 								}
 								continue
 							default:
-								nc <- map[string]string{"instance": instance}
+								nc <- map[string]string{"instance": key}
 								continue
 							}
 						}
@@ -142,6 +152,7 @@ func (h *Healer) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string
 								}
 								if a.ShouldFire(duration) {
 									h.do(compute)
+									// if healing for compute is fired, store it in a whitelist
 									h.wl[instance] = struct{}{}
 									delete(chans, instance)
 									return
@@ -213,6 +224,7 @@ func (h *Healer) do(compute string) {
 	wg.Wait()
 }
 
+// Stop Healer worker
 func (h *Healer) Stop() {
 	level.Debug(h.logger).Log("msg", "Healer is stopping", "id", h.ID)
 	close(h.done)

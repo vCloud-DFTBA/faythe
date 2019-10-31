@@ -26,6 +26,8 @@ import (
 	"github.com/ntk148v/faythe/pkg/model"
 )
 
+// NResolver stands for name resolver
+// it collects information from metrics which map instance IP to instance name
 type NResolver struct {
 	model.NResolver
 	logger  log.Logger
@@ -67,7 +69,9 @@ func (nr *NResolver) run(ctx context.Context, wg *sync.WaitGroup, nc *chan NodeM
 				if err != nil {
 					level.Error(nr.logger).Log("msg", "Error while unmarshalling metrics result", "err", err)
 				}
-				nm := NodeMetric{}
+				nm := NodeMetric{
+					CloudID: nr.ID,
+				}
 				err = json.Unmarshal(j, &nm)
 				if err != nil {
 					level.Error(nr.logger).Log("msg", "Error while unmarshalling metrics result", "err", err)
@@ -82,6 +86,7 @@ func (nr *NResolver) run(ctx context.Context, wg *sync.WaitGroup, nc *chan NodeM
 
 }
 
+// Stop destroys name resolver instance
 func (nr *NResolver) Stop() {
 	level.Debug(nr.logger).Log("msg", "NResolver is stopping", "name", nr.ID)
 	close(nr.done)

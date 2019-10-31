@@ -30,6 +30,7 @@ import (
 	etcdv3 "go.etcd.io/etcd/clientv3"
 )
 
+// Manager controls name resolver and healer instances
 type Manager struct {
 	logger  log.Logger
 	rqt     *utils.Registry
@@ -45,6 +46,7 @@ type Manager struct {
 	ncout   chan map[string]string
 }
 
+// NewManager create new Manager for name resolver and healer
 func NewManager(l log.Logger, e *etcdv3.Client) *Manager {
 	ctx, cancel := context.WithCancel(context.Background())
 	hm := &Manager{
@@ -116,6 +118,7 @@ func (hm *Manager) stopWorker(name string) {
 	}
 }
 
+// Stop destroy name resolver, healer and itself
 func (hm *Manager) Stop() {
 	level.Info(hm.logger).Log("msg", "Cleaning before stopping autohealer managger")
 	hm.save()
@@ -128,9 +131,9 @@ func (hm *Manager) Stop() {
 func (hm *Manager) save() {
 	for e := range hm.rqt.Iter() {
 		hm.wg.Add(1)
-		go func(name string) {
+		go func(e utils.RegistryItem) {
 			defer func() {
-				hm.stopWorker(name)
+				hm.stopWorker(e.Name)
 				hm.wg.Done()
 			}()
 
@@ -146,10 +149,11 @@ func (hm *Manager) save() {
 					"name", e.Name, "err", err)
 				return
 			}
-		}(e.Name)
+		}(e)
 	}
 }
 
+// Run start healer mamaner instance
 func (hm *Manager) Run() {
 	for {
 		select {
@@ -198,7 +202,7 @@ func (hm *Manager) Run() {
 				}
 			}
 		case nm := <-hm.ncin:
-			hm.nodes[strings.Split(nm.Metric.Instance, ":")[0]] = nm.Metric.Nodename
+			hm.nodes[MakeKey(nm.CloudID, strings.Split(nm.Metric.Instance, ":")[0])] = nm.Metric.Nodename
 		case nm := <-hm.ncout:
 			if len(hm.nodes) != 0 {
 				if m, ok := hm.nodes[nm["instance"]]; ok {
@@ -271,4 +275,9 @@ func (hm *Manager) getATEngine(key string) (model.ATEngine, error) {
 	default:
 	}
 	return atengine, nil
+}
+
+// MakeKey creates key from id and instance
+func MakeKey(id string, instance string) string {
+	return fmt.Sprintf("%s/%s", id, instance)
 }

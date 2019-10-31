@@ -14,10 +14,13 @@
 
 package autohealer
 
+// NodeMetric contains and ID and a metric
 type NodeMetric struct {
-	Metric NodeInfo `json:"metric"`
+	CloudID string   `json:"cloudid"`
+	Metric  NodeInfo `json:"metric"`
 }
 
+// NodeInfo contains information of node name and ip
 type NodeInfo struct {
 	Instance string `json:"instance"`
 	Nodename string `json:"nodename"`

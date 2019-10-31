@@ -59,12 +59,10 @@ func (a *API) createHealer(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	id := fmt.Sprintf("%x", utils.Hash(c.ID, crypto.MD5))
-
-	path = utils.Path(model.DefaultHealerPrefix, vars["provider_id"], id)
+	path = utils.Path(model.DefaultHealerPrefix, vars["provider_id"])
 	resp, _ = a.etcdclient.Get(req.Context(), path, etcdv3.WithCountOnly())
 	if resp.Count > 0 {
-		err := fmt.Errorf("the healer with id %s is existed", id)
+		err := fmt.Errorf("there is only 1 healer can be existed for 1 cloud provider")
 		a.respondError(rw, apiError{
 			code: http.StatusBadRequest,
 			err:  err,
