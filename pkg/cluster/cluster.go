@@ -35,7 +35,7 @@ import (
 )
 
 // DefaultLeaseTTL etcd lease time-to-live in seconds
-const DefaultLeaseTTL int64 = 30
+const DefaultLeaseTTL int64 = 15
 
 // Cluster manages a set of member and the consistent hash ring as well.
 type Cluster struct {
@@ -169,6 +169,10 @@ func (c *Cluster) Run(rc chan bool) {
 func (c *Cluster) Stop() {
 	level.Info(c.logger).Log("msg", "A member of cluster is stopping...",
 		"name", c.local.Name, "address", c.local.Address)
+	_, err := c.etcdcli.Revoke(c.ctx, c.lease)
+	if err != nil {
+		level.Error(c.logger).Log("msg", "Error revoking the lease", "id", c.lease)
+	}
 	close(c.stopCh)
 	c.cancel()
 	level.Info(c.logger).Log("msg", "A member of cluster is stopped",
@@ -192,7 +196,7 @@ func newLocalMember(bindAddr string) (model.Member, error) {
 		return m, err
 	}
 	m.Name = hostname
-	m.ID = string(utils.Hash(m.Name, crypto.MD5))
+	m.ID = utils.Hash(m.Name, crypto.MD5)
 	host, _, _ := net.SplitHostPort(bindAddr)
 	// If there is no bind IP, pick an address
 	if host == "0.0.0.0" {
