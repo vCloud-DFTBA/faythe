@@ -25,8 +25,6 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/ntk148v/faythe/pkg/cluster"
-
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/gorilla/mux"
