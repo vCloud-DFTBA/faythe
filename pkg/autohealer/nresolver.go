@@ -22,8 +22,8 @@ import (
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
-	"github.com/ntk148v/faythe/pkg/metrics"
-	"github.com/ntk148v/faythe/pkg/model"
+	"github.com/vCloud-DFTBA/faythe/pkg/metrics"
+	"github.com/vCloud-DFTBA/faythe/pkg/model"
 )
 
 // NResolver stands for name resolver

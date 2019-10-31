@@ -18,8 +18,8 @@ import (
 	"crypto/tls"
 	"fmt"
 
-	"github.com/ntk148v/faythe/config"
-	"github.com/ntk148v/faythe/pkg/model"
+	"github.com/vCloud-DFTBA/faythe/config"
+	"github.com/vCloud-DFTBA/faythe/pkg/model"
 	"gopkg.in/mail.v2"
 )
 

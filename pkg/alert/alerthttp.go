@@ -24,7 +24,7 @@ import (
 
 	"github.com/avast/retry-go"
 	"github.com/go-kit/kit/log"
-	"github.com/ntk148v/faythe/pkg/model"
+	"github.com/vCloud-DFTBA/faythe/pkg/model"
 )
 
 func SendHTTP(l log.Logger, cli *http.Client, a *model.ActionHTTP, add ...map[string]map[string]string) error {

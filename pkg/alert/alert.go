@@ -17,7 +17,7 @@ package alert
 import (
 	"time"
 
-	"github.com/ntk148v/faythe/pkg/model"
+	"github.com/vCloud-DFTBA/faythe/pkg/model"
 )
 
 type Alert struct {

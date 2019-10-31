@@ -20,7 +20,7 @@ import (
 	"net/http"
 
 	"github.com/go-kit/kit/log/level"
-	"github.com/ntk148v/faythe/pkg/model"
+	"github.com/vCloud-DFTBA/faythe/pkg/model"
 	etcdv3 "go.etcd.io/etcd/clientv3"
 )
 

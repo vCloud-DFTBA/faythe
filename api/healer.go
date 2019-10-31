@@ -22,8 +22,8 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
-	"github.com/ntk148v/faythe/pkg/model"
-	"github.com/ntk148v/faythe/pkg/utils"
+	"github.com/vCloud-DFTBA/faythe/pkg/model"
+	"github.com/vCloud-DFTBA/faythe/pkg/utils"
 	etcdv3 "go.etcd.io/etcd/clientv3"
 )
 
