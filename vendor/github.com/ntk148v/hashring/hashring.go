@@ -7,6 +7,7 @@ import (
 	"math"
 	"sort"
 	"strconv"
+	"sync"
 )
 
 type HashKey uint32
@@ -22,6 +23,7 @@ type HashRing struct {
 	nodes      []string
 	weights    map[string]int
 	hasher     hash.Hash
+	mtx        sync.RWMutex
 }
 
 func New(nodes []string) *HashRing {
@@ -61,10 +63,14 @@ func new(nodes []string, weights map[string]int, hasher hash.Hash) (*HashRing, e
 }
 
 func (h *HashRing) Size() int {
+	h.mtx.RLock()
+	defer h.mtx.RUnlock()
 	return len(h.nodes)
 }
 
 func (h *HashRing) UpdateWithWeights(weights map[string]int) {
+	h.mtx.Lock()
+	defer h.mtx.Unlock()
 	nodesChgFlg := false
 	if len(weights) != len(h.weights) {
 		nodesChgFlg = true
@@ -119,7 +125,9 @@ func (h *HashRing) generateCircle() {
 }
 
 func (h *HashRing) GetNode(stringKey string) (node string, ok bool) {
-	pos, ok := h.GetNodePos(stringKey)
+	h.mtx.RLock()
+	defer h.mtx.RUnlock()
+	pos, ok := h.getNodePos(stringKey)
 	if !ok {
 		return "", false
 	}
@@ -127,11 +135,17 @@ func (h *HashRing) GetNode(stringKey string) (node string, ok bool) {
 }
 
 func (h *HashRing) GetNodePos(stringKey string) (pos int, ok bool) {
+	h.mtx.RLock()
+	defer h.mtx.RUnlock()
+	return h.getNodePos(stringKey)
+}
+
+func (h *HashRing) getNodePos(stringKey string) (pos int, ok bool) {
 	if len(h.ring) == 0 {
 		return 0, false
 	}
 
-	key := h.GenKey(stringKey)
+	key := h.genKey(stringKey)
 
 	nodes := h.sortedKeys
 	pos = sort.Search(len(nodes), func(i int) bool { return nodes[i] > key })
@@ -145,12 +159,20 @@ func (h *HashRing) GetNodePos(stringKey string) (pos int, ok bool) {
 }
 
 func (h *HashRing) GenKey(key string) HashKey {
+	h.mtx.RLock()
+	defer h.mtx.RUnlock()
+	return h.genKey(key)
+}
+
+func (h *HashRing) genKey(key string) HashKey {
 	bKey := h.hashDigest(key)
 	return hashVal(bKey[0:4])
 }
 
 func (h *HashRing) GetNodes(stringKey string, size int) (nodes []string, ok bool) {
-	pos, ok := h.GetNodePos(stringKey)
+	h.mtx.RLock()
+	defer h.mtx.RUnlock()
+	pos, ok := h.getNodePos(stringKey)
 	if !ok {
 		return nil, false
 	}
@@ -179,10 +201,18 @@ func (h *HashRing) GetNodes(stringKey string, size int) (nodes []string, ok bool
 }
 
 func (h *HashRing) AddNode(node string) *HashRing {
-	return h.AddWeightedNode(node, 1)
+	h.mtx.Lock()
+	defer h.mtx.Unlock()
+	return h.addWeightedNode(node, 1)
 }
 
 func (h *HashRing) AddWeightedNode(node string, weight int) *HashRing {
+	h.mtx.Lock()
+	defer h.mtx.Unlock()
+	return h.addWeightedNode(node, weight)
+}
+
+func (h *HashRing) addWeightedNode(node string, weight int) *HashRing {
 	if weight <= 0 {
 		return h
 	}
@@ -213,6 +243,8 @@ func (h *HashRing) AddWeightedNode(node string, weight int) *HashRing {
 }
 
 func (h *HashRing) UpdateWeightedNode(node string, weight int) *HashRing {
+	h.mtx.Lock()
+	defer h.mtx.Unlock()
 	if weight <= 0 {
 		return h
 	}
@@ -242,6 +274,8 @@ func (h *HashRing) UpdateWeightedNode(node string, weight int) *HashRing {
 	return hashRing
 }
 func (h *HashRing) RemoveNode(node string) *HashRing {
+	h.mtx.Lock()
+	defer h.mtx.Unlock()
 	/* if node isn't exist in hashring, don't refresh hashring */
 	if _, ok := h.weights[node]; !ok {
 		return h
