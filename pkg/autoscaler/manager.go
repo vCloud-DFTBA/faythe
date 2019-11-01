@@ -41,11 +41,11 @@ type Manager struct {
 	ctx     context.Context
 	cancel  context.CancelFunc
 	wg      *sync.WaitGroup
-	cluster cluster.Cluster
+	cluster *cluster.Cluster
 }
 
 // NewManager returns an Autoscale Manager
-func NewManager(l log.Logger, e *etcdv3.Client, c cluster.Cluster) *Manager {
+func NewManager(l log.Logger, e *etcdv3.Client, c *cluster.Cluster) *Manager {
 	ctx, cancel := context.WithCancel(context.Background())
 	m := &Manager{
 		logger:  l,

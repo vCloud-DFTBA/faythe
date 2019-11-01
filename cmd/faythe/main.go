@@ -122,7 +122,7 @@ func main() {
 	router.Use(fmw.Logging, fmw.RestrictDomain, fmw.Authenticate)
 
 	fas = autoscaler.NewManager(log.With(logger, "component", "autoscale manager"),
-		etcdCli, *cls)
+		etcdCli, cls)
 	go fas.Run()
 	defer func() {
 		fas.Stop()
