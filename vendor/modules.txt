@@ -42,6 +42,8 @@ github.com/kr/logfmt
 github.com/modern-go/concurrent
 # github.com/modern-go/reflect2 v1.0.1
 github.com/modern-go/reflect2
+# github.com/ntk148v/hashring v0.0.0-20191101020850-d84c46ab57aa
+github.com/ntk148v/hashring
 # github.com/pkg/errors v0.8.1
 github.com/pkg/errors
 # github.com/prometheus/client_golang v1.2.1
@@ -51,8 +53,6 @@ github.com/prometheus/client_golang/api/prometheus/v1
 github.com/prometheus/common/promlog
 github.com/prometheus/common/promlog/flag
 github.com/prometheus/common/model
-# github.com/serialx/hashring v0.0.0-20190515033939-7706f26af194
-github.com/serialx/hashring
 # go.etcd.io/etcd v0.0.0-20191023171146-3cf2f69b5738
 go.etcd.io/etcd/clientv3
 go.etcd.io/etcd/clientv3/concurrency

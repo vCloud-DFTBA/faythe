@@ -1,13 +1,12 @@
 hashring
 ============================
 
-Implements consistent hashing that can be used when
+Implements consistent hashing with lock mechanism that can be used when
 the number of server nodes can increase or decrease (like in memcached).
 The hashing ring is built using the same algorithm as libketama.
 
 This is a port of Python hash_ring library <https://pypi.python.org/pypi/hash_ring/>
 in Go with the extra methods to add and remove nodes.
-
 
 Using
 ============================
@@ -15,7 +14,7 @@ Using
 Importing ::
 
 ```go
-import "github.com/serialx/hashring"
+import "github.com/ntk148v/hashring"
 ```
 
 Basic example usage ::
