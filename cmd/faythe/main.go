@@ -41,6 +41,7 @@ import (
 	"github.com/vCloud-DFTBA/faythe/middleware"
 	"github.com/vCloud-DFTBA/faythe/pkg/autoscaler"
 	"github.com/vCloud-DFTBA/faythe/pkg/cluster"
+	"github.com/vCloud-DFTBA/faythe/pkg/utils"
 )
 
 func main() {
@@ -82,7 +83,12 @@ func main() {
 
 	logger := promlog.New(&cfg.logConfig)
 	cfg.externalURL, err = computeExternalURL(cfg.url, cfg.listenAddress)
-	level.Info(logger).Log("msg", "Staring Faythe")
+	level.Info(logger).Log("msg", "Staring Faythe...")
+	rtStats := utils.RuntimeStats()
+	level.Debug(logger).Log("msg", "Golang runtime stats")
+	for k, v := range rtStats {
+		level.Debug(logger).Log(k, v)
+	}
 
 	var (
 		etcdConf = etcdv3.Config{}
