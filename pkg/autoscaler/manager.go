@@ -104,6 +104,11 @@ func (m *Manager) Run() {
 
 func (m *Manager) stopScaler(id string) {
 	if s, ok := m.rgt.Get(id); ok {
+		if worker, ok := m.cluster.LocalIsWorker(id); !ok {
+			level.Debug(m.logger).Log("msg", "Ignoring scaler, another worker node takes it",
+				"scaler", id, "node", worker)
+			return
+		}
 		level.Info(m.logger).Log("msg", "Removing scaler", "id", id)
 		s.stop()
 		m.rgt.Delete(id)
@@ -111,6 +116,11 @@ func (m *Manager) stopScaler(id string) {
 }
 
 func (m *Manager) startScaler(id string, data []byte) {
+	if worker, ok := m.cluster.LocalIsWorker(id); !ok {
+		level.Debug(m.logger).Log("msg", "Ignoring scaler, another worker node takes it",
+			"scaler", id, "node", worker)
+		return
+	}
 	level.Info(m.logger).Log("msg", "Creating scaler", "id", id)
 	backend, err := m.getBackend(id)
 	if err != nil {
@@ -163,14 +173,6 @@ func (m *Manager) getBackend(key string) (metrics.Backend, error) {
 // save puts scalers to etcd
 func (m *Manager) save() {
 	for i := range m.rgt.Iter() {
-		// Check if the local node is the worker which has responsibility
-		// for starting the scaler. If not, skip it.
-		local := m.cluster.LocalMember().Name
-		if worker, ok := m.cluster.HashRing().GetNode(i.Key); !ok || local != worker {
-			level.Debug(m.logger).Log("msg",
-				fmt.Sprintf("Ignoring scaler %s, node %s will take it", i.Key, worker))
-			continue
-		}
 		m.wg.Add(1)
 		go func(i RegistryItem) {
 			defer func() {
@@ -204,14 +206,6 @@ func (m *Manager) load() {
 	var sid string
 	for _, ev := range resp.Kvs {
 		sid = string(ev.Key)
-		// Check if the local node is the worker which has responsibility
-		// for starting the scaler. If not, skip it.
-		local := m.cluster.LocalMember().Name
-		if worker, ok := m.cluster.HashRing().GetNode(sid); !ok || local != worker {
-			level.Debug(m.logger).Log("msg",
-				fmt.Sprintf("Ignoring scaler %s, node %s will take it", sid, worker))
-			continue
-		}
 		m.startScaler(sid, ev.Value)
 	}
 }

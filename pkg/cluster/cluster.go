@@ -190,14 +190,11 @@ func (c *Cluster) Stop() {
 		"name", c.local.Name, "address", c.local.Address)
 }
 
-// LocalMember returns the current local node
-func (c *Cluster) LocalMember() model.Member {
-	return c.local
-}
-
-// HashRing returns the cluster's consistent hash ring
-func (c *Cluster) HashRing() *hashring.HashRing {
-	return c.ring
+// LocalIsWorker checks if the local node is the worker which has
+// responsibility for the given string key.
+func (c *Cluster) LocalIsWorker(key string) (string, bool) {
+	worker, _ := c.ring.GetNode(key)
+	return worker, worker != c.local.Name
 }
 
 func newLocalMember(bindAddr string) (model.Member, error) {
