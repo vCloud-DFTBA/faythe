@@ -192,9 +192,10 @@ func (c *Cluster) Stop() {
 
 // LocalIsWorker checks if the local node is the worker which has
 // responsibility for the given string key.
-func (c *Cluster) LocalIsWorker(key string) (string, bool) {
+func (c *Cluster) LocalIsWorker(key string) (string, string, bool) {
 	worker, _ := c.ring.GetNode(key)
-	return worker, worker != c.local.Name
+	local := c.local.Name
+	return local, worker, worker == local
 }
 
 func newLocalMember(bindAddr string) (model.Member, error) {

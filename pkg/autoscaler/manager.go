@@ -104,9 +104,9 @@ func (m *Manager) Run() {
 
 func (m *Manager) stopScaler(id string) {
 	if s, ok := m.rgt.Get(id); ok {
-		if worker, ok := m.cluster.LocalIsWorker(id); !ok {
+		if local, worker, ok := m.cluster.LocalIsWorker(id); !ok {
 			level.Debug(m.logger).Log("msg", "Ignoring scaler, another worker node takes it",
-				"scaler", id, "node", worker)
+				"scaler", id, "local", local, "worker", worker)
 			return
 		}
 		level.Info(m.logger).Log("msg", "Removing scaler", "id", id)
@@ -116,9 +116,9 @@ func (m *Manager) stopScaler(id string) {
 }
 
 func (m *Manager) startScaler(id string, data []byte) {
-	if worker, ok := m.cluster.LocalIsWorker(id); !ok {
+	if local, worker, ok := m.cluster.LocalIsWorker(id); !ok {
 		level.Debug(m.logger).Log("msg", "Ignoring scaler, another worker node takes it",
-			"scaler", id, "node", worker)
+			"scaler", id, "local", local, "worker", worker)
 		return
 	}
 	level.Info(m.logger).Log("msg", "Creating scaler", "id", id)
