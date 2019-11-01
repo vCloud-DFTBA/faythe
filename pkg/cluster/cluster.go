@@ -16,7 +16,6 @@ package cluster
 
 import (
 	"context"
-	"crypto"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -116,7 +115,7 @@ func New(cid, bindAddr string, l log.Logger, e *etcdv3.Client) (*Cluster, error)
 	nodes := make([]string, 0)
 	for _, m := range c.members {
 		// Use node's name/id/address?
-		nodes = append(nodes, m.Name)
+		nodes = append(nodes, m.ID)
 	}
 	c.ring = hashring.New(nodes)
 	return c, nil
@@ -193,9 +192,10 @@ func (c *Cluster) Stop() {
 // LocalIsWorker checks if the local node is the worker which has
 // responsibility for the given string key.
 func (c *Cluster) LocalIsWorker(key string) (string, string, bool) {
-	worker, _ := c.ring.GetNode(key)
-	local := c.local.Name
-	return local, worker, worker == local
+	workerID, _ := c.ring.GetNode(key)
+	worker, _ := c.members[workerID]
+	// Return the node name, it will be easier for user.
+	return c.local.Name, worker.Name, workerID == c.local.ID
 }
 
 func newLocalMember(bindAddr string) (model.Member, error) {
@@ -205,7 +205,6 @@ func newLocalMember(bindAddr string) (model.Member, error) {
 		return m, err
 	}
 	m.Name = hostname
-	m.ID = utils.Hash(m.Name, crypto.MD5)
 	host, _, _ := net.SplitHostPort(bindAddr)
 	// If there is no bind IP, pick an address
 	if host == "0.0.0.0" {
