@@ -16,6 +16,7 @@ package autohealer
 
 import (
 	"context"
+        "crypto/tls"
 	"encoding/json"
 	"net/http"
 	"strings"
@@ -174,7 +175,7 @@ func (h *Healer) do(compute string) {
 		cli *http.Client
 	)
 
-	tr = &http.Transport{}
+	tr = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true},}
 	cli = &http.Client{
 		Transport: tr,
 		Timeout:   httpTimeout,
