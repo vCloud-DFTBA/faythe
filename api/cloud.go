@@ -104,10 +104,10 @@ func (a *API) listClouds(w http.ResponseWriter, req *http.Request) {
 	clouds = make(map[string]interface{}, len(resp.Kvs))
 	for _, ev := range resp.Kvs {
 		wg.Add(1)
-		go func(evb []byte, evk string) {
+		go func(evv []byte, evk string) {
 			defer wg.Done()
 			var cloud model.Cloud
-			_ = json.Unmarshal(evb, &cloud)
+			_ = json.Unmarshal(evv, &cloud)
 			// Filter
 			if p := strings.ToLower(req.FormValue("provider")); p != "" && p != cloud.Provider {
 				return
@@ -133,7 +133,7 @@ func (a *API) listClouds(w http.ResponseWriter, req *http.Request) {
 			switch cloud.Provider {
 			case "openstack":
 				var ops model.OpenStack
-				_ = json.Unmarshal(evb, &ops)
+				_ = json.Unmarshal(evv, &ops)
 				clouds[evk] = ops
 			default:
 			}
