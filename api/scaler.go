@@ -115,10 +115,10 @@ func (a *API) listScalers(w http.ResponseWriter, req *http.Request) {
 	scalers = make(map[string]model.Scaler, len(resp.Kvs))
 	for _, ev := range resp.Kvs {
 		wg.Add(1)
-		go func() {
+		go func(evv []byte, evk string) {
 			defer wg.Done()
 			var s model.Scaler
-			_ = json.Unmarshal(ev.Value, &s)
+			_ = json.Unmarshal(evv, &s)
 			// Filter
 			// Clouds that match all tags in this list will be returned
 			if fTags := req.FormValue("tags"); fTags != "" {
@@ -134,8 +134,8 @@ func (a *API) listScalers(w http.ResponseWriter, req *http.Request) {
 					return
 				}
 			}
-			scalers[string(ev.Key)] = s
-		}()
+			scalers[evk] = s
+		}(ev.Value, string(ev.Key))
 	}
 	wg.Wait()
 	a.respondSuccess(w, http.StatusOK, scalers)

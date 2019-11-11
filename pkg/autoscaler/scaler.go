@@ -132,9 +132,10 @@ func (s *Scaler) do() {
 	}
 
 	for _, a := range s.Actions {
-		go func(url string) {
+		go func(a *model.Action) {
 			wg.Add(1)
 			delay, _ := time.ParseDuration(a.Delay)
+			url := a.URL.String()
 			err := retry.Do(
 				func() error {
 					// TODO(kiennt): Check kind of action url -> Authen or not?
@@ -169,14 +170,14 @@ func (s *Scaler) do() {
 				}),
 			)
 			if err != nil {
-				level.Error(s.logger).Log("msg", "Error doing scale action", "url", a.URL.String(), "err", err)
+				level.Error(s.logger).Log("msg", "Error doing scale action", "url", url, "err", err)
 				return
 			}
 			level.Info(s.logger).Log("msg", "Sending request", "id", s.ID,
 				"url", url, "method", a.Method)
 			s.alert.fire(time.Now())
 			defer wg.Done()
-		}(string(a.URL))
+		}(a)
 	}
 	// Wait until all actions were performed
 	wg.Wait()
