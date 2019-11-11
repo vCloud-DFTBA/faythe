@@ -26,6 +26,7 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/ntk148v/hashring"
+	"github.com/pkg/errors"
 	etcdv3 "go.etcd.io/etcd/clientv3"
 	"go.etcd.io/etcd/clientv3/concurrency"
 	"go.etcd.io/etcd/clientv3/namespace"
@@ -65,8 +66,10 @@ func New(cid, bindAddr string, l log.Logger, e *etcdv3.Client) (*Cluster, error)
 	}
 	if cid == "" {
 		cid = utils.RandToken()
+		level.Info(c.logger).Log("msg", "A new cluster is starting...")
+	} else {
+		level.Info(c.logger).Log("msg", "A node is joining to existing cluster...")
 	}
-	level.Info(c.logger).Log("msg", "A new cluster is starting...")
 	level.Info(c.logger).Log("msg", "Use the cluster id to join", "id", cid)
 	// Override the client interface with namespace
 	c.etcdcli.KV = namespace.NewKV(c.etcdcli.KV, cid)
@@ -109,6 +112,8 @@ func New(cid, bindAddr string, l log.Logger, e *etcdv3.Client) (*Cluster, error)
 		if err != nil {
 			return c, err
 		}
+	} else {
+		return c, errors.Errorf("a node %s is already cluster member", c.local.Name)
 	}
 	defer c.mtx.Unlock(c.ctx)
 	// Init a HashRing
