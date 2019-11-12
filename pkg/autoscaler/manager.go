@@ -46,18 +46,14 @@ type Manager struct {
 
 // NewManager returns an Autoscale Manager
 func NewManager(l log.Logger, e *etcdv3.Client, c *cluster.Cluster) *Manager {
-	ctx, cancel := context.WithCancel(context.Background())
 	m := &Manager{
 		logger:  l,
 		rgt:     &Registry{items: make(map[string]*Scaler)},
 		stop:    make(chan struct{}),
 		etcdcli: e,
-		ctx:     ctx,
 		wg:      &sync.WaitGroup{},
-		cancel:  cancel,
 		cluster: c,
 	}
-	m.watch = m.etcdcli.Watch(m.ctx, model.DefaultScalerPrefix, etcdv3.WithPrefix())
 	// Load at init
 	m.load()
 	return m
@@ -66,21 +62,27 @@ func NewManager(l log.Logger, e *etcdv3.Client, c *cluster.Cluster) *Manager {
 // Stop the manager and its scaler cycles.
 func (m *Manager) Stop() {
 	level.Info(m.logger).Log("msg", "Stopping autoscale manager...")
+	close(m.stop)
 	m.save()
 	// Wait until all scalers shut down
 	m.wg.Wait()
-	m.cancel()
-	close(m.stop)
 	level.Info(m.logger).Log("msg", "Autoscale manager stopped")
 }
 
 // Run starts processing of the autoscale manager
 func (m *Manager) Run() {
+	watchCtx, watchCancel := utils.WatchContext()
+	defer watchCancel()
+	watch := m.etcdcli.Watch(watchCtx, model.DefaultScalerPrefix, etcdv3.WithPrefix())
 	for {
 		select {
 		case <-m.stop:
 			return
-		case watchResp := <-m.watch:
+		case watchResp := <-watch:
+			if watchResp.Err() != nil {
+				level.Error(m.logger).Log("msg", "Error watching cluster state", "err", watchResp.Err())
+				break
+			}
 			for _, event := range watchResp.Events {
 				sid := string(event.Kv.Key)
 				// Create -> simply create and add it to registry
@@ -132,14 +134,14 @@ func (m *Manager) startScaler(id string, data []byte) {
 	m.rgt.Set(id, s)
 	go func() {
 		m.wg.Add(1)
-		s.run(m.ctx, m.wg)
+		s.run(context.Background(), m.wg)
 	}()
 }
 
 func (m *Manager) getBackend(key string) (metrics.Backend, error) {
 	// There is format -> Cloud provider id
 	providerID := strings.Split(key, "/")[2]
-	resp, err := m.etcdcli.Get(m.ctx, utils.Path(model.DefaultCloudPrefix, providerID))
+	resp, err := m.etcdcli.Get(context.Background(), utils.Path(model.DefaultCloudPrefix, providerID))
 	if err != nil {
 		return nil, err
 	}
@@ -186,7 +188,7 @@ func (m *Manager) save() {
 					"id", i.Value.ID, "err", err)
 				return
 			}
-			_, err = m.etcdcli.Put(m.ctx, i.Key, string(raw))
+			_, err = m.etcdcli.Put(context.Background(), i.Key, string(raw))
 			if err != nil {
 				level.Error(m.logger).Log("msg", "Error putting scaler object",
 					"key", i.Key, "err", err)
@@ -197,7 +199,7 @@ func (m *Manager) save() {
 }
 
 func (m *Manager) load() {
-	resp, err := m.etcdcli.Get(m.ctx, model.DefaultScalerPrefix,
+	resp, err := m.etcdcli.Get(context.Background(), model.DefaultScalerPrefix,
 		etcdv3.WithPrefix(), etcdv3.WithSort(etcdv3.SortByKey, etcdv3.SortAscend))
 	if err != nil {
 		level.Error(m.logger).Log("msg", "Error getting scalers", "err", err)

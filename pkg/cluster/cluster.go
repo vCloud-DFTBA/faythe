@@ -35,8 +35,10 @@ import (
 	"github.com/vCloud-DFTBA/faythe/pkg/utils"
 )
 
-// DefaultLeaseTTL etcd lease time-to-live in seconds
-const DefaultLeaseTTL int64 = 15
+const (
+	// DefaultLeaseTTL etcd lease time-to-live in seconds
+	DefaultLeaseTTL int64 = 15
+)
 
 // Cluster manages a set of member and the consistent hash ring as well.
 type Cluster struct {
@@ -45,22 +47,16 @@ type Cluster struct {
 	local   model.Member
 	members map[string]model.Member
 	etcdcli *etcdv3.Client
-	watch   etcdv3.WatchChan
 	mtx     *concurrency.Mutex
 	ring    *hashring.HashRing
-	ctx     context.Context
-	cancel  context.CancelFunc
 	stopCh  chan struct{}
 }
 
 // New creates a new cluster manager instance
 func New(cid, bindAddr string, l log.Logger, e *etcdv3.Client) (*Cluster, error) {
-	ctx, cancel := context.WithCancel(context.Background())
 	c := &Cluster{
 		logger:  l,
 		etcdcli: e,
-		ctx:     ctx,
-		cancel:  cancel,
 		members: make(map[string]model.Member),
 		stopCh:  make(chan struct{}),
 	}
@@ -75,15 +71,23 @@ func New(cid, bindAddr string, l log.Logger, e *etcdv3.Client) (*Cluster, error)
 	c.etcdcli.KV = namespace.NewKV(c.etcdcli.KV, cid)
 	c.etcdcli.Watcher = namespace.NewWatcher(c.etcdcli.Watcher, cid)
 	c.etcdcli.Lease = namespace.NewLease(c.etcdcli.Lease, cid)
-	c.watch = c.etcdcli.Watch(c.ctx, model.DefaultClusterPrefix, etcdv3.WithPrefix())
+
+	// Create session
 	sess, err := concurrency.NewSession(c.etcdcli)
 	if err != nil {
 		return nil, err
 	}
+
 	c.mtx = concurrency.NewMutex(sess, "cluster-lock/")
-	_ = c.mtx.Lock(c.ctx)
+	lockCtx, lockCancel := context.WithCancel(context.Background())
+	defer func() {
+		c.mtx.Unlock(lockCtx)
+		lockCancel()
+	}()
+
+	_ = c.mtx.Lock(lockCtx)
 	// Load the existing cluster
-	getResp, _ := c.etcdcli.Get(c.ctx, model.DefaultClusterPrefix, etcdv3.WithPrefix())
+	getResp, _ := c.etcdcli.Get(context.Background(), model.DefaultClusterPrefix, etcdv3.WithPrefix())
 	for _, kv := range getResp.Kvs {
 		var m model.Member
 		_ = json.Unmarshal(kv.Value, &m)
@@ -97,7 +101,7 @@ func New(cid, bindAddr string, l log.Logger, e *etcdv3.Client) (*Cluster, error)
 	}
 
 	// Grant lease
-	leaseResp, err := c.etcdcli.Grant(c.ctx, DefaultLeaseTTL)
+	leaseResp, err := c.etcdcli.Grant(context.Background(), DefaultLeaseTTL)
 	if err != nil {
 		return c, err
 	}
@@ -107,7 +111,8 @@ func New(cid, bindAddr string, l log.Logger, e *etcdv3.Client) (*Cluster, error)
 		c.members[c.local.ID] = c.local
 		// Add new member
 		v, _ := json.Marshal(&c.local)
-		_, err := c.etcdcli.Put(c.ctx, utils.Path(model.DefaultClusterPrefix, c.local.ID),
+		_, err := c.etcdcli.Put(context.Background(),
+			utils.Path(model.DefaultClusterPrefix, c.local.ID),
 			string(v), etcdv3.WithLease(c.lease))
 		if err != nil {
 			return c, err
@@ -115,7 +120,7 @@ func New(cid, bindAddr string, l log.Logger, e *etcdv3.Client) (*Cluster, error)
 	} else {
 		return c, errors.Errorf("a node %s is already cluster member", c.local.Name)
 	}
-	defer c.mtx.Unlock(c.ctx)
+
 	// Init a HashRing
 	nodes := make([]string, 0)
 	for _, m := range c.members {
@@ -128,6 +133,9 @@ func New(cid, bindAddr string, l log.Logger, e *etcdv3.Client) (*Cluster, error)
 
 // Run watches the cluster state's changes and does its job
 func (c *Cluster) Run(rc chan bool) {
+	watchCtx, watchCancel := utils.WatchContext()
+	defer watchCancel()
+	watch := c.etcdcli.Watch(watchCtx, model.DefaultClusterPrefix, etcdv3.WithPrefix())
 	ticker := time.NewTicker(time.Duration(DefaultLeaseTTL) * time.Second / 2)
 	for {
 		select {
@@ -135,17 +143,21 @@ func (c *Cluster) Run(rc chan bool) {
 			ticker.Stop()
 			return
 		case <-ticker.C:
-			_, err := c.etcdcli.KeepAliveOnce(c.ctx, c.lease)
+			_, err := c.etcdcli.KeepAliveOnce(context.Background(), c.lease)
 			if err != nil {
 				level.Error(c.logger).Log("msg", "Error refreshing lease for cluster member",
 					"err", err)
 				continue
 			}
-			ttlResp, _ := c.etcdcli.TimeToLive(c.ctx, c.lease)
+			ttlResp, _ := c.etcdcli.TimeToLive(context.Background(), c.lease)
 			level.Debug(c.logger).Log("msg", "Renew lease for cluster member",
 				"id", ttlResp.ID, "ttl", ttlResp.TTL)
-		case watchResp := <-c.watch:
+		case watchResp := <-watch:
 			reload := false
+			if watchResp.Err() != nil {
+				level.Error(c.logger).Log("msg", "Error watching cluster state", "err", watchResp.Err())
+				break
+			}
 			for _, event := range watchResp.Events {
 				if event.Type == etcdv3.EventTypePut {
 					var m model.Member
@@ -155,7 +167,7 @@ func (c *Cluster) Run(rc chan bool) {
 							"err", err)
 						continue
 					}
-					level.Debug(c.logger).Log("msg", "A new member is joined",
+					level.Info(c.logger).Log("msg", "A new member is joined",
 						"name", m.Name, "address", m.Address)
 					c.ring.AddNode(m.ID)
 					c.members[m.ID] = m
@@ -163,7 +175,7 @@ func (c *Cluster) Run(rc chan bool) {
 				if event.Type == etcdv3.EventTypeDelete {
 					id := strings.TrimPrefix(string(event.Kv.Key), model.DefaultClusterPrefix)
 					id = strings.Trim(id, "/")
-					level.Debug(c.logger).Log("msg", "A member is left",
+					level.Info(c.logger).Log("msg", "A member is left",
 						"name", c.members[id].Name, "address", c.members[id].Address)
 					c.ring.RemoveNode(id)
 					delete(c.members, id)
@@ -184,12 +196,11 @@ func (c *Cluster) Run(rc chan bool) {
 func (c *Cluster) Stop() {
 	level.Info(c.logger).Log("msg", "A member of cluster is stopping...",
 		"name", c.local.Name, "address", c.local.Address)
-	_, err := c.etcdcli.Revoke(c.ctx, c.lease)
+	_, err := c.etcdcli.Revoke(context.Background(), c.lease)
 	if err != nil {
 		level.Error(c.logger).Log("msg", "Error revoking the lease", "id", c.lease)
 	}
 	close(c.stopCh)
-	c.cancel()
 	level.Info(c.logger).Log("msg", "A member of cluster is stopped",
 		"name", c.local.Name, "address", c.local.Address)
 }

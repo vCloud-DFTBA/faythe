@@ -15,6 +15,7 @@
 package utils
 
 import (
+	"context"
 	"crypto"
 	"crypto/md5"
 	"crypto/rand"
@@ -31,7 +32,13 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
+	etcdv3 "go.etcd.io/etcd/clientv3"
 )
+
+// WatchContext returns a cancelable context and cancel function
+func WatchContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(etcdv3.WithRequireLeader(context.Background()))
+}
 
 // HashFNV generates a new 64-bit number from a given string
 // using 64-bit FNV-1a hash function.
