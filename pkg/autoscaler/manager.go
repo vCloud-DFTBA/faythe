@@ -38,8 +38,6 @@ type Manager struct {
 	stop    chan struct{}
 	etcdcli *etcdv3.Client
 	watch   etcdv3.WatchChan
-	ctx     context.Context
-	cancel  context.CancelFunc
 	wg      *sync.WaitGroup
 	cluster *cluster.Cluster
 }
