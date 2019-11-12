@@ -16,8 +16,9 @@ package autohealer
 
 import (
 	"context"
-        "crypto/tls"
+	"crypto/tls"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 	"sync"
@@ -141,6 +142,7 @@ func (h *Healer) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string
 								continue
 							}
 						}
+						level.Debug(h.logger).Log("msg", fmt.Sprintf("Processing instance: %s", instance), "id", h.ID)
 						a := alert.Alert{}
 						a.Reset()
 						for {
@@ -175,7 +177,7 @@ func (h *Healer) do(compute string) {
 		cli *http.Client
 	)
 
-	tr = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true},}
+	tr = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
 	cli = &http.Client{
 		Transport: tr,
 		Timeout:   httpTimeout,

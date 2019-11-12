@@ -26,7 +26,6 @@ type Healer struct {
 	ID          string                     `json:"id,omitempty"`
 	Actions     map[string]ActionInterface `json:"ractions"`
 	ActionsRaw  map[string]json.RawMessage `json:"actions"`
-	Cooldown    string                     `json:"cooldown"`
 	Interval    string                     `json:"interval"`
 	Duration    string                     `json:"duration"`
 	ATEngine    ATEngine                   `json:"atengine"`
@@ -42,9 +41,7 @@ func (h *Healer) Validate() error {
 	if h.Interval == "" {
 		h.Interval = DefaultHealerInterval
 	}
-	if h.Cooldown == "" {
-		h.Cooldown = DefaultHealerCooldown
-	}
+
 	if h.Duration == "" {
 		h.Duration = DefaultHealerDuration
 	}
@@ -53,9 +50,6 @@ func (h *Healer) Validate() error {
 		return err
 	}
 
-	if _, err := time.ParseDuration(h.Cooldown); err != nil {
-		return err
-	}
 	if _, err := time.ParseDuration(h.Interval); err != nil {
 		return err
 	}

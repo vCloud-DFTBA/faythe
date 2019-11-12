@@ -18,9 +18,8 @@ const (
 
 	DefaultHealerPrefix   string = "/healers"
 	DefaultHealerQuery    string = "up{job=~\".*compute-cadvisor.*|.*compute-node.*\"} < 1"
-	DefaultHealerInterval string = "30s"
-	DefaultHealerCooldown string = "10m"
-	DefaultHealerDuration string = "5m"
+	DefaultHealerInterval string = "1m"
+	DefaultHealerDuration string = "3m"
 
 	DefaultNResolverPrefix   string = "/nresolvers"
 	DefaultNResolverQuery    string = "node_uname_info"
