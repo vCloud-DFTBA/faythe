@@ -118,6 +118,7 @@ func main() {
 	}
 
 	// Init cluster
+	watchCtx, watchCancel := utils.WatchContext()
 	cls, err = cluster.New(cfg.clusterID, cfg.listenAddress,
 		log.With(logger, "component", "cluster"), etcdCli)
 	if err != nil {
@@ -125,7 +126,7 @@ func main() {
 		os.Exit(2)
 	}
 	reloadCh := make(chan bool)
-	go cls.Run(reloadCh)
+	go cls.Run(watchCtx, reloadCh)
 
 	fmw = middleware.New(log.With(logger, "component", "transport middleware"))
 
@@ -135,8 +136,9 @@ func main() {
 
 	fas = autoscaler.NewManager(log.With(logger, "component", "autoscale manager"),
 		etcdCli, cls)
-	go fas.Run()
+	go fas.Run(watchCtx)
 	defer func() {
+		watchCancel()
 		fas.Stop()
 		cls.Stop()
 		etcdCli.Close()

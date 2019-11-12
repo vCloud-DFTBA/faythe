@@ -132,10 +132,8 @@ func New(cid, bindAddr string, l log.Logger, e *etcdv3.Client) (*Cluster, error)
 }
 
 // Run watches the cluster state's changes and does its job
-func (c *Cluster) Run(rc chan bool) {
-	watchCtx, watchCancel := utils.WatchContext()
-	defer watchCancel()
-	watch := c.etcdcli.Watch(watchCtx, model.DefaultClusterPrefix, etcdv3.WithPrefix())
+func (c *Cluster) Run(ctx context.Context, rc chan bool) {
+	watch := c.etcdcli.Watch(ctx, model.DefaultClusterPrefix, etcdv3.WithPrefix())
 	ticker := time.NewTicker(time.Duration(DefaultLeaseTTL) * time.Second / 2)
 	for {
 		select {

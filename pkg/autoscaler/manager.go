@@ -70,10 +70,8 @@ func (m *Manager) Stop() {
 }
 
 // Run starts processing of the autoscale manager
-func (m *Manager) Run() {
-	watchCtx, watchCancel := utils.WatchContext()
-	defer watchCancel()
-	watch := m.etcdcli.Watch(watchCtx, model.DefaultScalerPrefix, etcdv3.WithPrefix())
+func (m *Manager) Run(ctx context.Context) {
+	watch := m.etcdcli.Watch(ctx, model.DefaultScalerPrefix, etcdv3.WithPrefix())
 	for {
 		select {
 		case <-m.stop:
