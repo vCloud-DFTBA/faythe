@@ -70,7 +70,7 @@ func (nr *NResolver) run(ctx context.Context, wg *sync.WaitGroup, nc *chan NodeM
 					level.Error(nr.logger).Log("msg", "Error while unmarshalling metrics result", "err", err)
 				}
 				nm := NodeMetric{
-					CloudID: nr.ID,
+					CloudID: nr.CloudID,
 				}
 				err = json.Unmarshal(j, &nm)
 				if err != nil {

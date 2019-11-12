@@ -35,6 +35,7 @@ type Healer struct {
 	Tags        []string                   `json:"tags,omitempty"`
 	Active      bool                       `json:"active,omitempty"`
 	Alert       Alert                      `json:"alert,omitempty"`
+	CloudID     string                     `json:"cloudid"`
 }
 
 func (h *Healer) Validate() error {

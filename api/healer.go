@@ -73,6 +73,7 @@ func (a *API) createHealer(rw http.ResponseWriter, req *http.Request) {
 	h.ID = utils.Hash(c.ID, crypto.MD5)
 	h.Monitor = c.Monitor
 	h.ATEngine = c.ATEngine
+	h.CloudID = c.ID
 
 	r, _ := json.Marshal(&h)
 	_, err := a.etcdclient.Put(req.Context(), utils.Path(path, h.ID), string(r))

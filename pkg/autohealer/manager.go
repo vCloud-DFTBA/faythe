@@ -173,6 +173,7 @@ func (hm *Manager) Run() {
 					nr := model.NResolver{
 						ID:      utils.Hash(cloud.ID, crypto.MD5),
 						Monitor: cloud.Monitor,
+						CloudID: cloud.ID,
 					}
 					nr.Validate()
 					raw, err := json.Marshal(nr)

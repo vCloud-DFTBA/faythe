@@ -22,6 +22,7 @@ type NResolver struct {
 	Monitor  Monitor `json:"address"`
 	ID       string  `json:"ID"`
 	Interval string  `json:"interval"`
+	CloudID  string  `json:"cloudid"`
 }
 
 func (nr *NResolver) Validate() error {
