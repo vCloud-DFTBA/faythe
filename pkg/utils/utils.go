@@ -30,6 +30,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"syscall"
 
 	"github.com/pkg/errors"
 	etcdv3 "go.etcd.io/etcd/clientv3"
@@ -193,4 +194,28 @@ func ExternalIP() (string, error) {
 		}
 	}
 	return "", errors.New("a node didn't connect to any networks")
+}
+
+// RetryableError determines that given error is retryable or not.
+func RetryableError(err error) bool {
+	if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+		return true
+	}
+
+	switch t := err.(type) {
+	case *net.OpError:
+		if t.Op == "dial" {
+			return false
+		}
+		if t.Op == "read" {
+			// Accept retry if there is connection refused error
+			return true
+		}
+	case syscall.Errno:
+		if t == syscall.ECONNREFUSED {
+			// Accept retry if there is connection refused error
+			return true
+		}
+	}
+	return false
 }

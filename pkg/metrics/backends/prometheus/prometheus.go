@@ -58,7 +58,7 @@ func (b *Backend) QueryInstant(ctx context.Context, query string, ts time.Time) 
 	level.Debug(b.logger).Log("msg", "querying instant", "query", query)
 	val, warns, err := b.prometheus.Query(ctx, query, ts)
 	if err != nil {
-		return nil, errors.Wrap(err, "querying instant")
+		return nil, err
 	}
 	if len(warns) > 0 {
 		level.Warn(b.logger).Log("msg", "querying instant warning", strings.Join(warns, ", "), "query", query)
