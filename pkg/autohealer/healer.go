@@ -63,7 +63,7 @@ func (h *Healer) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string
 	interval, _ := time.ParseDuration(h.Interval)
 	duration, _ := time.ParseDuration(h.Duration)
 	ticker := time.NewTicker(interval)
-	chans := make(map[string]chan struct{})
+	chans := make(map[string]*chan struct{})
 	defer func() {
 		wg.Done()
 		ticker.Stop()
@@ -76,41 +76,47 @@ func (h *Healer) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string
 			if !h.Active {
 				continue
 			}
-			r, err := h.backend.QueryInstant(ctx, model.DefaultHealerQuery, time.Now())
+			r, err := h.backend.QueryInstant(ctx, h.Query, time.Now())
 			if err != nil {
 				level.Error(h.logger).Log("msg", "Executing query failed, skip current interval",
-					"query", model.DefaultHealerQuery, "err", err)
+					"query", h.Query, "err", err)
 				continue
 			}
-			level.Debug(h.logger).Log("msg", "Executing query success", "query", model.DefaultHealerQuery)
-			if len(r) == 0 || len(r) > 3 {
-				for _, c := range chans {
-					close(c)
-				}
+			level.Debug(h.logger).Log("msg", "Executing query success", "query", h.Query)
+
+			if len(r) == 0 {
 				continue
 			}
 
-			// Make a dict contains list of instances
-			ris := make(map[string]struct{})
+			// Make a dict contains list of distinct result Instances
+			rIs := make(map[string]struct{})
 			for _, e := range r {
 				instance := strings.Split(string(e.Metric["instance"]), ":")[0]
-				if _, ok := ris[instance]; !ok {
-					ris[instance] = struct{}{}
+				if _, ok := rIs[instance]; !ok {
+					rIs[instance] = struct{}{}
 				}
+			}
+
+			// If there is no instance to heal or no of instance > 3, clear all goroutines
+			if len(rIs) == 0 || len(rIs) > 3 {
+				for _, c := range chans {
+					close(*c)
+				}
+				continue
 			}
 
 			// Remove redundant goroutine if exists
 			for k, c := range chans {
-				if _, ok := ris[k]; ok {
+				if _, ok := rIs[k]; ok {
 					continue
 				}
-				close(c)
+				close(*c)
 				delete(chans, k)
 			}
 
 			// Clear entry in whitelist if instance goes up again
 			for k := range h.wl {
-				if _, ok := ris[k]; ok {
+				if _, ok := rIs[k]; ok {
 					continue
 				}
 				delete(h.wl, k)
@@ -123,14 +129,16 @@ func (h *Healer) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string
 				}
 				if _, ok := chans[instance]; !ok {
 					ci := make(chan struct{})
-					chans[instance] = ci
-					go func(ch chan struct{}, instance string, nc chan map[string]string) {
+					chans[instance] = &ci
+					go func(ci chan struct{}, instance string, nc chan map[string]string) {
 						var compute string
 						key := MakeKey(h.CloudID, instance)
 					wait:
 						//	wait for correct compute-instance pair
 						for {
 							select {
+							case <-ci:
+								return
 							case c := <-nc:
 								if com, ok := c[key]; ok {
 									compute = com
@@ -142,12 +150,12 @@ func (h *Healer) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string
 								continue
 							}
 						}
-						level.Debug(h.logger).Log("msg", fmt.Sprintf("Processing instance: %s", instance), "id", h.ID)
+						level.Debug(h.logger).Log("msg", fmt.Sprintf("Processing instance: %s", instance))
 						a := alert.Alert{}
 						a.Reset()
 						for {
 							select {
-							case <-ch:
+							case <-ci:
 								return
 							default:
 								if !a.IsActive() {
