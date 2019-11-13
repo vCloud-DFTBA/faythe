@@ -43,7 +43,6 @@ type Healer struct {
 	done    chan struct{}
 	backend metrics.Backend
 	at      model.ATEngine
-	wl      map[string]struct{}
 }
 
 func newHealer(l log.Logger, data []byte, b metrics.Backend, atengine model.ATEngine) *Healer {
@@ -52,7 +51,6 @@ func newHealer(l log.Logger, data []byte, b metrics.Backend, atengine model.ATEn
 		done:    make(chan struct{}),
 		backend: b,
 		at:      atengine,
-		wl:      make(map[string]struct{}),
 	}
 	json.Unmarshal(data, h)
 	h.Validate()
@@ -64,6 +62,7 @@ func (h *Healer) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string
 	duration, _ := time.ParseDuration(h.Duration)
 	ticker := time.NewTicker(interval)
 	chans := make(map[string]*chan struct{})
+	whitelist := make(map[string]struct{})
 	defer func() {
 		wg.Done()
 		ticker.Stop()
@@ -84,7 +83,15 @@ func (h *Healer) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string
 			}
 			level.Debug(h.logger).Log("msg", "Executing query success", "query", h.Query)
 
+			// If no of instance = 0, clear all goroutines an whitelist
 			if len(r) == 0 {
+				for k, c := range chans {
+					close(*c)
+					delete(chans, k)
+				}
+				for k := range whitelist {
+					delete(whitelist, k)
+				}
 				continue
 			}
 
@@ -97,14 +104,14 @@ func (h *Healer) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string
 				}
 			}
 
-			// If there is no instance to heal or no of instance > 3, clear all goroutines
-			if len(rIs) == 0 || len(rIs) > 3 {
-				for _, c := range chans {
+			// If no of instance > 3, clear all goroutines
+			if len(rIs) > 3 {
+				for k, c := range chans {
 					close(*c)
+					delete(chans, k)
 				}
 				continue
 			}
-
 			// Remove redundant goroutine if exists
 			for k, c := range chans {
 				if _, ok := rIs[k]; ok {
@@ -115,16 +122,15 @@ func (h *Healer) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string
 			}
 
 			// Clear entry in whitelist if instance goes up again
-			for k := range h.wl {
+			for k := range whitelist {
 				if _, ok := rIs[k]; ok {
 					continue
 				}
-				delete(h.wl, k)
+				delete(whitelist, k)
 			}
-
 			for _, e := range r {
 				instance := strings.Split(string(e.Metric["instance"]), ":")[0]
-				if _, ok := h.wl[instance]; ok {
+				if _, ok := whitelist[instance]; ok {
 					continue
 				}
 				if _, ok := chans[instance]; !ok {
@@ -164,7 +170,7 @@ func (h *Healer) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string
 								if a.ShouldFire(duration) {
 									h.do(compute)
 									// if healing for compute is fired, store it in a whitelist
-									h.wl[instance] = struct{}{}
+									whitelist[instance] = struct{}{}
 									delete(chans, instance)
 									return
 								}

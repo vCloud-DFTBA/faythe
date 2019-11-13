@@ -23,7 +23,7 @@ const (
 
 	DefaultNResolverPrefix   string = "/nresolvers"
 	DefaultNResolverQuery    string = "node_uname_info"
-	DefaultNResolverInterval string = "60s"
+	DefaultNResolverInterval string = "30s"
 
 	// DefaultScalerPrefix is the etcd default prefix for scaler
 	DefaultScalerPrefix string = "/scalers"
