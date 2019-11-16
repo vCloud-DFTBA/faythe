@@ -167,7 +167,7 @@ func (c *Cluster) Run(ctx context.Context, rc chan bool) {
 					}
 					level.Info(c.logger).Log("msg", "A new member is joined",
 						"name", m.Name, "address", m.Address)
-					c.ring.AddNode(m.ID)
+					c.ring = c.ring.AddNode(m.ID)
 					c.members[m.ID] = m
 				}
 				if event.Type == etcdv3.EventTypeDelete {
@@ -175,7 +175,7 @@ func (c *Cluster) Run(ctx context.Context, rc chan bool) {
 					id = strings.Trim(id, "/")
 					level.Info(c.logger).Log("msg", "A member is left",
 						"name", c.members[id].Name, "address", c.members[id].Address)
-					c.ring.RemoveNode(id)
+					c.ring = c.ring.RemoveNode(id)
 					delete(c.members, id)
 				}
 				level.Debug(c.logger).Log("msg", "The current cluster state",
