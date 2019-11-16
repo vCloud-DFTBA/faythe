@@ -122,7 +122,7 @@ func New(cid, bindAddr string, l log.Logger, e *etcdv3.Client) (*Cluster, error)
 	}
 
 	// Init a HashRing
-	nodes := make([]string, 0)
+	var nodes []string
 	for _, m := range c.members {
 		// Use node's name/id/address?
 		nodes = append(nodes, m.ID)
