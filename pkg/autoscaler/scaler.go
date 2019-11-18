@@ -174,7 +174,7 @@ func (s *Scaler) do() {
 
 	s.alert.Fire(time.Now())
 	for _, a := range s.Actions {
-		go func(a *model.Action) {
+		go func(a *model.ActionHTTP) {
 			wg.Add(1)
 			delay, _ := time.ParseDuration(a.Delay)
 			url := a.URL.String()
