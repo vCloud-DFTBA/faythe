@@ -24,6 +24,7 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	etcdv3 "go.etcd.io/etcd/clientv3"
+	"go.etcd.io/etcd/mvcc/mvccpb"
 
 	"github.com/vCloud-DFTBA/faythe/pkg/cluster"
 	"github.com/vCloud-DFTBA/faythe/pkg/metrics"
@@ -87,8 +88,10 @@ func (m *Manager) Run(ctx context.Context) {
 				}
 				// Update -> force recreate scaler
 				if event.IsModify() {
-					m.stopScaler(sid)
-					m.startScaler(sid, event.Kv.Value)
+					if _, ok := m.rgt.Get(sid); ok {
+						m.stopScaler(sid)
+						m.startScaler(sid, event.Kv.Value)
+					}
 				}
 				// Delete -> remove from registry and stop the goroutine
 				if event.Type == etcdv3.EventTypeDelete {
@@ -101,16 +104,15 @@ func (m *Manager) Run(ctx context.Context) {
 }
 
 func (m *Manager) stopScaler(id string) {
-	if s, ok := m.rgt.Get(id); ok {
-		if local, worker, ok := m.cluster.LocalIsWorker(id); !ok {
-			level.Debug(m.logger).Log("msg", "Ignoring scaler, another worker node takes it",
-				"scaler", id, "local", local, "worker", worker)
-			return
-		}
-		level.Info(m.logger).Log("msg", "Removing scaler", "id", id)
-		s.stop()
-		m.rgt.Delete(id)
+	s, _ := m.rgt.Get(id)
+	if local, worker, ok := m.cluster.LocalIsWorker(id); !ok {
+		level.Debug(m.logger).Log("msg", "Ignoring scaler, another worker node takes it",
+			"scaler", id, "local", local, "worker", worker)
+		return
 	}
+	level.Info(m.logger).Log("msg", "Removing scaler", "id", id)
+	s.stop()
+	m.rgt.Delete(id)
 }
 
 func (m *Manager) startScaler(id string, data []byte) {
@@ -173,15 +175,12 @@ func (m *Manager) save() {
 	for i := range m.rgt.Iter() {
 		m.wg.Add(1)
 		go func(i RegistryItem) {
-			defer func() {
-				m.stopScaler(i.Key)
-				m.wg.Done()
-			}()
+			defer m.wg.Done()
 			i.Value.Alert = i.Value.alert.state
 			raw, err := json.Marshal(&i.Value)
 			if err != nil {
 				level.Error(m.logger).Log("msg", "Error serializing scaler object",
-					"id", i.Value.ID, "err", err)
+					"id", i.Key, "err", err)
 				return
 			}
 			_, err = m.etcdcli.Put(context.Background(), i.Key, string(raw))
@@ -190,6 +189,7 @@ func (m *Manager) save() {
 					"key", i.Key, "err", err)
 				return
 			}
+			m.stopScaler(i.Key)
 		}(i)
 	}
 }
@@ -210,6 +210,48 @@ func (m *Manager) load() {
 
 // Reload simply stop and start all scalers. Dummy strategy, just use it by now.
 func (m *Manager) Reload() {
-	m.save()
-	m.load()
+	level.Info(m.logger).Log("msg", "Reloading...")
+	resp, err := m.etcdcli.Get(context.Background(), model.DefaultScalerPrefix,
+		etcdv3.WithPrefix(), etcdv3.WithSort(etcdv3.SortByKey, etcdv3.SortAscend))
+	if err != nil {
+		level.Error(m.logger).Log("msg", "Error getting scalers", "err", err)
+		return
+	}
+
+	var wg sync.WaitGroup
+	for _, ev := range resp.Kvs {
+		wg.Add(1)
+		go func(ev *mvccpb.KeyValue) {
+			defer wg.Done()
+			id := string(ev.Key)
+			local, worker, ok1 := m.cluster.LocalIsWorker(id)
+			scaler, ok2 := m.rgt.Get(id)
+
+			if !ok1 {
+				if ok2 {
+					scaler.Alert = scaler.alert.state
+					raw, err := json.Marshal(&scaler)
+					if err != nil {
+						level.Error(m.logger).Log("msg", "Error serializing scaler object",
+							"id", id, "err", err)
+						return
+					}
+					_, err = m.etcdcli.Put(context.Background(), id, string(raw))
+					if err != nil {
+						level.Error(m.logger).Log("msg", "Error putting scaler object",
+							"key", id, "err", err)
+						return
+					}
+					level.Info(m.logger).Log("msg", "Removing scaler, another worker node takes it",
+						"scaler", id, "local", local, "worker", worker)
+					scaler.stop()
+					m.rgt.Delete(id)
+				}
+			} else if !ok2 {
+				m.startScaler(id, ev.Value)
+			}
+		}(ev)
+	}
+
+	wg.Wait()
 }
