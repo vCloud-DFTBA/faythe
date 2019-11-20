@@ -58,6 +58,13 @@ func NewManager(l log.Logger, e *etcdv3.Client, c *cluster.Cluster) *Manager {
 	return m
 }
 
+// Reload simply stop and start scalers selectively.
+func (m *Manager) Reload() {
+	level.Info(m.logger).Log("msg", "Reloading...")
+	m.rebalance()
+	level.Info(m.logger).Log("msg", "Reloaded")
+}
+
 // Stop the manager and its scaler cycles.
 func (m *Manager) Stop() {
 	level.Info(m.logger).Log("msg", "Stopping autoscale manager...")
@@ -82,20 +89,20 @@ func (m *Manager) Run(ctx context.Context) {
 			}
 			for _, event := range watchResp.Events {
 				sid := string(event.Kv.Key)
-				// Create -> simply create and add it to registry
 				if event.IsCreate() {
+					// Create -> simply create and add it to registry
 					m.startScaler(sid, event.Kv.Value)
-				}
-				// Update -> force recreate scaler
-				if event.IsModify() {
+				} else if event.IsModify() {
+					// Update -> force recreate scaler
 					if _, ok := m.rgt.Get(sid); ok {
 						m.stopScaler(sid)
 						m.startScaler(sid, event.Kv.Value)
 					}
-				}
-				// Delete -> remove from registry and stop the goroutine
-				if event.Type == etcdv3.EventTypeDelete {
-					m.stopScaler(sid)
+				} else if event.Type == etcdv3.EventTypeDelete {
+					// Delete -> remove from registry and stop the goroutine
+					if _, ok := m.rgt.Get(sid); ok {
+						m.stopScaler(sid)
+					}
 				}
 			}
 		default:
@@ -208,9 +215,7 @@ func (m *Manager) load() {
 	}
 }
 
-// Reload simply stop and start all scalers. Dummy strategy, just use it by now.
-func (m *Manager) Reload() {
-	level.Info(m.logger).Log("msg", "Reloading...")
+func (m *Manager) rebalance() {
 	resp, err := m.etcdcli.Get(context.Background(), model.DefaultScalerPrefix,
 		etcdv3.WithPrefix(), etcdv3.WithSort(etcdv3.SortByKey, etcdv3.SortAscend))
 	if err != nil {
