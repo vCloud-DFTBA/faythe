@@ -21,6 +21,7 @@ import (
 	"net"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-kit/kit/log"
@@ -35,21 +36,46 @@ import (
 	"github.com/vCloud-DFTBA/faythe/pkg/utils"
 )
 
+// ClusterState is the state of the Cluster instance
+type ClusterState int
+
 const (
 	// DefaultLeaseTTL etcd lease time-to-live in seconds
-	DefaultLeaseTTL int64 = 15
+	DefaultLeaseTTL int64        = 15
+	ClusterAlive    ClusterState = iota
+	ClusterLeaving
+	ClusterLeft
+	ClusterJoining
 )
+
+func (s ClusterState) String() string {
+	switch s {
+	case ClusterAlive:
+		return "alive"
+	case ClusterJoining:
+		return "joining"
+	case ClusterLeft:
+		return "left"
+	case ClusterLeaving:
+		return "leaving"
+	default:
+		return "unknown"
+	}
+}
 
 // Cluster manages a set of member and the consistent hash ring as well.
 type Cluster struct {
-	logger  log.Logger
-	lease   etcdv3.LeaseID
-	local   model.Member
-	members map[string]model.Member
-	etcdcli *etcdv3.Client
-	mtx     *concurrency.Mutex
-	ring    *hashring.HashRing
-	stopCh  chan struct{}
+	logger     log.Logger
+	lease      etcdv3.LeaseID
+	local      model.Member
+	members    map[string]model.Member
+	etcdcli    *etcdv3.Client
+	mtx        *concurrency.Mutex
+	ring       *hashring.HashRing
+	stopCh     chan struct{}
+	state      ClusterState
+	stateLock  sync.Mutex
+	memberLock sync.Mutex
 }
 
 // New creates a new cluster manager instance
@@ -94,6 +120,8 @@ func New(cid, bindAddr string, l log.Logger, e *etcdv3.Client) (*Cluster, error)
 		c.members[m.ID] = m
 	}
 
+	c.state = ClusterJoining
+
 	// Init a local member
 	c.local, err = newLocalMember(bindAddr)
 	if err != nil {
@@ -121,6 +149,8 @@ func New(cid, bindAddr string, l log.Logger, e *etcdv3.Client) (*Cluster, error)
 		return c, errors.Errorf("a node %s is already cluster member", c.local.Name)
 	}
 
+	c.state = ClusterAlive
+
 	// Init a HashRing
 	var nodes []string
 	for _, m := range c.members {
@@ -129,6 +159,13 @@ func New(cid, bindAddr string, l log.Logger, e *etcdv3.Client) (*Cluster, error)
 	}
 	c.ring = hashring.New(nodes)
 	return c, nil
+}
+
+// State is the current state of this Cluster instance
+func (c *Cluster) State() ClusterState {
+	c.stateLock.Lock()
+	defer c.stateLock.Unlock()
+	return c.state
 }
 
 // Run watches the cluster state's changes and does its job
