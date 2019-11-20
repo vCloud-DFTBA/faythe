@@ -182,9 +182,6 @@ func (c *Cluster) Run(ctx context.Context, rc chan bool) {
 					"err", err)
 				continue
 			}
-			ttlResp, _ := c.etcdcli.TimeToLive(context.Background(), c.lease)
-			level.Debug(c.logger).Log("msg", "Renew lease for cluster member",
-				"id", ttlResp.ID, "ttl", ttlResp.TTL)
 		case watchResp := <-watch:
 			reload := false
 			if watchResp.Err() != nil {
