@@ -26,11 +26,11 @@ import (
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
-	"github.com/ntk148v/hashring"
 	"github.com/pkg/errors"
 	etcdv3 "go.etcd.io/etcd/clientv3"
 	"go.etcd.io/etcd/clientv3/concurrency"
 	"go.etcd.io/etcd/clientv3/namespace"
+	"stathat.com/c/consistent"
 
 	"github.com/vCloud-DFTBA/faythe/pkg/model"
 	"github.com/vCloud-DFTBA/faythe/pkg/utils"
@@ -71,7 +71,7 @@ type Cluster struct {
 	members    map[string]model.Member
 	etcdcli    *etcdv3.Client
 	mtx        *concurrency.Mutex
-	ring       *hashring.HashRing
+	ring       *consistent.Consistent
 	stopCh     chan struct{}
 	state      ClusterState
 	stateLock  sync.Mutex
@@ -152,12 +152,10 @@ func New(cid, bindAddr string, l log.Logger, e *etcdv3.Client) (*Cluster, error)
 	c.state = ClusterAlive
 
 	// Init a HashRing
-	var nodes []string
+	c.ring = consistent.New()
 	for _, m := range c.members {
-		// Use node's name/id/address?
-		nodes = append(nodes, m.ID)
+		c.ring.Add(m.ID)
 	}
-	c.ring = hashring.New(nodes)
 	return c, nil
 }
 
@@ -204,7 +202,7 @@ func (c *Cluster) Run(ctx context.Context, rc chan bool) {
 					}
 					level.Info(c.logger).Log("msg", "A new member is joined",
 						"name", m.Name, "address", m.Address)
-					c.ring = c.ring.AddNode(m.ID)
+					c.ring.Add(m.ID)
 					c.members[m.ID] = m
 				}
 				if event.Type == etcdv3.EventTypeDelete {
@@ -212,7 +210,7 @@ func (c *Cluster) Run(ctx context.Context, rc chan bool) {
 					id = strings.Trim(id, "/")
 					level.Info(c.logger).Log("msg", "A member is left",
 						"name", c.members[id].Name, "address", c.members[id].Address)
-					c.ring = c.ring.RemoveNode(id)
+					c.ring.Remove(id)
 					delete(c.members, id)
 				}
 				level.Debug(c.logger).Log("msg", "The current cluster state",
@@ -243,7 +241,7 @@ func (c *Cluster) Stop() {
 // LocalIsWorker checks if the local node is the worker which has
 // responsibility for the given string key.
 func (c *Cluster) LocalIsWorker(key string) (string, string, bool) {
-	workerID, _ := c.ring.GetNode(key)
+	workerID, _ := c.ring.Get(key)
 	worker, _ := c.members[workerID]
 	// Return the node name, it will be easier for user.
 	return c.local.Name, worker.Name, workerID == c.local.ID

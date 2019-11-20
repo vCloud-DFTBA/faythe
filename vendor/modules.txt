@@ -42,8 +42,6 @@ github.com/kr/logfmt
 github.com/modern-go/concurrent
 # github.com/modern-go/reflect2 v1.0.1
 github.com/modern-go/reflect2
-# github.com/ntk148v/hashring v0.0.0-20191101020850-d84c46ab57aa
-github.com/ntk148v/hashring
 # github.com/pkg/errors v0.8.1
 github.com/pkg/errors
 # github.com/prometheus/client_golang v1.2.1
@@ -56,6 +54,7 @@ github.com/prometheus/common/model
 # go.etcd.io/etcd v0.0.0-20191023171146-3cf2f69b5738
 go.etcd.io/etcd/clientv3
 go.etcd.io/etcd/clientv3/concurrency
+go.etcd.io/etcd/mvcc/mvccpb
 go.etcd.io/etcd/clientv3/namespace
 go.etcd.io/etcd/auth/authpb
 go.etcd.io/etcd/clientv3/balancer
@@ -64,7 +63,6 @@ go.etcd.io/etcd/clientv3/balancer/resolver/endpoint
 go.etcd.io/etcd/clientv3/credentials
 go.etcd.io/etcd/etcdserver/api/v3rpc/rpctypes
 go.etcd.io/etcd/etcdserver/etcdserverpb
-go.etcd.io/etcd/mvcc/mvccpb
 go.etcd.io/etcd/pkg/logutil
 go.etcd.io/etcd/pkg/types
 go.etcd.io/etcd/clientv3/balancer/connectivity
@@ -187,3 +185,5 @@ honnef.co/go/tools/ssautil
 honnef.co/go/tools/staticcheck/vrp
 honnef.co/go/tools/go/types/typeutil
 honnef.co/go/tools/internal/renameio
+# stathat.com/c/consistent v1.0.0
+stathat.com/c/consistent
