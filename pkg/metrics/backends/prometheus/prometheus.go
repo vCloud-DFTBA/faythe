@@ -25,6 +25,8 @@ import (
 	prometheusclient "github.com/prometheus/client_golang/api"
 	prometheus "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
+
+	"github.com/vCloud-DFTBA/faythe/pkg/utils"
 )
 
 // Backend implements a metric backend for Prometheus.
@@ -34,14 +36,21 @@ type Backend struct {
 }
 
 // New returns a new client for talking to a Prometheus Backend, or an error
-func New(address string, logger log.Logger) (*Backend, error) {
+func New(logger log.Logger, address, username, password string) (*Backend, error) {
 	if logger == nil {
 		logger = log.NewNopLogger()
 	}
 
-	client, err := prometheusclient.NewClient(prometheusclient.Config{
-		Address: address,
-	})
+	// Init Promtheus client configuration (with basic auth if provided)
+	config := prometheusclient.Config{Address: address}
+	if username != "" && password != "" {
+		config.RoundTripper = &utils.BasicAuthTransport{
+			Username: username,
+			Password: password,
+		}
+	}
+
+	client, err := prometheusclient.NewClient(config)
 	if err != nil {
 		return nil, errors.Wrap(err, "instantiating prometheus client")
 	}
