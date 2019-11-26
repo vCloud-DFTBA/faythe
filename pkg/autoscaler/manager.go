@@ -167,7 +167,8 @@ func (m *Manager) getBackend(key string) (metrics.Backend, error) {
 			return nil, err
 		}
 		// Force register
-		err := metrics.Register(ops.Monitor.Backend, string(ops.Monitor.Address))
+		err := metrics.Register(ops.Monitor.Backend, string(ops.Monitor.Address),
+			ops.Monitor.Username, ops.Monitor.Password)
 		if err != nil {
 			return nil, err
 		}
