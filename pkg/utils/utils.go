@@ -26,6 +26,7 @@ import (
 	"hash"
 	"hash/fnv"
 	"net"
+	"net/http"
 	"reflect"
 	"runtime"
 	"strconv"
@@ -35,6 +36,42 @@ import (
 	"github.com/pkg/errors"
 	etcdv3 "go.etcd.io/etcd/clientv3"
 )
+
+// BasicAuthTransport is an http.RoundTripper that authenticates all requests
+// using HTTP Basic Authentication with the provided username and password
+type BasicAuthTransport struct {
+	Username string
+	Password string
+	// Transport is the underlying HTTP transport to use when making requests.
+	// It will default to http.DefaultTransport if nil
+	Tranport http.RoundTripper
+}
+
+// RoundTrip implements the RoundTripper interface.
+func (t *BasicAuthTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	// To set extra headers, we must make a copy of the Request so
+	// that we don't modify the Request we were given. This is required by the
+	// specification of http.RoundTripper.
+	//
+	// Since we are going to modify only req.Header here, we only need a deep copy
+	// of req.Header.
+	clnReq := new(http.Request)
+	*clnReq = *req
+	clnReq.Header = make(http.Header, len(req.Header))
+	for k, s := range req.Header {
+		clnReq.Header[k] = append([]string(nil), s...)
+	}
+
+	clnReq.SetBasicAuth(t.Username, t.Password)
+	return t.transport().RoundTrip(clnReq)
+}
+
+func (t *BasicAuthTransport) transport() http.RoundTripper {
+	if t.Tranport == nil {
+		return http.DefaultTransport
+	}
+	return t.Tranport
+}
 
 // WatchContext returns a cancelable context and cancel function
 func WatchContext() (context.Context, context.CancelFunc) {
