@@ -17,7 +17,7 @@ package autoscaler
 import (
 	"context"
 	"encoding/json"
-	"net"
+	"fmt"
 	"net/http"
 	"sync"
 	"time"
@@ -30,11 +30,37 @@ import (
 
 	"github.com/vCloud-DFTBA/faythe/pkg/metrics"
 	"github.com/vCloud-DFTBA/faythe/pkg/model"
+	"github.com/vCloud-DFTBA/faythe/pkg/utils"
 )
 
+// scalerState is the state that a scaler is in.
+type scalerState int
+
 const (
-	httpTimeout = time.Second * 15
+	httpTimeout             = time.Second * 15
+	stateNone   scalerState = iota
+	stateStopping
+	stateStopped
+	stateFailed
+	stateActive
 )
+
+func (s scalerState) String() string {
+	switch s {
+	case stateNone:
+		return "none"
+	case stateStopping:
+		return "stopping"
+	case stateStopped:
+		return "stopped"
+	case stateFailed:
+		return "failed"
+	case stateActive:
+		return "acitve"
+	default:
+		panic(fmt.Sprintf("unknown scaler state: %d", s))
+	}
+}
 
 // Scaler does metric polling and executes scale actions.
 type Scaler struct {
@@ -46,6 +72,7 @@ type Scaler struct {
 	terminated chan struct{}
 	backend    metrics.Backend
 	dlock      concurrency.Mutex
+	state      scalerState
 }
 
 func newScaler(l log.Logger, data []byte, b metrics.Backend) *Scaler {
@@ -60,13 +87,22 @@ func newScaler(l log.Logger, data []byte, b metrics.Backend) *Scaler {
 		s.Alert = &model.Alert{}
 	}
 	s.alert = &alert{state: s.Alert}
+	s.state = stateActive
 	return s
 }
 
 func (s *Scaler) stop() {
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
+	// Ignore close channel if scaler is already stopped/stopping
+	if s.state == stateStopping || s.state == stateStopped {
+		return
+	}
 	level.Debug(s.logger).Log("msg", "Scaler is stopping", "id", s.ID)
+	s.state = stateStopping
 	close(s.done)
 	<-s.terminated
+	s.state = stateStopped
 	level.Debug(s.logger).Log("msg", "Scaler is stopped", "id", s.ID)
 }
 
@@ -97,7 +133,12 @@ func (s *Scaler) run(ctx context.Context, wg *sync.WaitGroup) {
 				if err != nil {
 					level.Error(s.logger).Log("msg", "Executing query failed, skip current interval",
 						"query", s.Query, "err", err)
-					continue
+					s.state = stateFailed
+					if utils.RetryableError(err) {
+						continue
+					} else {
+						return
+					}
 				}
 				level.Debug(s.logger).Log("msg", "Executing query success",
 					"query", s.Query)
@@ -163,10 +204,7 @@ func (s *Scaler) do() {
 				retry.Attempts(a.Attempts),
 				retry.Delay(delay),
 				retry.RetryIf(func(err error) bool {
-					if err, ok := err.(net.Error); ok && err.Timeout() {
-						return true
-					}
-					return false
+					return utils.RetryableError(err)
 				}),
 			)
 			if err != nil {

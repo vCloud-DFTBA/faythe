@@ -22,6 +22,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"syscall"
 
@@ -40,9 +41,15 @@ import (
 	"github.com/vCloud-DFTBA/faythe/middleware"
 	"github.com/vCloud-DFTBA/faythe/pkg/autoscaler"
 	"github.com/vCloud-DFTBA/faythe/pkg/cluster"
+	"github.com/vCloud-DFTBA/faythe/pkg/utils"
 )
 
 func main() {
+	if os.Getenv("DEBUG") != "" {
+		runtime.SetBlockProfileRate(20)
+		runtime.SetMutexProfileFraction(20)
+	}
+
 	cfg := struct {
 		configFile    string
 		listenAddress string
@@ -76,7 +83,12 @@ func main() {
 
 	logger := promlog.New(&cfg.logConfig)
 	cfg.externalURL, err = computeExternalURL(cfg.url, cfg.listenAddress)
-	level.Info(logger).Log("msg", "Staring Faythe")
+	level.Info(logger).Log("msg", "Staring Faythe...")
+	rtStats := utils.RuntimeStats()
+	level.Debug(logger).Log("msg", "Golang runtime stats")
+	for k, v := range rtStats {
+		level.Debug(logger).Log(k, v)
+	}
 
 	var (
 		etcdConf = etcdv3.Config{}
@@ -106,6 +118,7 @@ func main() {
 	}
 
 	// Init cluster
+	watchCtx, watchCancel := utils.WatchContext()
 	cls, err = cluster.New(cfg.clusterID, cfg.listenAddress,
 		log.With(logger, "component", "cluster"), etcdCli)
 	if err != nil {
@@ -113,7 +126,7 @@ func main() {
 		os.Exit(2)
 	}
 	reloadCh := make(chan bool)
-	go cls.Run(reloadCh)
+	go cls.Run(watchCtx, reloadCh)
 
 	fmw = middleware.New(log.With(logger, "component", "transport middleware"))
 
@@ -122,9 +135,10 @@ func main() {
 	router.Use(fmw.Logging, fmw.RestrictDomain, fmw.Authenticate)
 
 	fas = autoscaler.NewManager(log.With(logger, "component", "autoscale manager"),
-		etcdCli, *cls)
-	go fas.Run()
+		etcdCli, cls)
+	go fas.Run(watchCtx)
 	defer func() {
+		watchCancel()
 		fas.Stop()
 		cls.Stop()
 		etcdCli.Close()
