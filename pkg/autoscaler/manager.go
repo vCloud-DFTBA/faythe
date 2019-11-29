@@ -238,7 +238,7 @@ func (m *Manager) rebalance() {
 
 			if !ok1 {
 				if ok2 {
-					scaler.Alert = scaler.alert.state
+					scaler.Alert = &scaler.alert.State
 					raw, err := json.Marshal(&scaler)
 					if err != nil {
 						level.Error(m.logger).Log("msg", "Error serializing scaler object",
