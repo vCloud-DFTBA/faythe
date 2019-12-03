@@ -17,6 +17,7 @@ package middleware
 import (
 	"net/http"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/go-kit/kit/log"
@@ -106,12 +107,14 @@ type instrumentHandler struct {
 func (h instrumentHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	// NOTE(kiennt): The path may contain the component uuid -> cardinality explosion?
 	handlerName := req.URL.Path
-	h.handler = promhttp.InstrumentHandlerInFlight(inFlightGauge,
-		promhttp.InstrumentHandlerDuration(requestDuration.MustCurryWith(prometheus.Labels{"handler": handlerName}),
-			promhttp.InstrumentHandlerCounter(requestsCount.MustCurryWith(prometheus.Labels{"handler": handlerName}),
-				promhttp.InstrumentHandlerRequestSize(requestSize.MustCurryWith(prometheus.Labels{"handler": handlerName}),
-					promhttp.InstrumentHandlerResponseSize(responseSize.MustCurryWith(prometheus.Labels{"handler": handlerName}),
-						h.handler)))))
+	if !strings.HasPrefix(handlerName, "/metrics") {
+		h.handler = promhttp.InstrumentHandlerInFlight(inFlightGauge,
+			promhttp.InstrumentHandlerDuration(requestDuration.MustCurryWith(prometheus.Labels{"handler": handlerName}),
+				promhttp.InstrumentHandlerCounter(requestsCount.MustCurryWith(prometheus.Labels{"handler": handlerName}),
+					promhttp.InstrumentHandlerRequestSize(requestSize.MustCurryWith(prometheus.Labels{"handler": handlerName}),
+						promhttp.InstrumentHandlerResponseSize(responseSize.MustCurryWith(prometheus.Labels{"handler": handlerName}),
+							h.handler)))))
+	}
 	h.handler.ServeHTTP(w, req)
 }
 
