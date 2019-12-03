@@ -150,6 +150,8 @@ func New(cid, bindAddr string, l log.Logger, e *etcdv3.Client) (*Cluster, error)
 	}
 
 	c.state = ClusterAlive
+	// Expose the local member info as metric
+	registerMemberInfo(cid, c.local)
 
 	// Init a HashRing
 	c.ring = consistent.New()
@@ -200,6 +202,7 @@ func (c *Cluster) Run(ctx context.Context, rc chan bool) {
 					level.Info(c.logger).Log("msg", "A new member is joined",
 						"name", m.Name, "address", m.Address)
 					c.ring.Add(m.ID)
+					reportClusterJoin()
 					c.members[m.ID] = m
 				}
 				if event.Type == etcdv3.EventTypeDelete {
@@ -208,6 +211,7 @@ func (c *Cluster) Run(ctx context.Context, rc chan bool) {
 					level.Info(c.logger).Log("msg", "A member is left",
 						"name", c.members[id].Name, "address", c.members[id].Address)
 					c.ring.Remove(id)
+					reportClusterLeave()
 					delete(c.members, id)
 				}
 				level.Debug(c.logger).Log("msg", "The current cluster state",
