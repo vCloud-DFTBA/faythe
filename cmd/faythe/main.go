@@ -133,7 +133,7 @@ func main() {
 
 	fapi = api.New(log.With(logger, "component", "api"), etcdcli)
 	fapi.Register(router)
-	router.Use(fmw.Logging, fmw.RestrictDomain, fmw.Authenticate)
+	router.Use(fmw.Instrument, fmw.Logging, fmw.RestrictDomain, fmw.Authenticate)
 
 	fas = autoscaler.NewManager(log.With(logger, "component", "autoscale manager"),
 		etcdcli, cls)

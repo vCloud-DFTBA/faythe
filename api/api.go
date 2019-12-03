@@ -23,6 +23,8 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/gorilla/mux"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	etcdv3 "go.etcd.io/etcd/clientv3"
 
 	"github.com/vCloud-DFTBA/faythe/pkg/common"
 )
@@ -72,6 +74,8 @@ func (a *API) Register(r *mux.Router) {
 			f(w, r)
 		})
 	}
+	// Prometheus golang metrics
+	r.Handle("/metrics", promhttp.Handler()).Methods("GET")
 	r.Handle("/", wrap(a.index)).Methods("GET")
 	r.Handle("/status", wrap(a.status)).Methods("GET")
 	// Cloud endpoints
