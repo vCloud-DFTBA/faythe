@@ -138,19 +138,17 @@ func main() {
 	fas = autoscaler.NewManager(log.With(logger, "component", "autoscale manager"),
 		etcdCli, cls)
 	go fas.Run(watchCtx)
+	// Init healer manager
+	nr := autohealer.NewManager(log.With(logger, "component", "healer manager"), etcdCli, cls)
+	go nr.Run(watchCtx)
 	defer func() {
 		watchCancel()
 		fas.Stop()
 		cls.Stop()
+		nr.Stop()
 		etcdCli.Close()
 		level.Info(logger).Log("msg", "Faythe is stopped, bye bye!")
 	}()
-	defer fas.Stop()
-
-	// Init healer manager
-	nr := autohealer.NewManager(log.With(logger, "component", "healer manager"), etcdCli)
-	go nr.Run()
-	defer nr.Stop()
 
 	// Init HTTP server
 	srv := http.Server{Addr: cfg.listenAddress, Handler: router}

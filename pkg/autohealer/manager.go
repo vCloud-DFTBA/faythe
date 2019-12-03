@@ -24,10 +24,12 @@ import (
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
+	"github.com/vCloud-DFTBA/faythe/pkg/cluster"
 	"github.com/vCloud-DFTBA/faythe/pkg/metrics"
 	"github.com/vCloud-DFTBA/faythe/pkg/model"
 	"github.com/vCloud-DFTBA/faythe/pkg/utils"
 	etcdv3 "go.etcd.io/etcd/clientv3"
+	"go.etcd.io/etcd/mvcc/mvccpb"
 )
 
 // Manager controls name resolver and healer instances
@@ -38,38 +40,40 @@ type Manager struct {
 	etcdcli *etcdv3.Client
 	watchc  etcdv3.WatchChan
 	watchh  etcdv3.WatchChan
-	ctx     context.Context
-	cancel  context.CancelFunc
 	wg      *sync.WaitGroup
 	nodes   map[string]string
 	ncin    chan NodeMetric
 	ncout   chan map[string]string
+	cluster *cluster.Cluster
 }
 
 // NewManager create new Manager for name resolver and healer
-func NewManager(l log.Logger, e *etcdv3.Client) *Manager {
-	ctx, cancel := context.WithCancel(context.Background())
+func NewManager(l log.Logger, e *etcdv3.Client, c *cluster.Cluster) *Manager {
 	hm := &Manager{
 		logger:  l,
 		rqt:     &utils.Registry{Items: make(map[string]utils.Worker)},
 		stop:    make(chan struct{}),
 		etcdcli: e,
-		ctx:     ctx,
-		cancel:  cancel,
 		wg:      &sync.WaitGroup{},
 		nodes:   make(map[string]string),
 		ncin:    make(chan NodeMetric),
 		ncout:   make(chan map[string]string),
+		cluster: c,
 	}
-	hm.watchc = hm.etcdcli.Watch(hm.ctx, model.DefaultCloudPrefix, etcdv3.WithPrefix())
-	hm.watchh = hm.etcdcli.Watch(hm.ctx, model.DefaultHealerPrefix, etcdv3.WithPrefix())
 	hm.load()
 	return hm
 }
 
+// Reload stops and starts healers
+func (hm *Manager) Reload() {
+	level.Info(hm.logger).Log("msg", "Reloading...")
+	hm.rebalance()
+	level.Info(hm.logger).Log("msg", "Reloaded")
+}
+
 func (hm *Manager) load() {
 	for _, p := range []string{model.DefaultNResolverPrefix, model.DefaultHealerPrefix} {
-		r, err := hm.etcdcli.Get(hm.ctx, p, etcdv3.WithPrefix())
+		r, err := hm.etcdcli.Get(context.Background(), p, etcdv3.WithPrefix())
 		if err != nil {
 			level.Error(hm.logger).Log("msg", "Error getting list Workers", "err", err)
 			return
@@ -81,6 +85,11 @@ func (hm *Manager) load() {
 }
 
 func (hm *Manager) startWorker(p string, name string, data []byte) {
+	if local, worker, ok := hm.cluster.LocalIsWorker(name); !ok && p == model.DefaultHealerPrefix {
+		level.Debug(hm.logger).Log("msg", "Ignoring healer, another worker node takes it",
+			"scaler", name, "local", local, "worker", worker)
+		return
+	}
 	level.Info(hm.logger).Log("msg", "Creating worker", "name", name)
 	backend, err := hm.getBackend(name)
 	if err != nil {
@@ -93,7 +102,7 @@ func (hm *Manager) startWorker(p string, name string, data []byte) {
 		hm.rqt.Set(name, nr)
 		go func() {
 			hm.wg.Add(1)
-			nr.run(hm.ctx, hm.wg, &hm.ncin)
+			nr.run(context.Background(), hm.wg, &hm.ncin)
 		}()
 	} else {
 		atengine, err := hm.getATEngine(name)
@@ -105,26 +114,29 @@ func (hm *Manager) startWorker(p string, name string, data []byte) {
 		hm.rqt.Set(name, h)
 		go func() {
 			hm.wg.Add(1)
-			h.run(hm.ctx, hm.wg, hm.ncout)
+			h.run(context.Background(), hm.wg, hm.ncout)
 		}()
 	}
 }
 
 func (hm *Manager) stopWorker(name string) {
-	if w, ok := hm.rqt.Get(name); ok {
-		level.Info(hm.logger).Log("msg", "Removing worker", "name", name)
-		w.Stop()
-		hm.rqt.Delete(name)
+	w, _ := hm.rqt.Get(name)
+	if local, worker, ok := hm.cluster.LocalIsWorker(name); !ok {
+		level.Debug(hm.logger).Log("msg", "Ignoring healing worker, another worker node takes it",
+			"healing worker", name, "local", local, "worker", worker)
 	}
+	level.Info(hm.logger).Log("msg", "Removing healing worker", "id", name)
+
+	w.Stop()
+	hm.rqt.Delete(name)
 }
 
 // Stop destroy name resolver, healer and itself
 func (hm *Manager) Stop() {
 	level.Info(hm.logger).Log("msg", "Cleaning before stopping autohealer managger")
+	close(hm.stop)
 	hm.save()
 	hm.wg.Wait()
-	close(hm.stop)
-	hm.cancel()
 	level.Info(hm.logger).Log("msg", "Autohealer manager is stopped!")
 }
 
@@ -132,10 +144,7 @@ func (hm *Manager) save() {
 	for e := range hm.rqt.Iter() {
 		hm.wg.Add(1)
 		go func(e utils.RegistryItem) {
-			defer func() {
-				hm.stopWorker(e.Name)
-				hm.wg.Done()
-			}()
+			defer hm.wg.Done()
 
 			raw, err := json.Marshal(&e.Value)
 			if err != nil {
@@ -143,23 +152,30 @@ func (hm *Manager) save() {
 					"name", e.Name, "err", err)
 				return
 			}
-			_, err = hm.etcdcli.Put(hm.ctx, e.Name, string(raw))
+			_, err = hm.etcdcli.Put(context.Background(), e.Name, string(raw))
 			if err != nil {
 				level.Error(hm.logger).Log("msg", "Error putting worker object",
 					"name", e.Name, "err", err)
 				return
 			}
+			hm.stopWorker(e.Name)
 		}(e)
 	}
 }
 
 // Run start healer mamaner instance
-func (hm *Manager) Run() {
+func (hm *Manager) Run(ctx context.Context) {
+	hm.watchc = hm.etcdcli.Watch(ctx, model.DefaultCloudPrefix, etcdv3.WithPrefix())
+	hm.watchh = hm.etcdcli.Watch(ctx, model.DefaultHealerPrefix, etcdv3.WithPrefix())
 	for {
 		select {
 		case <-hm.stop:
 			return
 		case watchResp := <-hm.watchc:
+			if watchResp.Err() != nil {
+				level.Error(hm.logger).Log("msg", "Error watching cluster state", "err", watchResp.Err())
+				break
+			}
 			for _, event := range watchResp.Events {
 				name := utils.Path(model.DefaultNResolverPrefix, strings.Split(string(event.Kv.Key), "/")[2],
 					utils.Hash(strings.Split(string(event.Kv.Key), "/")[2], crypto.MD5))
@@ -180,18 +196,23 @@ func (hm *Manager) Run() {
 					if err != nil {
 						level.Error(hm.logger).Log("msg", "Error while marshalling nresolver object", "err", err)
 					}
-					hm.etcdcli.Put(hm.ctx, name, string(raw))
+					hm.etcdcli.Put(ctx, name, string(raw))
 					hm.startWorker(model.DefaultNResolverPrefix, name, raw)
 				}
 				if event.Type == etcdv3.EventTypeDelete {
-					hm.stopWorker(name)
-					hm.etcdcli.Delete(hm.ctx, name, etcdv3.WithPrefix())
+					if _, ok := hm.rqt.Get(name); ok {
+						hm.stopWorker(name)
+						hm.etcdcli.Delete(ctx, name, etcdv3.WithPrefix())
+					}
 					hname := strings.ReplaceAll(name, model.DefaultNResolverPrefix, model.DefaultHealerPrefix)
-					hm.stopWorker(hname)
-					hm.etcdcli.Delete(hm.ctx, hname, etcdv3.WithPrefix())
+					hm.etcdcli.Delete(ctx, hname, etcdv3.WithPrefix())
 				}
 			}
 		case watchResp := <-hm.watchh:
+			if watchResp.Err() != nil {
+				level.Error(hm.logger).Log("msg", "Error watching cluster state", "err", watchResp.Err())
+				break
+			}
 			for _, event := range watchResp.Events {
 				name := utils.Path(model.DefaultHealerPrefix, strings.Split(string(event.Kv.Key), "/")[2],
 					utils.Hash(strings.Split(string(event.Kv.Key), "/")[2], crypto.MD5))
@@ -199,7 +220,9 @@ func (hm *Manager) Run() {
 					hm.startWorker(model.DefaultHealerPrefix, name, event.Kv.Value)
 				}
 				if event.Type == etcdv3.EventTypeDelete {
-					hm.stopWorker(name)
+					if _, ok := hm.rqt.Get(name); ok {
+						hm.stopWorker(name)
+					}
 				}
 			}
 		case nm := <-hm.ncin:
@@ -215,10 +238,54 @@ func (hm *Manager) Run() {
 	}
 }
 
+func (hm *Manager) rebalance() {
+	resp, err := hm.etcdcli.Get(context.Background(), model.DefaultHealerPrefix,
+		etcdv3.WithPrefix(), etcdv3.WithSort(etcdv3.SortByKey, etcdv3.SortAscend))
+	if err != nil {
+		level.Error(hm.logger).Log("msg", "Error getting healers", "err", err)
+		return
+	}
+
+	var wg sync.WaitGroup
+	for _, ev := range resp.Kvs {
+		wg.Add(1)
+		go func(ev *mvccpb.KeyValue) {
+			defer wg.Done()
+			id := string(ev.Key)
+			local, worker, ok1 := hm.cluster.LocalIsWorker(id)
+			healer, ok2 := hm.rqt.Get(id)
+
+			if !ok1 {
+				if ok2 {
+					raw, err := json.Marshal(&healer)
+					if err != nil {
+						level.Error(hm.logger).Log("msg", "Error serializing healer object",
+							"id", id, "err", err)
+						return
+					}
+					_, err = hm.etcdcli.Put(context.Background(), id, string(raw))
+					if err != nil {
+						level.Error(hm.logger).Log("msg", "Error putting healer object",
+							"key", id, "err", err)
+						return
+					}
+					level.Info(hm.logger).Log("msg", "Removing healer, another worker node takes it",
+						"scaler", id, "local", local, "worker", worker)
+					healer.Stop()
+					hm.rqt.Delete(id)
+				}
+			} else if !ok2 {
+				hm.startWorker(model.DefaultHealerPrefix, id, ev.Value)
+			}
+		}(ev)
+	}
+	wg.Wait()
+}
+
 func (hm *Manager) getBackend(key string) (metrics.Backend, error) {
 	// There is format -> Cloud provider id
 	providerID := strings.Split(key, "/")[2]
-	resp, err := hm.etcdcli.Get(hm.ctx, utils.Path(model.DefaultCloudPrefix, providerID))
+	resp, err := hm.etcdcli.Get(context.Background(), utils.Path(model.DefaultCloudPrefix, providerID))
 	if err != nil {
 		return nil, err
 	}
@@ -252,7 +319,7 @@ func (hm *Manager) getBackend(key string) (metrics.Backend, error) {
 
 func (hm *Manager) getATEngine(key string) (model.ATEngine, error) {
 	providerID := strings.Split(key, "/")[2]
-	resp, err := hm.etcdcli.Get(hm.ctx, utils.Path(model.DefaultCloudPrefix, providerID))
+	resp, err := hm.etcdcli.Get(context.Background(), utils.Path(model.DefaultCloudPrefix, providerID))
 	if err != nil {
 		return model.ATEngine{}, err
 	}

@@ -183,15 +183,12 @@ func (m *Manager) save() {
 	for i := range m.rgt.Iter() {
 		m.wg.Add(1)
 		go func(i RegistryItem) {
-			defer func() {
-				m.stopScaler(i.Key)
-				m.wg.Done()
-			}()
+			defer m.wg.Done()
 			i.Value.Alert = &i.Value.alert.State
 			raw, err := json.Marshal(&i.Value)
 			if err != nil {
-				level.Error(m.logger).Log("msg", "Error marshalling scaler object",
-					"id", i.Value.ID, "err", err)
+				level.Error(m.logger).Log("msg", "Error serializing scaler object",
+					"id", i.Key, "err", err)
 				return
 			}
 			_, err = m.etcdcli.Put(context.Background(), i.Key, string(raw))
