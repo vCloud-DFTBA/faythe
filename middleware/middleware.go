@@ -21,9 +21,59 @@ import (
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/vCloud-DFTBA/faythe/config"
 )
+
+var (
+	inFlightGauge = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "faythe_in_flight_requests",
+			Help: "A gauge of requests currently being served by the wrapper handler.",
+		},
+	)
+
+	requestsCount = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "faythe_api_requests_total",
+			Help: "A counter for requests to the wrapped handler.",
+		},
+		[]string{"handler", "code", "method"},
+	)
+
+	requestDuration = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "faythe_request_duration_seconds",
+			Help:    "A histogram of latencies for requests.",
+			Buckets: []float64{.05, 0.1, .25, .5, .75, 1, 2, 5, 20, 60},
+		},
+		[]string{"handler", "code", "method"},
+	)
+
+	requestSize = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "faythe_request_size_bytes",
+			Help:    "A histogram of request sizes for requests.",
+			Buckets: prometheus.ExponentialBuckets(100, 10, 7),
+		},
+		[]string{"handler", "code", "method"},
+	)
+
+	responseSize = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "faythe_response_size_bytes",
+			Help:    "A histogram of response sizes for requests.",
+			Buckets: prometheus.ExponentialBuckets(100, 10, 7),
+		},
+		[]string{"handler", "code", "method"},
+	)
+)
+
+func init() {
+	prometheus.MustRegister(inFlightGauge, requestsCount, requestDuration, requestSize, responseSize)
+}
 
 // Middleware represents middleware handlers.
 type Middleware struct {
@@ -47,6 +97,28 @@ func New(l log.Logger) *Middleware {
 		auth:   a,
 		regexp: r,
 	}
+}
+
+type instrumentHandler struct {
+	handler http.Handler
+}
+
+func (h instrumentHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	// NOTE(kiennt): The path may contain the component uuid -> cardinality explosion?
+	handlerName := req.URL.Path
+	h.handler = promhttp.InstrumentHandlerInFlight(inFlightGauge,
+		promhttp.InstrumentHandlerDuration(requestDuration.MustCurryWith(prometheus.Labels{"handler": handlerName}),
+			promhttp.InstrumentHandlerCounter(requestsCount.MustCurryWith(prometheus.Labels{"handler": handlerName}),
+				promhttp.InstrumentHandlerRequestSize(requestSize.MustCurryWith(prometheus.Labels{"handler": handlerName}),
+					promhttp.InstrumentHandlerResponseSize(responseSize.MustCurryWith(prometheus.Labels{"handler": handlerName}),
+						h.handler)))))
+	h.handler.ServeHTTP(w, req)
+}
+
+// Instrument is a middleware that wraps the provided http.Handler
+// to observe the request result.
+func (m *Middleware) Instrument(next http.Handler) http.Handler {
+	return instrumentHandler{handler: next}
 }
 
 // Logging logs all requests with its information and the time it took to process
