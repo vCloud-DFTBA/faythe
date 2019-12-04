@@ -65,6 +65,7 @@ func (s ClusterState) String() string {
 
 // Cluster manages a set of member and the consistent hash ring as well.
 type Cluster struct {
+	id         string
 	logger     log.Logger
 	lease      etcdv3.LeaseID
 	local      model.Member
@@ -93,6 +94,7 @@ func New(cid, bindAddr string, l log.Logger, e *common.Etcd) (*Cluster, error) {
 		level.Info(c.logger).Log("msg", "A node is joining to existing cluster...")
 	}
 	level.Info(c.logger).Log("msg", "Use the cluster id to join", "id", cid)
+	c.id = cid
 	// Override the client interface with namespace
 	c.etcdcli.KV = namespace.NewKV(c.etcdcli.KV, cid)
 	c.etcdcli.Watcher = namespace.NewWatcher(c.etcdcli.Watcher, cid)
@@ -251,6 +253,16 @@ func (c *Cluster) LocalIsWorker(key string) (string, string, bool) {
 	worker, _ := c.members[workerID]
 	// Return the node name, it will be easier for user.
 	return c.local.Name, worker.Name, workerID == c.local.ID
+}
+
+// LocalMember returns the local node member.
+func (c *Cluster) LocalMember() model.Member {
+	return c.local
+}
+
+// ClusterID returns the cluster id.
+func (c *Cluster) ClusterID() string {
+	return c.id
 }
 
 func newLocalMember(bindAddr string) (model.Member, error) {
