@@ -122,6 +122,7 @@ func (m *Manager) stopScaler(name string) {
 	level.Info(m.logger).Log("msg", "Removing scaler", "name", name)
 	s.Stop()
 	m.rgt.Delete(name)
+	reportNumScalers(m.cluster.ClusterID(), m.cluster.LocalMember().Name, -1)
 }
 
 func (m *Manager) startScaler(name string, data []byte) {
