@@ -27,13 +27,10 @@ import (
 	"go.etcd.io/etcd/mvcc/mvccpb"
 
 	"github.com/vCloud-DFTBA/faythe/pkg/cluster"
-<<<<<<< HEAD
-"github.com/vCloud-DFTBA/faythe/pkg/common"
-=======
-"github.com/vCloud-DFTBA/faythe/pkg/exporter"
->>>>>>> Implement Exporter module
-"github.com/vCloud-DFTBA/faythe/pkg/metrics"
-"github.com/vCloud-DFTBA/faythe/pkg/model"
+	"github.com/vCloud-DFTBA/faythe/pkg/common"
+	"github.com/vCloud-DFTBA/faythe/pkg/exporter"
+	"github.com/vCloud-DFTBA/faythe/pkg/metrics"
+	"github.com/vCloud-DFTBA/faythe/pkg/model"
 )
 
 // Manager manages a set of Scaler instances.
