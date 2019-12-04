@@ -18,9 +18,10 @@ import (
 	"crypto/tls"
 	"fmt"
 
+	"gopkg.in/mail.v2"
+
 	"github.com/vCloud-DFTBA/faythe/config"
 	"github.com/vCloud-DFTBA/faythe/pkg/model"
-	"gopkg.in/mail.v2"
 )
 
 func SendMail(a *model.ActionMail, compute string, time string) error {

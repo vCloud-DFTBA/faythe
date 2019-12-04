@@ -23,6 +23,7 @@ import (
 
 	"github.com/avast/retry-go"
 	"github.com/go-kit/kit/log"
+
 	"github.com/vCloud-DFTBA/faythe/pkg/model"
 	"github.com/vCloud-DFTBA/faythe/pkg/utils"
 )
