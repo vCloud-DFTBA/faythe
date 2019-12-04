@@ -53,6 +53,8 @@ func NewManager(l log.Logger, e *etcdv3.Client, c *cluster.Cluster) *Manager {
 		wg:      &sync.WaitGroup{},
 		cluster: c,
 	}
+	// Init with 0
+	reportNumScalers(m.cluster.ClusterID(), m.cluster.LocalMember().Name, 0)
 	// Load at init
 	m.load()
 	return m
@@ -140,6 +142,7 @@ func (m *Manager) startScaler(name string, data []byte) {
 	go func() {
 		m.wg.Add(1)
 		s.run(context.Background(), m.wg)
+		reportNumScalers(m.cluster.ClusterID(), m.cluster.LocalMember().Name, 1)
 	}()
 }
 
