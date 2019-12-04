@@ -123,8 +123,22 @@ func (h *Healer) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string
 				}
 				level.Debug(h.logger).Log("msg", "Executing query success", "query", h.Query)
 
+				// Make a dict contains list of distinct result Instances
+				rIs := make(map[string]struct{})
+				for _, e := range r {
+					instance := strings.Split(string(e.Metric["instance"]), ":")[0]
+					job := e.Metric["job"]
+					for _, ep := range r {
+						instancep := strings.Split(string(ep.Metric["instance"]), ":")[0]
+						jobp := ep.Metric["job"]
+						if _, ok := rIs[instance]; !ok && instance == instancep && job != jobp {
+							rIs[instance] = struct{}{}
+						}
+					}
+				}
+
 				// If no of instance = 0, clear all goroutines an whitelist
-				if len(r) == 0 {
+				if len(rIs) == 0 {
 					for k, c := range chans {
 						close(*c)
 						delete(chans, k)
@@ -135,15 +149,6 @@ func (h *Healer) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string
 					continue
 				}
 
-				// Make a dict contains list of distinct result Instances
-				rIs := make(map[string]struct{})
-				for _, e := range r {
-					instance := strings.Split(string(e.Metric["instance"]), ":")[0]
-					if _, ok := rIs[instance]; !ok {
-						rIs[instance] = struct{}{}
-					}
-				}
-
 				// If no of instance > 3, clear all goroutines
 				if len(rIs) > 3 {
 					for k, c := range chans {
@@ -152,6 +157,7 @@ func (h *Healer) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string
 					}
 					continue
 				}
+
 				// Remove redundant goroutine if exists
 				for k, c := range chans {
 					if _, ok := rIs[k]; ok {
@@ -168,8 +174,8 @@ func (h *Healer) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string
 					}
 					delete(whitelist, k)
 				}
-				for _, e := range r {
-					instance := strings.Split(string(e.Metric["instance"]), ":")[0]
+
+				for instance := range rIs {
 					if _, ok := whitelist[instance]; ok {
 						continue
 					}

@@ -121,9 +121,10 @@ func (hm *Manager) startWorker(p string, name string, data []byte) {
 
 func (hm *Manager) stopWorker(name string) {
 	w, _ := hm.rqt.Get(name)
-	if local, worker, ok := hm.cluster.LocalIsWorker(name); !ok {
+	if local, worker, ok := hm.cluster.LocalIsWorker(name); !ok && strings.Contains(name, model.DefaultHealerPrefix) {
 		level.Debug(hm.logger).Log("msg", "Ignoring healing worker, another worker node takes it",
-			"healing worker", name, "local", local, "worker", worker)
+			"healing_worker", name, "local", local, "worker", worker)
+		return
 	}
 	level.Info(hm.logger).Log("msg", "Removing healing worker", "id", name)
 

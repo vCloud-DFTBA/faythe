@@ -159,6 +159,7 @@ func main() {
 			select {
 			case <-reloadCh:
 				fas.Reload()
+				nr.Reload()
 			}
 		}
 	}()
