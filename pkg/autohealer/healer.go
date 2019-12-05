@@ -124,16 +124,15 @@ func (h *Healer) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string
 				level.Debug(h.logger).Log("msg", "Executing query success", "query", h.Query)
 
 				// Make a dict contains list of distinct result Instances
-				rIs := make(map[string]struct{})
+				rIs := make(map[string]int)
 				for _, e := range r {
 					instance := strings.Split(string(e.Metric["instance"]), ":")[0]
-					job := e.Metric["job"]
-					for _, ep := range r {
-						instancep := strings.Split(string(ep.Metric["instance"]), ":")[0]
-						jobp := ep.Metric["job"]
-						if _, ok := rIs[instance]; !ok && instance == instancep && job != jobp {
-							rIs[instance] = struct{}{}
-						}
+					rIs[instance]++
+				}
+
+				for k, v := range rIs {
+					if v < 2 {
+						delete(rIs, k)
 					}
 				}
 
@@ -275,7 +274,9 @@ func (h *Healer) do(compute string) {
 			go func(compute string) {
 				wg.Add(1)
 				defer wg.Done()
-				if err := alert.SendMail(at, compute, h.Duration); err != nil {
+				at.Subject = "Node down, triggering autohealing"
+				at.Body = fmt.Sprintf("Node %s has been down for more than %s.", compute, h.Duration)
+				if err := alert.SendMail(at); err != nil {
 					level.Error(h.logger).Log("msg", "Error doing Mail action",
 						"err", err)
 					return

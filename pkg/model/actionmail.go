@@ -19,6 +19,8 @@ type Receivers []string
 type ActionMail struct {
 	Action
 	Receivers Receivers `json:"receivers"`
+	Subject   string    `json:"subject"`
+	Body      string    `json:"body"`
 }
 
 func (a *ActionMail) Validate() error {

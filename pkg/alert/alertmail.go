@@ -23,15 +23,19 @@ import (
 	"gopkg.in/mail.v2"
 )
 
-func SendMail(a *model.ActionMail, compute string, time string) error {
+func SendMail(a *model.ActionMail) error {
 	m := mail.NewMessage()
 	mc := config.Get().MailConfig
+	if a.Body == "" || a.Subject == "" {
+		return fmt.Errorf("mail subject or body cannot be empty")
+	}
+
 	m.SetHeaders(map[string][]string{
 		"From":    {mc.Username},
 		"To":      a.Receivers,
-		"Subject": {"Node down, Autohealing triggering"},
+		"Subject": {a.Subject},
 	})
-	m.SetBody("text/html", fmt.Sprintf("Node: %s has been down for more than %s.", compute, time))
+	m.SetBody("text/html", a.Body)
 
 	d := mail.NewDialer(mc.Host, mc.Port, mc.Username, string(mc.Password))
 	d.TLSConfig = &tls.Config{InsecureSkipVerify: true}

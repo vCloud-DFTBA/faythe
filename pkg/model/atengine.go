@@ -17,6 +17,8 @@ package model
 import (
 	"fmt"
 	"strings"
+
+	"github.com/vCloud-DFTBA/faythe/pkg/utils"
 )
 
 type ATEngine struct {
@@ -24,7 +26,7 @@ type ATEngine struct {
 	Address  URL               `json:"address"`
 	Metadata map[string]string `json:"metadata"`
 	Username string            `json:"username,omitempty"`
-	Password string            `json:"password,omitempty"`
+	Password utils.Secret      `json:"password,omitempty"`
 	APIKey   string            `json:"apikey,omitempty"`
 }
 
