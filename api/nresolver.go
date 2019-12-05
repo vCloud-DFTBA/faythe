@@ -20,8 +20,9 @@ import (
 	"net/http"
 
 	"github.com/go-kit/kit/log/level"
-	"github.com/vCloud-DFTBA/faythe/pkg/model"
 	etcdv3 "go.etcd.io/etcd/clientv3"
+
+	"github.com/vCloud-DFTBA/faythe/pkg/model"
 )
 
 func (a *API) listNResolvers(rw http.ResponseWriter, req *http.Request) {
