@@ -117,30 +117,6 @@ func Path(keys ...string) string {
 	return strings.Join(append([]string{}, keys...), "/")
 }
 
-// Secret special type for storing secrets.
-type Secret string
-
-// MarshalYAML implements the yaml.Marshaler interface for Secrets.
-func (s Secret) MarshalYAML() (interface{}, error) {
-	if s != "" {
-		return "<secret>", nil
-	}
-	return nil, nil
-}
-
-// UnmarshalYAML implements the yaml.Unmarshaler interface for Secrets.
-func (s *Secret) UnmarshalYAML(unmarshal func(interface{}) error) error {
-	type plain Secret
-	return unmarshal((*plain)(s))
-}
-
-func (s Secret) MarshalJSON() ([]byte, error) {
-	if s != "" {
-		return []byte(`"<secret>"`), nil
-	}
-	return nil, nil
-}
-
 // Find tells whether string contains x.
 // op - boolean operator, expected `AND` `OR` string value.
 // x - could be string or slice of string.
