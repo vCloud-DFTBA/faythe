@@ -151,6 +151,8 @@ func (h *Healer) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string
 
 				// If no of instance > 3, clear all goroutines
 				if len(rIs) > 3 {
+					level.Info(h.logger).Log("msg", fmt.Sprintf("Not processed because the number of instance needed healing > %d",len(rIs)),
+						"name", h.ID)
 					for k, c := range chans {
 						close(*c)
 						delete(chans, k)
@@ -214,6 +216,7 @@ func (h *Healer) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string
 										a.Start()
 									}
 									if a.ShouldFire(duration) {
+										level.Debug(h.logger).Log("msg", fmt.Sprintf("Fired alert for instance: %s", instance))
 										h.do(compute)
 										// if healing for compute is fired, store it in a whitelist
 										whitelist[instance] = struct{}{}
