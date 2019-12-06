@@ -21,16 +21,6 @@ import (
 	"github.com/vCloud-DFTBA/faythe/pkg/utils"
 )
 
-var (
-	// DefaultCloudPrefix is the default etcd prefix for Cloud data
-	DefaultCloudPrefix = "/clouds"
-)
-
-const (
-	// OpenStackType represents a OpenStack type
-	OpenStackType string = "openstack"
-)
-
 // Cloud represents Cloud information. Other cloud provider models
 // have to inherited this struct
 type Cloud struct {
@@ -39,6 +29,7 @@ type Cloud struct {
 	ID        string         `json:"id,omitempty"`
 	Endpoints map[string]URL `json:"endpoints"`
 	Monitor   Monitor        `json:"monitor"`
+	ATEngine  ATEngine       `json:"atengine"`
 	Tags      []string       `json:"tags"`
 }
 
@@ -54,6 +45,15 @@ func (cl *Cloud) Validate() error {
 			return err
 		}
 	}
+
+	if &cl.ATEngine == nil {
+		return errors.New("missing `ATEngine` option")
+	}
+
+	if err := cl.ATEngine.Validate(); err != nil {
+		return err
+	}
+
 	// Require Monitor backend
 	if &cl.Monitor == nil {
 		return errors.New("missing `Monitor` option")

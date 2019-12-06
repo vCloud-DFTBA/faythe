@@ -21,49 +21,33 @@ import (
 	"github.com/pkg/errors"
 )
 
-const (
-	FixedDelay   string = "fixed"
-	BackoffDelay string = "backoff"
-)
-
 // Action represents an scale action
 type Action struct {
-	URL       URL    `json:"url"`
-	Type      string `json:"type,omitempty"`
-	Method    string `json:"method,omitempty"`
+	Type      string `json:"type"`
 	Attempts  uint   `json:"attempts,omitempty"`
 	Delay     string `json:"delay,omitempty"`
 	DelayType string `json:"delay_type,omitempty"`
 }
 
-// Validate returns nil if all fields of the Action have valid values.
-func (a *Action) Validate() error {
-	if err := a.URL.Validate(); err != nil {
-		return err
-	}
-	if a.Delay == "" {
-		a.Delay = "100ms"
-	}
-	if a.DelayType == "" {
-		a.DelayType = "fixed"
-	}
-	if a.Method == "" {
-		a.Method = "POST"
-	}
-	if a.Attempts == 0 {
-		a.Attempts = 10
-	}
+type ActionInterface interface {
+	Validate() error
+}
+
+func (a Action) validate() error {
 	if a.Type == "" {
-		a.Type = "http"
+		return errors.Errorf("Missing action type")
 	}
-	switch strings.ToLower(a.Type) {
-	case "http":
-	default:
-		return errors.Errorf("unsupported action type: %s", a.Type)
-	}
+
 	if _, err := time.ParseDuration(a.Delay); err != nil {
 		return err
 	}
+
+	switch strings.ToLower(a.Type) {
+	case "http", "mail":
+	default:
+		return errors.Errorf("unsupported action type: %s", a.Type)
+	}
+
 	switch strings.ToLower(a.DelayType) {
 	case BackoffDelay:
 		// BackOffDelay is a DelayType which increases delay between consecutive retries
@@ -72,5 +56,6 @@ func (a *Action) Validate() error {
 	default:
 		return errors.Errorf("unsupported delay type: %s", a.DelayType)
 	}
+
 	return nil
 }
