@@ -61,7 +61,7 @@ func (a *API) createHealer(rw http.ResponseWriter, req *http.Request) {
 	}
 
 	path = utils.Path(model.DefaultHealerPrefix, vars["provider_id"])
-	resp, _ = a.etcdclient.Get(req.Context(), path, etcdv3.WithCountOnly())
+	resp, _ = a.etcdclient.Get(req.Context(), path, etcdv3.WithPrefix(), etcdv3.WithCountOnly())
 	if resp.Count > 0 {
 		err := fmt.Errorf("there is only 1 healer can be existed for 1 cloud provider")
 		a.respondError(rw, apiError{
