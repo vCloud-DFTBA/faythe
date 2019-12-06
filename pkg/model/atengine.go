@@ -17,8 +17,6 @@ package model
 import (
 	"fmt"
 	"strings"
-
-	"github.com/vCloud-DFTBA/faythe/pkg/utils"
 )
 
 type ATEngine struct {

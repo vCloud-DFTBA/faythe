@@ -14,8 +14,6 @@
 
 package model
 
-import "github.com/vCloud-DFTBA/faythe/pkg/utils"
-
 // Monitor represents a monitor backend
 type Monitor struct {
 	Backend  string            `json:"backend"`

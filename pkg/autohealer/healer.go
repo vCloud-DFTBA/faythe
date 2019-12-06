@@ -175,7 +175,7 @@ func (h *Healer) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string
 						continue
 					}
 					delete(whitelist, k)
-					level.Info(h.logger).Log("msg", fmt.Sprintf("instance %s goes up again, removed from whitelist", instance))
+					level.Info(h.logger).Log("msg", fmt.Sprintf("instance %s goes up again, removed from whitelist", k))
 				}
 
 				for instance := range rIs {
