@@ -175,6 +175,7 @@ func (h *Healer) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string
 						continue
 					}
 					delete(whitelist, k)
+					level.Info(h.logger).Log("msg", fmt.Sprintf("instance %s goes up again, removed from whitelist", instance))
 				}
 
 				for instance := range rIs {
@@ -204,7 +205,7 @@ func (h *Healer) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string
 									continue
 								}
 							}
-							level.Debug(h.logger).Log("msg", fmt.Sprintf("Processing instance: %s", instance))
+							level.Info(h.logger).Log("msg", fmt.Sprintf("Processing instance: %s", instance))
 							a := alert.Alert{}
 							a.Reset()
 							for {
@@ -216,7 +217,7 @@ func (h *Healer) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string
 										a.Start()
 									}
 									if a.ShouldFire(duration) {
-										level.Debug(h.logger).Log("msg", fmt.Sprintf("Fired alert for instance: %s", instance))
+										level.Info(h.logger).Log("msg", fmt.Sprintf("Fired alert for instance: %s", instance))
 										h.do(compute)
 										// if healing for compute is fired, store it in a whitelist
 										whitelist[instance] = struct{}{}

@@ -42,9 +42,7 @@ type Healer struct {
 // Validate healher model
 func (h *Healer) Validate() error {
 
-	if h.EvaluationLevel > 2 {
-		return fmt.Errorf("evaluation_level %d is currently not supported", h.EvaluationLevel)
-	} else if h.EvaluationLevel == 0 {
+	if h.EvaluationLevel == 0 {
 		h.EvaluationLevel = 2
 	}
 
