@@ -36,7 +36,7 @@ type MailConfig struct {
 	Protocol string       `yaml:"protocol"`
 	Port     int          `yaml:"port"`
 	Username string       `yaml:"username"`
-	Password utils.Secret `yaml:"password"`
+	Password string       `yaml:"password"`
 }
 
 // GlobalConfig configures values that are used to config Faythe HTTP server
@@ -54,8 +54,8 @@ type GlobalConfig struct {
 // BasicAuthentication - HTTP Basic authentication.
 type BasicAuthentication struct {
 	// Usename, Password to implement HTTP basic authentication
-	Username string       `yaml:"username"`
-	Password utils.Secret `yaml:"password"`
+	Username string  `yaml:"username"`
+	Password string  `yaml:"password"`
 }
 
 // EtcdConfig stores Etcd related configurations.
@@ -98,7 +98,7 @@ type EtcdConfig struct {
 	Username string `yaml:"username,omitempty"`
 
 	// Password is a password for authentication.
-	Password utils.Secret `yaml:"password,omitempty"`
+	Password string `yaml:"password,omitempty"`
 
 	// RejectOldCluster when set will refuse to create a client against an outdated cluster.
 	RejectOldCluster bool `yaml:"reject_old_cluster,omitempty"`

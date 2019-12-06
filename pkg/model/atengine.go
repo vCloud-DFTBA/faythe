@@ -26,7 +26,7 @@ type ATEngine struct {
 	Address  URL               `json:"address"`
 	Metadata map[string]string `json:"metadata"`
 	Username string            `json:"username,omitempty"`
-	Password utils.Secret      `json:"password,omitempty"`
+	Password string            `json:"password,omitempty"`
 	APIKey   string            `json:"apikey,omitempty"`
 }
 

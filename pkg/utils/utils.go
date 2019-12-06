@@ -117,9 +117,6 @@ func Path(keys ...string) string {
 	return strings.Join(append([]string{}, keys...), "/")
 }
 
-// Secret special type for storing secrets.
-type Secret string
-
 // Find tells whether string contains x.
 // op - boolean operator, expected `AND` `OR` string value.
 // x - could be string or slice of string.
