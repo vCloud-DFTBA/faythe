@@ -89,8 +89,8 @@ go.uber.org/zap/internal/exit
 golang.org/x/lint/golint
 golang.org/x/lint
 # golang.org/x/net v0.0.0-20191028085509-fe3aa8a45271
-golang.org/x/net/context
 golang.org/x/net/trace
+golang.org/x/net/context
 golang.org/x/net/internal/timeseries
 golang.org/x/net/http2
 golang.org/x/net/http2/hpack
@@ -130,11 +130,8 @@ google.golang.org/grpc/keepalive
 google.golang.org/grpc/metadata
 google.golang.org/grpc/status
 google.golang.org/grpc/balancer
-google.golang.org/grpc/connectivity
-google.golang.org/grpc/resolver
-google.golang.org/grpc/resolver/dns
-google.golang.org/grpc/resolver/passthrough
 google.golang.org/grpc/balancer/roundrobin
+google.golang.org/grpc/connectivity
 google.golang.org/grpc/encoding
 google.golang.org/grpc/encoding/proto
 google.golang.org/grpc/internal
@@ -148,6 +145,9 @@ google.golang.org/grpc/internal/grpcsync
 google.golang.org/grpc/internal/transport
 google.golang.org/grpc/naming
 google.golang.org/grpc/peer
+google.golang.org/grpc/resolver
+google.golang.org/grpc/resolver/dns
+google.golang.org/grpc/resolver/passthrough
 google.golang.org/grpc/serviceconfig
 google.golang.org/grpc/stats
 google.golang.org/grpc/tap
