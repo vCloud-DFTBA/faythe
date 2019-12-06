@@ -65,22 +65,22 @@ func (s healerState) String() string {
 // and evaluate whether it is necessary to do healing action
 type Healer struct {
 	model.Healer
-	logger     log.Logger
-	done       chan struct{}
-	terminated chan struct{}
-	backend    metrics.Backend
 	at         model.ATEngine
-	state      healerState
+	backend    metrics.Backend
+	done       chan struct{}
+	logger     log.Logger
 	mtx        sync.RWMutex
+	state      healerState
+	terminated chan struct{}
 }
 
 func newHealer(l log.Logger, data []byte, b metrics.Backend, atengine model.ATEngine) *Healer {
 	h := &Healer{
-		logger:     l,
-		done:       make(chan struct{}),
-		terminated: make(chan struct{}),
-		backend:    b,
 		at:         atengine,
+		backend:    b,
+		done:       make(chan struct{}),
+		logger:     l,
+		terminated: make(chan struct{}),
 	}
 	json.Unmarshal(data, h)
 	h.Validate()
@@ -130,9 +130,9 @@ func (h *Healer) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string
 					instance := strings.Split(string(e.Metric["instance"]), ":")[0]
 					rIs[instance]++
 				}
-
+				
 				for k, v := range rIs {
-					if v < 2 {
+					if v != h.EvaluationLevel {
 						delete(rIs, k)
 					}
 				}

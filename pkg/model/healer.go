@@ -23,23 +23,31 @@ import (
 
 // Healer represents a Healer instance
 type Healer struct {
-	ID          string                     `json:"id,omitempty"`
-	Actions     map[string]ActionInterface `json:"ractions"`
-	ActionsRaw  map[string]json.RawMessage `json:"actions"`
-	Query       string                     `json:"query"`
-	Interval    string                     `json:"interval"`
-	Duration    string                     `json:"duration"`
-	ATEngine    ATEngine                   `json:"atengine"`
-	Monitor     Monitor                    `json:"monitor"`
-	Description string                     `json:"description,omitempty"`
-	Tags        []string                   `json:"tags,omitempty"`
-	Active      bool                       `json:"active,omitempty"`
-	Alert       Alert                      `json:"alert,omitempty"`
-	CloudID     string                     `json:"cloudid"`
+	Actions         map[string]ActionInterface `json:"ractions"`
+	ActionsRaw      map[string]json.RawMessage `json:"actions"`
+	Active          bool                       `json:"active,omitempty"`
+	Alert           Alert                      `json:"alert,omitempty"`
+	ATEngine        ATEngine                   `json:"atengine"`
+	CloudID         string                     `json:"cloudid"`
+	Description     string                     `json:"description,omitempty"`
+	Duration        string                     `json:"duration"`
+	EvaluationLevel int                        `json:"evaluation_level"`
+	ID              string                     `json:"id,omitempty"`
+	Interval        string                     `json:"interval"`
+	Monitor         Monitor                    `json:"monitor"`
+	Query           string                     `json:"query"`
+	Tags            []string                   `json:"tags,omitempty"`
 }
 
 // Validate healher model
 func (h *Healer) Validate() error {
+
+	if h.EvaluationLevel > 2 {
+		return fmt.Errorf("evaluation %d is currently not supported", h.EvaluationLevel)
+	} else if h.EvaluationLevel == 0 {
+		h.EvaluationLevel = 2
+	}
+
 	if h.Interval == "" {
 		h.Interval = DefaultHealerInterval
 	}
