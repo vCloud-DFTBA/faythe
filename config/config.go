@@ -20,8 +20,6 @@ import (
 	"time"
 
 	"gopkg.in/yaml.v2"
-
-	"github.com/vCloud-DFTBA/faythe/pkg/utils"
 )
 
 // Config is the top-level configuration for Faythe's config file.
