@@ -45,7 +45,6 @@ import (
 	"github.com/vCloud-DFTBA/faythe/pkg/cluster"
 	"github.com/vCloud-DFTBA/faythe/pkg/common"
 	"github.com/vCloud-DFTBA/faythe/pkg/etcd"
-	"github.com/vCloud-DFTBA/faythe/pkg/utils"
 )
 
 func main() {
