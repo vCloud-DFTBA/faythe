@@ -48,6 +48,7 @@ type Manager struct {
 	ncin    chan NodeMetric
 	ncout   chan map[string]string
 	cluster *cluster.Cluster
+	state   model.State
 }
 
 // NewManager create new Manager for name resolver and healer
@@ -64,6 +65,7 @@ func NewManager(l log.Logger, e *etcd.V3, c *cluster.Cluster) *Manager {
 		cluster: c,
 	}
 	hm.load()
+	hm.state = model.StateActive
 	return hm
 }
 
@@ -137,10 +139,16 @@ func (hm *Manager) stopWorker(name string) {
 
 // Stop destroy name resolver, healer and itself
 func (hm *Manager) Stop() {
+	// Ignore close channel if manager is already stopped/stopping
+	if hm.state == model.StateStopping || hm.state == model.StateStopped {
+		return
+	}
 	level.Info(hm.logger).Log("msg", "Cleaning before stopping autohealer managger")
+	hm.state = model.StateStopping
 	close(hm.stop)
 	hm.save()
 	hm.wg.Wait()
+	hm.state = model.StateStopped
 	level.Info(hm.logger).Log("msg", "Autohealer manager is stopped!")
 }
 
@@ -148,7 +156,10 @@ func (hm *Manager) save() {
 	for e := range hm.rqt.Iter() {
 		hm.wg.Add(1)
 		go func(e common.RegistryItem) {
-			defer hm.wg.Done()
+			defer func() {
+				hm.stopWorker(e.Name)
+				hm.wg.Done()
+			}()
 
 			raw, err := json.Marshal(&e.Value)
 			if err != nil {
@@ -162,7 +173,6 @@ func (hm *Manager) save() {
 					"name", e.Name, "err", err)
 				return
 			}
-			hm.stopWorker(e.Name)
 		}(e)
 	}
 }

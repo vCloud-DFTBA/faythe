@@ -143,13 +143,19 @@ func main() {
 	// Init healer manager
 	fah := autohealer.NewManager(log.With(logger, "component", "healer manager"), etcdCli, cls)
 	go fah.Run(watchCtx)
-	defer func() {
+
+	stopc := make(chan struct{})
+	go etcdCli.Run(stopc)
+	stopFunc := func() {
 		watchCancel()
 		fas.Stop()
 		fah.Stop()
 		cls.Stop()
+		fah.Stop()
 		etcdCli.Close()
-		level.Info(logger).Log("msg", "Faythe is stopped, bye bye!")
+	}
+	defer func() {
+		stopFunc()
 	}()
 
 	// Init HTTP server
@@ -162,6 +168,10 @@ func main() {
 			case <-reloadc:
 				fas.Reload()
 				fah.Reload()
+			case <-stopc:
+				stopFunc()
+				level.Info(logger).Log("msg", "Faythe is stopping, bye bye!")
+				syscall.Kill(syscall.Getpid(), syscall.SIGTERM)
 			}
 		}
 	}()

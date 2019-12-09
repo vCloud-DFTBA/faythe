@@ -27,6 +27,7 @@ import (
 	"go.etcd.io/etcd/mvcc/mvccpb"
 
 	"github.com/vCloud-DFTBA/faythe/pkg/cluster"
+	"github.com/vCloud-DFTBA/faythe/pkg/common"
 	"github.com/vCloud-DFTBA/faythe/pkg/etcd"
 	"github.com/vCloud-DFTBA/faythe/pkg/metrics"
 	"github.com/vCloud-DFTBA/faythe/pkg/model"
@@ -41,6 +42,7 @@ type Manager struct {
 	watch   etcdv3.WatchChan
 	wg      *sync.WaitGroup
 	cluster *cluster.Cluster
+	state   model.State
 }
 
 // NewManager returns an Autoscale Manager
@@ -55,6 +57,7 @@ func NewManager(l log.Logger, e *etcd.V3, c *cluster.Cluster) *Manager {
 	}
 	// Load at init
 	m.load()
+	m.state = model.StateActive
 	return m
 }
 
@@ -67,11 +70,17 @@ func (m *Manager) Reload() {
 
 // Stop the manager and its scaler cycles.
 func (m *Manager) Stop() {
+	// Ignore close channel if manager is already stopped/stopping
+	if m.state == model.StateStopping || m.state == model.StateStopped {
+		return
+	}
 	level.Info(m.logger).Log("msg", "Stopping autoscale manager...")
+	m.state = model.StateStopping
 	close(m.stop)
 	m.save()
 	// Wait until all scalers shut down
 	m.wg.Wait()
+	m.state = model.StateStopped
 	level.Info(m.logger).Log("msg", "Autoscale manager stopped")
 }
 
@@ -182,8 +191,11 @@ func (m *Manager) getBackend(key string) (metrics.Backend, error) {
 func (m *Manager) save() {
 	for i := range m.rgt.Iter() {
 		m.wg.Add(1)
-		defer m.wg.Done()
 		go func(i common.RegistryItem) {
+			defer func() {
+				m.stopScaler(i.Name)
+				m.wg.Done()
+			}()
 			switch it := i.Value.(type) {
 			case *Scaler:
 				it.Alert = &it.alert.State
@@ -204,7 +216,6 @@ func (m *Manager) save() {
 					"name", i.Name, "err", err)
 				return
 			}
-			m.stopScaler(i.Name)
 		}(i)
 	}
 }

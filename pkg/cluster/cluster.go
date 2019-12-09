@@ -226,13 +226,18 @@ func (c *Cluster) Run(ctx context.Context, rc chan struct{}) {
 
 // Stop stops the member as well as the watch process
 func (c *Cluster) Stop() {
+	if c.state == ClusterLeaving || c.state == ClusterLeft {
+		return
+	}
 	level.Info(c.logger).Log("msg", "A member of cluster is stopping...",
 		"name", c.local.Name, "address", c.local.Address)
+	c.state = ClusterLeaving
 	_, err := c.etcdcli.DoRevoke(nil, c.lease)
 	if err != nil {
 		level.Error(c.logger).Log("msg", "Error revoking the lease", "id", c.lease)
 	}
 	close(c.stopCh)
+	c.state = ClusterLeft
 	level.Info(c.logger).Log("msg", "A member of cluster is stopped",
 		"name", c.local.Name, "address", c.local.Address)
 }

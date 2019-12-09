@@ -29,6 +29,7 @@ const (
 // V3 is the Etcd v3 client wrapper with addition context.
 type V3 struct {
 	*etcdv3.Client
+	ErrCh chan error
 }
 
 // New constructs a new V3 client
@@ -37,7 +38,7 @@ func New(cfg etcdv3.Config) (*V3, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &V3{cli}, nil
+	return &V3{cli, make(chan error, 1)}, nil
 }
 
 // Context returns a cancelable context and its cancel function.
@@ -78,7 +79,11 @@ func (e *V3) WatchContext(ctx context.Context) (context.Context, context.CancelF
 func (e *V3) DoGet(ctx context.Context, key string, opts ...etcdv3.OpOption) (*etcdv3.GetResponse, error) {
 	ctx, cancel := e.Context(ctx)
 	defer cancel()
-	return e.Get(ctx, key, opts...)
+	result, err := e.Get(ctx, key, opts...)
+	if err != nil {
+		e.ErrCh <- err
+	}
+	return result, err
 }
 
 // DoPut puts a key-value pair into etcd.
@@ -86,7 +91,11 @@ func (e *V3) DoGet(ctx context.Context, key string, opts ...etcdv3.OpOption) (*e
 func (e *V3) DoPut(ctx context.Context, key, val string, opts ...etcdv3.OpOption) (*etcdv3.PutResponse, error) {
 	ctx, cancel := e.Context(ctx)
 	defer cancel()
-	return e.Put(ctx, key, val, opts...)
+	result, err := e.Put(ctx, key, val, opts...)
+	if err != nil {
+		e.ErrCh <- err
+	}
+	return result, err
 }
 
 // DoDelete deletes a key, or optionally using WithRange(end), [key, end).
@@ -94,14 +103,22 @@ func (e *V3) DoPut(ctx context.Context, key, val string, opts ...etcdv3.OpOption
 func (e *V3) DoDelete(ctx context.Context, key string, opts ...etcdv3.OpOption) (*etcdv3.DeleteResponse, error) {
 	ctx, cancel := e.Context(ctx)
 	defer cancel()
-	return e.Delete(ctx, key, opts...)
+	result, err := e.Delete(ctx, key, opts...)
+	if err != nil {
+		e.ErrCh <- err
+	}
+	return result, err
 }
 
 // DoGrant creates a new lease.
 func (e *V3) DoGrant(ctx context.Context, ttl int64) (*etcdv3.LeaseGrantResponse, error) {
 	ctx, cancel := e.LeaseContext(ctx)
 	defer cancel()
-	return e.Grant(ctx, ttl)
+	result, err := e.Grant(ctx, ttl)
+	if err != nil {
+		e.ErrCh <- err
+	}
+	return result, err
 }
 
 // DoKeepAliveOnce renews the lease once. The response corresponds to the
@@ -110,12 +127,32 @@ func (e *V3) DoGrant(ctx context.Context, ttl int64) (*etcdv3.LeaseGrantResponse
 func (e *V3) DoKeepAliveOnce(ctx context.Context, id etcdv3.LeaseID) (*etcdv3.LeaseKeepAliveResponse, error) {
 	ctx, cancel := e.LeaseContext(ctx)
 	defer cancel()
-	return e.KeepAliveOnce(ctx, id)
+	result, err := e.KeepAliveOnce(ctx, id)
+	if err != nil {
+		e.ErrCh <- err
+	}
+	return result, err
 }
 
 // DoRevoke revokes the given lease.
 func (e *V3) DoRevoke(ctx context.Context, id etcdv3.LeaseID) (*etcdv3.LeaseRevokeResponse, error) {
 	ctx, cancel := e.LeaseContext(ctx)
 	defer cancel()
-	return e.Revoke(ctx, id)
+	result, err := e.Revoke(ctx, id)
+	if err != nil {
+		e.ErrCh <- err
+	}
+	return result, err
+}
+
+// Run waits for Etcd client's error.
+func (e *V3) Run(stopc chan struct{}) {
+	for {
+		select {
+		case err := <-e.ErrCh:
+			if err == context.Canceled || err == context.DeadlineExceeded {
+				stopc <- struct{}{}
+			}
+		}
+	}
 }
