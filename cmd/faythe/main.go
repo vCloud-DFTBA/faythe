@@ -139,13 +139,13 @@ func main() {
 		etcdCli, cls)
 	go fas.Run(watchCtx)
 	// Init healer manager
-	nr := autohealer.NewManager(log.With(logger, "component", "healer manager"), etcdCli, cls)
-	go nr.Run(watchCtx)
+	fah := autohealer.NewManager(log.With(logger, "component", "healer manager"), etcdCli, cls)
+	go fah.Run(watchCtx)
 	defer func() {
 		watchCancel()
 		fas.Stop()
 		cls.Stop()
-		nr.Stop()
+		fah.Stop()
 		etcdCli.Close()
 		level.Info(logger).Log("msg", "Faythe is stopped, bye bye!")
 	}()
@@ -159,7 +159,7 @@ func main() {
 			select {
 			case <-reloadCh:
 				fas.Reload()
-				nr.Reload()
+				fah.Reload()
 			}
 		}
 	}()
