@@ -28,7 +28,9 @@ import (
 	"go.etcd.io/etcd/mvcc/mvccpb"
 
 	"github.com/vCloud-DFTBA/faythe/pkg/cluster"
+
 	"github.com/vCloud-DFTBA/faythe/pkg/common"
+	"github.com/vCloud-DFTBA/faythe/pkg/etcd"
 	"github.com/vCloud-DFTBA/faythe/pkg/metrics"
 	"github.com/vCloud-DFTBA/faythe/pkg/model"
 )
@@ -38,7 +40,7 @@ type Manager struct {
 	logger  log.Logger
 	rqt     *common.Registry
 	stop    chan struct{}
-	etcdcli *etcdv3.Client
+	etcdcli *etcd.V3
 	watchc  etcdv3.WatchChan
 	watchh  etcdv3.WatchChan
 	wg      *sync.WaitGroup
@@ -49,7 +51,7 @@ type Manager struct {
 }
 
 // NewManager create new Manager for name resolver and healer
-func NewManager(l log.Logger, e *etcdv3.Client, c *cluster.Cluster) *Manager {
+func NewManager(l log.Logger, e *etcd.V3, c *cluster.Cluster) *Manager {
 	hm := &Manager{
 		logger:  l,
 		rqt:     &common.Registry{Items: make(map[string]common.Worker)},
@@ -74,7 +76,7 @@ func (hm *Manager) Reload() {
 
 func (hm *Manager) load() {
 	for _, p := range []string{model.DefaultNResolverPrefix, model.DefaultHealerPrefix} {
-		r, err := hm.etcdcli.Get(context.Background(), p, etcdv3.WithPrefix())
+		r, err := hm.etcdcli.DoGet(context.Background(), p, etcdv3.WithPrefix())
 		if err != nil {
 			level.Error(hm.logger).Log("msg", "Error getting list Workers", "err", err)
 			return
@@ -154,7 +156,7 @@ func (hm *Manager) save() {
 					"name", e.Name, "err", err)
 				return
 			}
-			_, err = hm.etcdcli.Put(context.Background(), e.Name, string(raw))
+			_, err = hm.etcdcli.DoPut(context.Background(), e.Name, string(raw))
 			if err != nil {
 				level.Error(hm.logger).Log("msg", "Error putting worker object",
 					"name", e.Name, "err", err)
@@ -198,16 +200,16 @@ func (hm *Manager) Run(ctx context.Context) {
 					if err != nil {
 						level.Error(hm.logger).Log("msg", "Error while marshalling nresolver object", "err", err)
 					}
-					hm.etcdcli.Put(ctx, name, string(raw))
+					hm.etcdcli.DoPut(ctx, name, string(raw))
 					hm.startWorker(model.DefaultNResolverPrefix, name, raw)
 				}
 				if event.Type == etcdv3.EventTypeDelete {
 					if _, ok := hm.rqt.Get(name); ok {
 						hm.stopWorker(name)
-						hm.etcdcli.Delete(ctx, name, etcdv3.WithPrefix())
+						hm.etcdcli.DoDelete(ctx, name, etcdv3.WithPrefix())
 					}
 					hname := strings.ReplaceAll(name, model.DefaultNResolverPrefix, model.DefaultHealerPrefix)
-					hm.etcdcli.Delete(ctx, hname, etcdv3.WithPrefix())
+					hm.etcdcli.DoDelete(ctx, hname, etcdv3.WithPrefix())
 				}
 			}
 		case watchResp := <-hm.watchh:
@@ -241,7 +243,7 @@ func (hm *Manager) Run(ctx context.Context) {
 }
 
 func (hm *Manager) rebalance() {
-	resp, err := hm.etcdcli.Get(context.Background(), model.DefaultHealerPrefix,
+	resp, err := hm.etcdcli.DoGet(context.Background(), model.DefaultHealerPrefix,
 		etcdv3.WithPrefix(), etcdv3.WithSort(etcdv3.SortByKey, etcdv3.SortAscend))
 	if err != nil {
 		level.Error(hm.logger).Log("msg", "Error getting healers", "err", err)
@@ -265,7 +267,7 @@ func (hm *Manager) rebalance() {
 							"name", name, "err", err)
 						return
 					}
-					_, err = hm.etcdcli.Put(context.Background(), name, string(raw))
+					_, err = hm.etcdcli.DoPut(context.Background(), name, string(raw))
 					if err != nil {
 						level.Error(hm.logger).Log("msg", "Error putting healer object",
 							"key", name, "err", err)
@@ -287,7 +289,7 @@ func (hm *Manager) rebalance() {
 func (hm *Manager) getBackend(key string) (metrics.Backend, error) {
 	// There is format -> Cloud provider id
 	providerID := strings.Split(key, "/")[2]
-	resp, err := hm.etcdcli.Get(context.Background(), common.Path(model.DefaultCloudPrefix, providerID))
+	resp, err := hm.etcdcli.DoGet(context.Background(), common.Path(model.DefaultCloudPrefix, providerID))
 	if err != nil {
 		return nil, err
 	}
@@ -321,7 +323,7 @@ func (hm *Manager) getBackend(key string) (metrics.Backend, error) {
 
 func (hm *Manager) getATEngine(key string) (model.ATEngine, error) {
 	providerID := strings.Split(key, "/")[2]
-	resp, err := hm.etcdcli.Get(context.Background(), common.Path(model.DefaultCloudPrefix, providerID))
+	resp, err := hm.etcdcli.DoGet(context.Background(), common.Path(model.DefaultCloudPrefix, providerID))
 	if err != nil {
 		return model.ATEngine{}, err
 	}

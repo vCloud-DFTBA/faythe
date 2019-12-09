@@ -53,8 +53,8 @@ github.com/prometheus/common/promlog/flag
 github.com/prometheus/common/model
 # go.etcd.io/etcd v0.0.0-20191023171146-3cf2f69b5738
 go.etcd.io/etcd/clientv3
-go.etcd.io/etcd/clientv3/concurrency
 go.etcd.io/etcd/mvcc/mvccpb
+go.etcd.io/etcd/clientv3/concurrency
 go.etcd.io/etcd/clientv3/namespace
 go.etcd.io/etcd/auth/authpb
 go.etcd.io/etcd/clientv3/balancer

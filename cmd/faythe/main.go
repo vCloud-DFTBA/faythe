@@ -15,6 +15,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/http"
@@ -43,6 +44,8 @@ import (
 	"github.com/vCloud-DFTBA/faythe/pkg/autoscaler"
 	"github.com/vCloud-DFTBA/faythe/pkg/cluster"
 	"github.com/vCloud-DFTBA/faythe/pkg/common"
+	"github.com/vCloud-DFTBA/faythe/pkg/etcd"
+	"github.com/vCloud-DFTBA/faythe/pkg/utils"
 )
 
 func main() {
@@ -93,7 +96,7 @@ func main() {
 
 	var (
 		etcdConf = etcdv3.Config{}
-		etcdCli  = &etcdv3.Client{}
+		etcdCli  = &etcd.V3{}
 		router   = mux.NewRouter()
 		fmw      = &middleware.Middleware{}
 		fapi     = &api.API{}
@@ -111,23 +114,23 @@ func main() {
 
 	// Init Etcdv3 client
 	copier.Copy(&etcdConf, config.Get().EtcdConfig)
-	etcdCli, err = etcdv3.New(etcdConf)
+	etcdCli, err = etcd.New(etcdConf)
 
 	if err != nil {
-		level.Error(logger).Log("err", errors.Wrapf(err, "Error instantiating Etcd client."))
+		level.Error(logger).Log("err", errors.Wrapf(err, "Error instantiating Etcd V3 client."))
 		os.Exit(2)
 	}
 
 	// Init cluster
-	watchCtx, watchCancel := common.WatchContext()
+	watchCtx, watchCancel := etcdCli.WatchContext(context.Background())
 	cls, err = cluster.New(cfg.clusterID, cfg.listenAddress,
 		log.With(logger, "component", "cluster"), etcdCli)
 	if err != nil {
 		level.Error(logger).Log("err", errors.Wrap(err, "Error initializing Cluster"))
 		os.Exit(2)
 	}
-	reloadCh := make(chan bool)
-	go cls.Run(watchCtx, reloadCh)
+	reloadc := make(chan struct{})
+	go cls.Run(watchCtx, reloadc)
 
 	fmw = middleware.New(log.With(logger, "component", "transport middleware"))
 
@@ -157,7 +160,7 @@ func main() {
 	go func() {
 		for {
 			select {
-			case <-reloadCh:
+			case <-reloadc:
 				fas.Reload()
 				fah.Reload()
 			}
