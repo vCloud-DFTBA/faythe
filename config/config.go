@@ -20,21 +20,14 @@ import (
 	"time"
 
 	"gopkg.in/yaml.v2"
+
+	"github.com/ntk148v/faythe/pkg/utils"
 )
 
 // Config is the top-level configuration for Faythe's config file.
 type Config struct {
 	GlobalConfig GlobalConfig `yaml:"global"`
 	EtcdConfig   EtcdConfig   `yaml:"etcd"`
-	MailConfig   MailConfig   `yaml:"mail,omitempty"`
-}
-
-type MailConfig struct {
-	Host     string       `yaml:"host"`
-	Protocol string       `yaml:"protocol"`
-	Port     int          `yaml:"port"`
-	Username string       `yaml:"username"`
-	Password string       `yaml:"password"`
 }
 
 // GlobalConfig configures values that are used to config Faythe HTTP server
@@ -52,8 +45,8 @@ type GlobalConfig struct {
 // BasicAuthentication - HTTP Basic authentication.
 type BasicAuthentication struct {
 	// Usename, Password to implement HTTP basic authentication
-	Username string  `yaml:"username"`
-	Password string  `yaml:"password"`
+	Username string       `yaml:"username"`
+	Password utils.Secret `yaml:"password"`
 }
 
 // EtcdConfig stores Etcd related configurations.
@@ -96,7 +89,7 @@ type EtcdConfig struct {
 	Username string `yaml:"username,omitempty"`
 
 	// Password is a password for authentication.
-	Password string `yaml:"password,omitempty"`
+	Password utils.Secret `yaml:"password,omitempty"`
 
 	// RejectOldCluster when set will refuse to create a client against an outdated cluster.
 	RejectOldCluster bool `yaml:"reject_old_cluster,omitempty"`
@@ -175,15 +168,6 @@ func (c *EtcdConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	// To make unmarshal fill the plain data struct rather than calling UnmarshalYAML
 	// again, we have to hide it using a type indirection.
 	type plain EtcdConfig
-	if err := unmarshal((*plain)(c)); err != nil {
-		return err
-	}
-	return nil
-}
-
-// UnmarshalYAML implements the yaml.Unmarshaler interface
-func (c *MailConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
-	type plain MailConfig
 	if err := unmarshal((*plain)(c)); err != nil {
 		return err
 	}

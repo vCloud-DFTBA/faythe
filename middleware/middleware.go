@@ -22,7 +22,7 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 
-	"github.com/vCloud-DFTBA/faythe/config"
+	"github.com/ntk148v/faythe/config"
 )
 
 // Middleware represents middleware handlers.

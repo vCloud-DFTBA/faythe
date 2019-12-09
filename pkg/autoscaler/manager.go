@@ -24,12 +24,10 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	etcdv3 "go.etcd.io/etcd/clientv3"
-	"go.etcd.io/etcd/mvcc/mvccpb"
 
-	"github.com/vCloud-DFTBA/faythe/pkg/cluster"
-	"github.com/vCloud-DFTBA/faythe/pkg/metrics"
-	"github.com/vCloud-DFTBA/faythe/pkg/model"
-	"github.com/vCloud-DFTBA/faythe/pkg/utils"
+	"github.com/ntk148v/faythe/pkg/metrics"
+	"github.com/ntk148v/faythe/pkg/model"
+	"github.com/ntk148v/faythe/pkg/utils"
 )
 
 // Manager manages a set of Scaler instances.
@@ -39,70 +37,61 @@ type Manager struct {
 	stop    chan struct{}
 	etcdcli *etcdv3.Client
 	watch   etcdv3.WatchChan
+	ctx     context.Context
+	cancel  context.CancelFunc
 	wg      *sync.WaitGroup
-	cluster *cluster.Cluster
 }
 
 // NewManager returns an Autoscale Manager
-func NewManager(l log.Logger, e *etcdv3.Client, c *cluster.Cluster) *Manager {
+func NewManager(l log.Logger, e *etcdv3.Client) *Manager {
+	ctx, cancel := context.WithCancel(context.Background())
 	m := &Manager{
 		logger:  l,
 		rgt:     &Registry{items: make(map[string]*Scaler)},
 		stop:    make(chan struct{}),
 		etcdcli: e,
+		ctx:     ctx,
 		wg:      &sync.WaitGroup{},
-		cluster: c,
+		cancel:  cancel,
 	}
+	m.watch = m.etcdcli.Watch(m.ctx, model.DefaultScalerPrefix, etcdv3.WithPrefix())
 	// Load at init
 	m.load()
 	return m
 }
 
-// Reload simply stop and start scalers selectively.
-func (m *Manager) Reload() {
-	level.Info(m.logger).Log("msg", "Reloading...")
-	m.rebalance()
-	level.Info(m.logger).Log("msg", "Reloaded")
-}
-
 // Stop the manager and its scaler cycles.
 func (m *Manager) Stop() {
 	level.Info(m.logger).Log("msg", "Stopping autoscale manager...")
-	close(m.stop)
 	m.save()
 	// Wait until all scalers shut down
 	m.wg.Wait()
+	m.cancel()
+	close(m.stop)
 	level.Info(m.logger).Log("msg", "Autoscale manager stopped")
 }
 
 // Run starts processing of the autoscale manager
-func (m *Manager) Run(ctx context.Context) {
-	watch := m.etcdcli.Watch(ctx, model.DefaultScalerPrefix, etcdv3.WithPrefix())
+func (m *Manager) Run() {
 	for {
 		select {
 		case <-m.stop:
 			return
-		case watchResp := <-watch:
-			if watchResp.Err() != nil {
-				level.Error(m.logger).Log("msg", "Error watching cluster state", "err", watchResp.Err())
-				break
-			}
+		case watchResp := <-m.watch:
 			for _, event := range watchResp.Events {
 				sid := string(event.Kv.Key)
+				// Create -> simply create and add it to registry
 				if event.IsCreate() {
-					// Create -> simply create and add it to registry
 					m.startScaler(sid, event.Kv.Value)
-				} else if event.IsModify() {
-					// Update -> force recreate scaler
-					if _, ok := m.rgt.Get(sid); ok {
-						m.stopScaler(sid)
-						m.startScaler(sid, event.Kv.Value)
-					}
-				} else if event.Type == etcdv3.EventTypeDelete {
-					// Delete -> remove from registry and stop the goroutine
-					if _, ok := m.rgt.Get(sid); ok {
-						m.stopScaler(sid)
-					}
+				}
+				// Update -> force recreate scaler
+				if event.IsModify() {
+					m.stopScaler(sid)
+					m.startScaler(sid, event.Kv.Value)
+				}
+				// Delete -> remove from registry and stop the goroutine
+				if event.Type == etcdv3.EventTypeDelete {
+					m.stopScaler(sid)
 				}
 			}
 		default:
@@ -111,42 +100,33 @@ func (m *Manager) Run(ctx context.Context) {
 }
 
 func (m *Manager) stopScaler(id string) {
-	s, _ := m.rgt.Get(id)
-	if local, worker, ok := m.cluster.LocalIsWorker(id); !ok {
-		level.Debug(m.logger).Log("msg", "Ignoring scaler, another worker node takes it",
-			"scaler", id, "local", local, "worker", worker)
-		return
+	if s, ok := m.rgt.Get(id); ok {
+		level.Info(m.logger).Log("msg", "Removing scaler", "id", id)
+		s.stop()
+		m.rgt.Delete(id)
 	}
-	level.Info(m.logger).Log("msg", "Removing scaler", "id", id)
-	s.stop()
-	m.rgt.Delete(id)
 }
 
 func (m *Manager) startScaler(id string, data []byte) {
-	if local, worker, ok := m.cluster.LocalIsWorker(id); !ok {
-		level.Debug(m.logger).Log("msg", "Ignoring scaler, another worker node takes it",
-			"scaler", id, "local", local, "worker", worker)
-		return
-	}
 	level.Info(m.logger).Log("msg", "Creating scaler", "id", id)
 	backend, err := m.getBackend(id)
 	if err != nil {
 		level.Error(m.logger).Log("msg", "Error creating registry backend for scaler",
-			"id", id, "err", err)
+			"id", id)
 		return
 	}
 	s := newScaler(log.With(m.logger, "scaler", id), data, backend)
 	m.rgt.Set(id, s)
 	go func() {
 		m.wg.Add(1)
-		s.run(context.Background(), m.wg)
+		s.run(m.ctx, m.wg)
 	}()
 }
 
 func (m *Manager) getBackend(key string) (metrics.Backend, error) {
 	// There is format -> Cloud provider id
 	providerID := strings.Split(key, "/")[2]
-	resp, err := m.etcdcli.Get(context.Background(), utils.Path(model.DefaultCloudPrefix, providerID))
+	resp, err := m.etcdcli.Get(m.ctx, utils.Path(model.DefaultCloudPrefix, providerID))
 	if err != nil {
 		return nil, err
 	}
@@ -160,15 +140,14 @@ func (m *Manager) getBackend(key string) (metrics.Backend, error) {
 		return nil, err
 	}
 	switch cloud.Provider {
-	case model.OpenStackType:
+	case "openstack":
 		var ops model.OpenStack
 		err = json.Unmarshal(value.Value, &ops)
 		if err != nil {
 			return nil, err
 		}
 		// Force register
-		err := metrics.Register(ops.Monitor.Backend, string(ops.Monitor.Address),
-			ops.Monitor.Username, ops.Monitor.Password)
+		err := metrics.Register(ops.Monitor.Backend, string(ops.Monitor.Address))
 		if err != nil {
 			return nil, err
 		}
@@ -182,82 +161,36 @@ func (m *Manager) getBackend(key string) (metrics.Backend, error) {
 func (m *Manager) save() {
 	for i := range m.rgt.Iter() {
 		m.wg.Add(1)
-		go func(i RegistryItem) {
-			defer m.wg.Done()
-			i.Value.Alert = &i.Value.alert.State
+		go func(wg *sync.WaitGroup) {
+			defer func() {
+				m.stopScaler(i.Key)
+				wg.Done()
+			}()
+			i.Value.Alert = i.Value.alert.state
 			raw, err := json.Marshal(&i.Value)
 			if err != nil {
 				level.Error(m.logger).Log("msg", "Error serializing scaler object",
-					"id", i.Key, "err", err)
+					"id", i.Value.ID, "err", err)
 				return
 			}
-			_, err = m.etcdcli.Put(context.Background(), i.Key, string(raw))
+			_, err = m.etcdcli.Put(m.ctx, i.Key, string(raw))
 			if err != nil {
 				level.Error(m.logger).Log("msg", "Error putting scaler object",
 					"key", i.Key, "err", err)
 				return
 			}
-			m.stopScaler(i.Key)
-		}(i)
+		}(m.wg)
 	}
 }
 
 func (m *Manager) load() {
-	resp, err := m.etcdcli.Get(context.Background(), model.DefaultScalerPrefix,
+	resp, err := m.etcdcli.Get(m.ctx, model.DefaultScalerPrefix,
 		etcdv3.WithPrefix(), etcdv3.WithSort(etcdv3.SortByKey, etcdv3.SortAscend))
 	if err != nil {
 		level.Error(m.logger).Log("msg", "Error getting scalers", "err", err)
 		return
 	}
-	var sid string
 	for _, ev := range resp.Kvs {
-		sid = string(ev.Key)
-		m.startScaler(sid, ev.Value)
+		m.startScaler(string(ev.Key), ev.Value)
 	}
-}
-
-func (m *Manager) rebalance() {
-	resp, err := m.etcdcli.Get(context.Background(), model.DefaultScalerPrefix,
-		etcdv3.WithPrefix(), etcdv3.WithSort(etcdv3.SortByKey, etcdv3.SortAscend))
-	if err != nil {
-		level.Error(m.logger).Log("msg", "Error getting scalers", "err", err)
-		return
-	}
-
-	var wg sync.WaitGroup
-	for _, ev := range resp.Kvs {
-		wg.Add(1)
-		go func(ev *mvccpb.KeyValue) {
-			defer wg.Done()
-			id := string(ev.Key)
-			local, worker, ok1 := m.cluster.LocalIsWorker(id)
-			scaler, ok2 := m.rgt.Get(id)
-
-			if !ok1 {
-				if ok2 {
-					scaler.Alert = &scaler.alert.State
-					raw, err := json.Marshal(&scaler)
-					if err != nil {
-						level.Error(m.logger).Log("msg", "Error serializing scaler object",
-							"id", id, "err", err)
-						return
-					}
-					_, err = m.etcdcli.Put(context.Background(), id, string(raw))
-					if err != nil {
-						level.Error(m.logger).Log("msg", "Error putting scaler object",
-							"key", id, "err", err)
-						return
-					}
-					level.Info(m.logger).Log("msg", "Removing scaler, another worker node takes it",
-						"scaler", id, "local", local, "worker", worker)
-					scaler.stop()
-					m.rgt.Delete(id)
-				}
-			} else if !ok2 {
-				m.startScaler(id, ev.Value)
-			}
-		}(ev)
-	}
-
-	wg.Wait()
 }

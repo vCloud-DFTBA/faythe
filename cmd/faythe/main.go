@@ -22,7 +22,6 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"syscall"
 
@@ -36,28 +35,19 @@ import (
 	etcdv3 "go.etcd.io/etcd/clientv3"
 	"gopkg.in/alecthomas/kingpin.v2"
 
-	"github.com/vCloud-DFTBA/faythe/api"
-	"github.com/vCloud-DFTBA/faythe/config"
-	"github.com/vCloud-DFTBA/faythe/middleware"
-	"github.com/vCloud-DFTBA/faythe/pkg/autohealer"
-	"github.com/vCloud-DFTBA/faythe/pkg/autoscaler"
-	"github.com/vCloud-DFTBA/faythe/pkg/cluster"
-	"github.com/vCloud-DFTBA/faythe/pkg/utils"
+	"github.com/ntk148v/faythe/api"
+	"github.com/ntk148v/faythe/config"
+	"github.com/ntk148v/faythe/middleware"
+	"github.com/ntk148v/faythe/pkg/autoscaler"
 )
 
 func main() {
-	if os.Getenv("DEBUG") != "" {
-		runtime.SetBlockProfileRate(20)
-		runtime.SetMutexProfileFraction(20)
-	}
-
 	cfg := struct {
 		configFile    string
 		listenAddress string
 		url           string
 		externalURL   *url.URL
 		logConfig     promlog.Config
-		clusterID     string
 	}{
 		logConfig: promlog.Config{},
 	}
@@ -71,8 +61,6 @@ func main() {
 	a.Flag("external-url",
 		"The URL under which Faythe is externally reachable.").
 		PlaceHolder("<URL>").StringVar(&cfg.url)
-	a.Flag("cluster-id", "The unique ID of the cluster, leave it empty to initialize a new cluster.").
-		StringVar(&cfg.clusterID)
 
 	logflag.AddFlags(a, &cfg.logConfig)
 	_, err := a.Parse(os.Args[1:])
@@ -84,21 +72,15 @@ func main() {
 
 	logger := promlog.New(&cfg.logConfig)
 	cfg.externalURL, err = computeExternalURL(cfg.url, cfg.listenAddress)
-	level.Info(logger).Log("msg", "Staring Faythe...")
-	rtStats := utils.RuntimeStats()
-	level.Debug(logger).Log("msg", "Golang runtime stats")
-	for k, v := range rtStats {
-		level.Debug(logger).Log(k, v)
-	}
+	level.Info(logger).Log("msg", "Staring Faythe")
 
 	var (
 		etcdConf = etcdv3.Config{}
 		etcdCli  = &etcdv3.Client{}
-		router   = mux.NewRouter()
+		mux      = mux.NewRouter()
 		fmw      = &middleware.Middleware{}
 		fapi     = &api.API{}
 		fas      = &autoscaler.Manager{}
-		cls      = &cluster.Cluster{}
 	)
 	// Load configurations from file
 	err = config.Set(cfg.configFile, log.With(logger, "component", "config manager"))
@@ -118,51 +100,20 @@ func main() {
 		os.Exit(2)
 	}
 
-	// Init cluster
-	watchCtx, watchCancel := utils.WatchContext()
-	cls, err = cluster.New(cfg.clusterID, cfg.listenAddress,
-		log.With(logger, "component", "cluster"), etcdCli)
-	if err != nil {
-		level.Error(logger).Log("err", errors.Wrap(err, "Error initializing Cluster"))
-		os.Exit(2)
-	}
-	reloadCh := make(chan bool)
-	go cls.Run(watchCtx, reloadCh)
+	defer etcdCli.Close()
 
 	fmw = middleware.New(log.With(logger, "component", "transport middleware"))
 
 	fapi = api.New(log.With(logger, "component", "api"), etcdCli)
-	fapi.Register(router)
-	router.Use(fmw.Logging, fmw.RestrictDomain, fmw.Authenticate)
+	fapi.Register(mux)
+	mux.Use(fmw.Logging, fmw.RestrictDomain, fmw.Authenticate)
 
-	fas = autoscaler.NewManager(log.With(logger, "component", "autoscale manager"),
-		etcdCli, cls)
-	go fas.Run(watchCtx)
-	// Init healer manager
-	nr := autohealer.NewManager(log.With(logger, "component", "healer manager"), etcdCli, cls)
-	go nr.Run(watchCtx)
-	defer func() {
-		watchCancel()
-		fas.Stop()
-		cls.Stop()
-		nr.Stop()
-		etcdCli.Close()
-		level.Info(logger).Log("msg", "Faythe is stopped, bye bye!")
-	}()
-
+	fas = autoscaler.NewManager(log.With(logger, "component", "autoscale manager"), etcdCli)
+	go fas.Run()
+	defer fas.Stop()
 	// Init HTTP server
-	srv := http.Server{Addr: cfg.listenAddress, Handler: router}
+	srv := http.Server{Addr: cfg.listenAddress, Handler: mux}
 	srvc := make(chan struct{})
-
-	go func() {
-		for {
-			select {
-			case <-reloadCh:
-				fas.Reload()
-				nr.Reload()
-			}
-		}
-	}()
 
 	go func() {
 		level.Info(logger).Log("msg", "Listening", "address", cfg.listenAddress)

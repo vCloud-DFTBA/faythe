@@ -14,9 +14,9 @@ RUN go build -mod vendor -o /bin/faythe cmd/faythe/main.go && \
 FROM alpine:3.9
 LABEL maintainer="Kien Nguyen <kiennt2609@gmail.com>"
 COPY --from=builder /bin/faythe /bin/faythe
-RUN mkdir -p etc/faythe
 COPY examples/faythe.yml /etc/faythe/config.yml
-RUN chown -R nobody:nogroup etc/faythe
+RUN mkdir -p etc/faythe && \
+    chown -R nobody:nogroup etc/faythe
 USER nobody
 EXPOSE 8600
 ENTRYPOINT ["/bin/faythe"]

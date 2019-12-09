@@ -23,39 +23,49 @@ import (
 
 // Action represents an scale action
 type Action struct {
-	Type      string `json:"type"`
+	URL       URL    `json:"url"`
+	Type      string `json:"type,omitempty"`
+	Method    string `json:"method,omitempty"`
 	Attempts  uint   `json:"attempts,omitempty"`
 	Delay     string `json:"delay,omitempty"`
 	DelayType string `json:"delay_type,omitempty"`
 }
 
-type ActionInterface interface {
-	Validate() error
-}
-
-func (a Action) validate() error {
-	if a.Type == "" {
-		return errors.Errorf("Missing action type")
-	}
-
-	if _, err := time.ParseDuration(a.Delay); err != nil {
+// Validate returns nil if all fields of the Action have valid values.
+func (a *Action) Validate() error {
+	if err := a.URL.Validate(); err != nil {
 		return err
 	}
-
+	if a.Delay == "" {
+		a.Delay = "100ms"
+	}
+	if a.DelayType == "" {
+		a.DelayType = "fixed"
+	}
+	if a.Method == "" {
+		a.Method = "POST"
+	}
+	if a.Attempts == 0 {
+		a.Attempts = 10
+	}
+	if a.Type == "" {
+		a.Type = "http"
+	}
 	switch strings.ToLower(a.Type) {
-	case "http", "mail":
+	case "http":
 	default:
 		return errors.Errorf("unsupported action type: %s", a.Type)
 	}
-
+	if _, err := time.ParseDuration(a.Delay); err != nil {
+		return err
+	}
 	switch strings.ToLower(a.DelayType) {
-	case BackoffDelay:
+	case "backoff":
 		// BackOffDelay is a DelayType which increases delay between consecutive retries
-	case FixedDelay:
+	case "fixed":
 		// FixedDelay is a DelayType which keeps delay the same through all iterations
 	default:
 		return errors.Errorf("unsupported delay type: %s", a.DelayType)
 	}
-
 	return nil
 }

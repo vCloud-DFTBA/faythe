@@ -16,9 +16,21 @@ package model
 
 import (
 	"crypto"
+	"fmt"
+
 	"github.com/pkg/errors"
 
-	"github.com/vCloud-DFTBA/faythe/pkg/utils"
+	"github.com/ntk148v/faythe/pkg/utils"
+)
+
+var (
+	// DefaultCloudPrefix is the default etcd prefix for Cloud data
+	DefaultCloudPrefix = "/clouds"
+)
+
+const (
+	// OpenStackType represents a OpenStack type
+	OpenStackType string = "openstack"
 )
 
 // Cloud represents Cloud information. Other cloud provider models
@@ -29,13 +41,12 @@ type Cloud struct {
 	ID        string         `json:"id,omitempty"`
 	Endpoints map[string]URL `json:"endpoints"`
 	Monitor   Monitor        `json:"monitor"`
-	ATEngine  ATEngine       `json:"atengine"`
 	Tags      []string       `json:"tags"`
 }
 
 func (cl *Cloud) Validate() error {
 	switch cl.Provider {
-	case OpenStackType:
+	case "openstack":
 	default:
 		return errors.Errorf("unsupported provider %s", cl.Provider)
 	}
@@ -45,15 +56,6 @@ func (cl *Cloud) Validate() error {
 			return err
 		}
 	}
-
-	if &cl.ATEngine == nil {
-		return errors.New("missing `ATEngine` option")
-	}
-
-	if err := cl.ATEngine.Validate(); err != nil {
-		return err
-	}
-
 	// Require Monitor backend
 	if &cl.Monitor == nil {
 		return errors.New("missing `Monitor` option")
@@ -85,7 +87,7 @@ type OpenStackAuth struct {
 	Username string `json:"username"`
 	UserID   string `json:"userid"`
 
-	Password string `json:"password"`
+	Password utils.Secret `json:"password"`
 
 	// At most one of DomainID and DomainName must be provided if using Username
 	// with Identity V3. Otherwise, either are optional.
@@ -110,7 +112,7 @@ type OpenStackAuth struct {
 // Validate returns nil if all fields of the OpenStack have valid values.
 func (op *OpenStack) Validate() error {
 	switch op.Provider {
-	case OpenStackType:
+	case "openstack":
 	default:
 		return errors.Errorf("unsupported cloud provider: %s", op.Provider)
 	}
@@ -119,7 +121,7 @@ func (op *OpenStack) Validate() error {
 		return errors.New("missing `IdentityEndpoint` in OpenStack AuthOpts")
 	}
 
-	op.ID = utils.Hash(op.Auth.AuthURL, crypto.MD5)
+	op.ID = fmt.Sprintf("%x", utils.Hash(op.Auth.AuthURL, crypto.MD5))
 
 	return nil
 }

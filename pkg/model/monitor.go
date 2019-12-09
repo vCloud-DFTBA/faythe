@@ -19,6 +19,4 @@ type Monitor struct {
 	Backend  string            `json:"backend"`
 	Address  URL               `json:"address"`
 	Metadata map[string]string `json:"metadata"`
-	Username string            `json:"username,omitempty"`
-	Password string            `json:"password,omitempty"`
 }

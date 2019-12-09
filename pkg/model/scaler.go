@@ -16,25 +16,31 @@ package model
 
 import (
 	"crypto"
+	"fmt"
 	"time"
 
 	"github.com/pkg/errors"
 
-	"github.com/vCloud-DFTBA/faythe/pkg/utils"
+	"github.com/ntk148v/faythe/pkg/utils"
+)
+
+const (
+	// DefaultScalerPrefix is the etcd default prefix for scaler
+	DefaultScalerPrefix string = "/scalers"
 )
 
 // Scaler represents a Scaler object
 type Scaler struct {
-	Query       string                 `json:"query"`
-	Duration    string                 `json:"duration"`
-	Description string                 `json:"description,omitempty"`
-	Interval    string                 `json:"interval"`
-	Actions     map[string]*ActionHTTP `json:"actions"`
-	Tags        []string               `json:"tags"`
-	Active      bool                   `json:"active"`
-	ID          string                 `json:"id,omitempty"`
-	Alert       *Alert                 `json:"alert,omitempty"`
-	Cooldown    string                 `json:"cooldown"`
+	Query       string             `json:"query"`
+	Duration    string             `json:"duration"`
+	Description string             `json:"description,omitempty"`
+	Interval    string             `json:"interval"`
+	Actions     map[string]*Action `json:"actions"`
+	Tags        []string           `json:"tags"`
+	Active      bool               `json:"active"`
+	ID          string             `json:"id,omitempty"`
+	Alert       *Alert             `json:"alert,omitempty"`
+	Cooldown    string             `json:"cooldown"`
 }
 
 // Validate returns nil if all fields of the Scaler have valid values.
@@ -64,7 +70,7 @@ func (s *Scaler) Validate() error {
 		return err
 	}
 
-	s.ID = utils.Hash(s.Query, crypto.MD5)
+	s.ID = fmt.Sprintf("%x", utils.Hash(s.Query, crypto.MD5))
 
 	return nil
 }
