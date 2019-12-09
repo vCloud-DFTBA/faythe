@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"github.com/avast/retry-go"
-
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"go.etcd.io/etcd/clientv3/concurrency"
