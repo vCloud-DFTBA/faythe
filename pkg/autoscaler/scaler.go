@@ -17,32 +17,63 @@ package autoscaler
 import (
 	"context"
 	"encoding/json"
-	"github.com/avast/retry-go"
-	"net"
+	"fmt"
 	"net/http"
 	"sync"
 	"time"
 
+	"github.com/avast/retry-go"
+
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
+	"go.etcd.io/etcd/clientv3/concurrency"
 
-	"github.com/ntk148v/faythe/pkg/metrics"
-	"github.com/ntk148v/faythe/pkg/model"
+	"github.com/vCloud-DFTBA/faythe/pkg/alert"
+	"github.com/vCloud-DFTBA/faythe/pkg/metrics"
+	"github.com/vCloud-DFTBA/faythe/pkg/model"
+	"github.com/vCloud-DFTBA/faythe/pkg/utils"
 )
+
+// scalerState is the state that a scaler is in.
+type scalerState int
 
 const (
-	httpTimeout = time.Second * 15
+	httpTimeout             = time.Second * 15
+	stateNone   scalerState = iota
+	stateStopping
+	stateStopped
+	stateFailed
+	stateActive
 )
+
+func (s scalerState) String() string {
+	switch s {
+	case stateNone:
+		return "none"
+	case stateStopping:
+		return "stopping"
+	case stateStopped:
+		return "stopped"
+	case stateFailed:
+		return "failed"
+	case stateActive:
+		return "acitve"
+	default:
+		panic(fmt.Sprintf("unknown scaler state: %d", s))
+	}
+}
 
 // Scaler does metric polling and executes scale actions.
 type Scaler struct {
 	model.Scaler
-	alert      *alert
+	alert      *alert.Alert
 	logger     log.Logger
 	mtx        sync.RWMutex
 	done       chan struct{}
 	terminated chan struct{}
 	backend    metrics.Backend
+	dlock      concurrency.Mutex
+	state      scalerState
 }
 
 func newScaler(l log.Logger, data []byte, b metrics.Backend) *Scaler {
@@ -56,14 +87,23 @@ func newScaler(l log.Logger, data []byte, b metrics.Backend) *Scaler {
 	if s.Alert == nil {
 		s.Alert = &model.Alert{}
 	}
-	s.alert = &alert{state: s.Alert}
+	s.alert = &alert.Alert{State: *s.Alert}
+	s.state = stateActive
 	return s
 }
 
 func (s *Scaler) stop() {
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
+	// Ignore close channel if scaler is already stopped/stopping
+	if s.state == stateStopping || s.state == stateStopped {
+		return
+	}
 	level.Debug(s.logger).Log("msg", "Scaler is stopping", "id", s.ID)
+	s.state = stateStopping
 	close(s.done)
 	<-s.terminated
+	s.state = stateStopped
 	level.Debug(s.logger).Log("msg", "Scaler is stopped", "id", s.ID)
 }
 
@@ -94,19 +134,24 @@ func (s *Scaler) run(ctx context.Context, wg *sync.WaitGroup) {
 				if err != nil {
 					level.Error(s.logger).Log("msg", "Executing query failed, skip current interval",
 						"query", s.Query, "err", err)
-					continue
+					s.state = stateFailed
+					if utils.RetryableError(err) {
+						continue
+					} else {
+						return
+					}
 				}
 				level.Debug(s.logger).Log("msg", "Executing query success",
 					"query", s.Query)
 				s.mtx.Lock()
 				if len(result) == 0 {
-					s.alert.reset()
+					s.alert.Reset()
 					continue
 				}
-				if !s.alert.isActive() {
-					s.alert.start()
+				if !s.alert.IsActive() {
+					s.alert.Start()
 				}
-				if s.alert.shouldFire(duration) && !s.alert.isCoolingDown(cooldown) {
+				if s.alert.ShouldFire(duration) && !s.alert.IsCoolingDown(cooldown) {
 					s.do()
 				}
 				s.mtx.Unlock()
@@ -129,9 +174,10 @@ func (s *Scaler) do() {
 	}
 
 	for _, a := range s.Actions {
-		go func(url string) {
+		go func(a *model.ActionHTTP) {
 			wg.Add(1)
 			delay, _ := time.ParseDuration(a.Delay)
+			url := a.URL.String()
 			err := retry.Do(
 				func() error {
 					// TODO(kiennt): Check kind of action url -> Authen or not?
@@ -159,57 +205,19 @@ func (s *Scaler) do() {
 				retry.Attempts(a.Attempts),
 				retry.Delay(delay),
 				retry.RetryIf(func(err error) bool {
-					if err, ok := err.(net.Error); ok && err.Timeout() {
-						return true
-					}
-					return false
+					return utils.RetryableError(err)
 				}),
 			)
 			if err != nil {
-				level.Error(s.logger).Log("msg", "Error doing scale action", "url", a.URL.String(), "err", err)
+				level.Error(s.logger).Log("msg", "Error doing scale action", "url", url, "err", err)
 				return
 			}
 			level.Info(s.logger).Log("msg", "Sending request", "id", s.ID,
 				"url", url, "method", a.Method)
-			s.alert.fire(time.Now())
+			s.alert.Fire(time.Now())
 			defer wg.Done()
-		}(string(a.URL))
+		}(a)
 	}
 	// Wait until all actions were performed
 	wg.Wait()
-}
-
-type alert struct {
-	state   *model.Alert
-	cooling bool
-}
-
-func (a *alert) shouldFire(duration time.Duration) bool {
-	return a.state.Active && time.Now().Sub(a.state.StartedAt) >= duration
-}
-
-func (a *alert) isCoolingDown(cooldown time.Duration) bool {
-	a.cooling = time.Now().Sub(a.state.FiredAt) <= cooldown
-	return a.cooling
-}
-
-func (a *alert) start() {
-	a.state.StartedAt = time.Now()
-	a.state.Active = true
-}
-
-func (a *alert) fire(firedAt time.Time) {
-	if a.state.FiredAt.IsZero() || !a.cooling {
-		a.state.FiredAt = firedAt
-	}
-}
-
-func (a *alert) reset() {
-	a.state.StartedAt = time.Time{}
-	a.state.Active = false
-	a.state.FiredAt = time.Time{}
-}
-
-func (a *alert) isActive() bool {
-	return a.state.Active
 }

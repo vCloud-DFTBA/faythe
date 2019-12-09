@@ -24,8 +24,8 @@ import (
 	"github.com/gorilla/mux"
 	etcdv3 "go.etcd.io/etcd/clientv3"
 
-	"github.com/ntk148v/faythe/pkg/model"
-	"github.com/ntk148v/faythe/pkg/utils"
+	"github.com/vCloud-DFTBA/faythe/pkg/model"
+	"github.com/vCloud-DFTBA/faythe/pkg/utils"
 )
 
 func (a *API) createScaler(w http.ResponseWriter, req *http.Request) {
@@ -41,7 +41,7 @@ func (a *API) createScaler(w http.ResponseWriter, req *http.Request) {
 	path = utils.Path(model.DefaultCloudPrefix, vars["provider_id"])
 	resp, _ := a.etcdclient.Get(req.Context(), path, etcdv3.WithCountOnly())
 	if resp.Count == 0 {
-		err := fmt.Errorf("Unknown provider id: %s", vars["provider_id"])
+		err := fmt.Errorf("unknown provider id: %s", vars["provider_id"])
 		a.respondError(w, apiError{
 			code: http.StatusBadRequest,
 			err:  err,
@@ -68,7 +68,7 @@ func (a *API) createScaler(w http.ResponseWriter, req *http.Request) {
 	}
 	resp, _ = a.etcdclient.Get(req.Context(), path, etcdv3.WithCountOnly())
 	if resp.Count > 0 && !force {
-		err := fmt.Errorf("The scaler with id %s is existed", s.ID)
+		err := fmt.Errorf("the scaler with id %s is existed", s.ID)
 		a.respondError(w, apiError{
 			code: http.StatusBadRequest,
 			err:  err,
@@ -78,7 +78,7 @@ func (a *API) createScaler(w http.ResponseWriter, req *http.Request) {
 	v, _ = json.Marshal(&s)
 	_, err := a.etcdclient.Put(req.Context(), path, string(v))
 	if err != nil {
-		err = fmt.Errorf("Error putting a key-value pair into etcd: %s", err.Error())
+		err = fmt.Errorf("error putting a key-value pair into etcd: %s", err.Error())
 		a.respondError(w, apiError{
 			code: http.StatusInternalServerError,
 			err:  err,
@@ -115,10 +115,10 @@ func (a *API) listScalers(w http.ResponseWriter, req *http.Request) {
 	scalers = make(map[string]model.Scaler, len(resp.Kvs))
 	for _, ev := range resp.Kvs {
 		wg.Add(1)
-		go func() {
+		go func(evv []byte, evk string) {
 			defer wg.Done()
 			var s model.Scaler
-			_ = json.Unmarshal(ev.Value, &s)
+			_ = json.Unmarshal(evv, &s)
 			// Filter
 			// Clouds that match all tags in this list will be returned
 			if fTags := req.FormValue("tags"); fTags != "" {
@@ -134,8 +134,8 @@ func (a *API) listScalers(w http.ResponseWriter, req *http.Request) {
 					return
 				}
 			}
-			scalers[string(ev.Key)] = s
-		}()
+			scalers[evk] = s
+		}(ev.Value, string(ev.Key))
 	}
 	wg.Wait()
 	a.respondSuccess(w, http.StatusOK, scalers)

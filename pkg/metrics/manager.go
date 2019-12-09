@@ -16,11 +16,12 @@ package metrics
 
 import (
 	"fmt"
+
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
 
-	"github.com/ntk148v/faythe/pkg/metrics/backends/prometheus"
+	"github.com/vCloud-DFTBA/faythe/pkg/metrics/backends/prometheus"
 )
 
 // Manager maintains a set of Backends.
@@ -44,11 +45,12 @@ func init() {
 	m = NewManager()
 }
 
-func (m *Manager) initBackend(btype string, address string) (Backend, error) {
+func (m *Manager) initBackend(btype string, address, username, password string) (Backend, error) {
 	switch btype {
-	case "prometheus":
-		return prometheus.New(address, log.With(m.logger, "component", "metric backend",
-			"name", fmt.Sprintf("%s-%s", btype, address)))
+	case Prometheus:
+		return prometheus.New(log.With(m.logger, "component", "metric backend",
+			"name", fmt.Sprintf("%s-%s", btype, address)),
+			address, username, password)
 	default:
 		return nil, errors.Errorf("unknown backend type %q", btype)
 	}
@@ -56,7 +58,7 @@ func (m *Manager) initBackend(btype string, address string) (Backend, error) {
 
 // Register inits Backend with input Type and address, puts the instantiated
 // backend to Registry.
-func (m *Manager) Register(btype, address string) error {
+func (m *Manager) Register(btype, address, username, password string) error {
 	name := fmt.Sprintf("%s-%s", btype, address)
 	// If the instantiated metrics backend already exists, let's just
 	// ignore it.
@@ -65,7 +67,7 @@ func (m *Manager) Register(btype, address string) error {
 	}
 
 	level.Info(m.logger).Log("msg", "Instantiating backend client for MetricsBackend", btype)
-	b, err := m.initBackend(btype, address)
+	b, err := m.initBackend(btype, address, username, password)
 	if err != nil {
 		return errors.Wrapf(err, "instantiating backend client for MetricsBackend %q", btype)
 	}
@@ -77,8 +79,8 @@ func (m *Manager) Register(btype, address string) error {
 
 // Register inits Backend with input Type and address, puts the instantiated
 // backend to Registry.
-func Register(btype, address string) error {
-	return m.Register(btype, address)
+func Register(btype, address, username, password string) error {
+	return m.Register(btype, address, username, password)
 }
 
 // Unregister removes Backend from registry

@@ -24,8 +24,8 @@ import (
 	"github.com/gorilla/mux"
 	etcdv3 "go.etcd.io/etcd/clientv3"
 
-	"github.com/ntk148v/faythe/pkg/model"
-	"github.com/ntk148v/faythe/pkg/utils"
+	"github.com/vCloud-DFTBA/faythe/pkg/model"
+	"github.com/vCloud-DFTBA/faythe/pkg/utils"
 )
 
 func (a *API) registerCloud(w http.ResponseWriter, req *http.Request) {
@@ -61,7 +61,7 @@ func (a *API) registerCloud(w http.ResponseWriter, req *http.Request) {
 		}
 		resp, _ := a.etcdclient.Get(req.Context(), k, etcdv3.WithCountOnly())
 		if resp.Count > 0 && !force {
-			err := fmt.Errorf("The provider with id %s is existed", ops.ID)
+			err := fmt.Errorf("the provider with id %s is existed", ops.ID)
 			a.respondError(w, apiError{
 				code: http.StatusBadRequest,
 				err:  err,
@@ -72,7 +72,7 @@ func (a *API) registerCloud(w http.ResponseWriter, req *http.Request) {
 		v, _ = json.Marshal(&ops)
 		_, err := a.etcdclient.Put(req.Context(), k, string(v))
 		if err != nil {
-			err = fmt.Errorf("Error putting a key-value pair into etcd: %s", err.Error())
+			err = fmt.Errorf("error putting a key-value pair into etcd: %s", err.Error())
 			a.respondError(w, apiError{
 				code: http.StatusInternalServerError,
 				err:  err,
@@ -104,10 +104,10 @@ func (a *API) listClouds(w http.ResponseWriter, req *http.Request) {
 	clouds = make(map[string]interface{}, len(resp.Kvs))
 	for _, ev := range resp.Kvs {
 		wg.Add(1)
-		go func() {
+		go func(evv []byte, evk string) {
 			defer wg.Done()
 			var cloud model.Cloud
-			_ = json.Unmarshal(ev.Value, &cloud)
+			_ = json.Unmarshal(evv, &cloud)
 			// Filter
 			if p := strings.ToLower(req.FormValue("provider")); p != "" && p != cloud.Provider {
 				return
@@ -129,15 +129,15 @@ func (a *API) listClouds(w http.ResponseWriter, req *http.Request) {
 					return
 				}
 			}
-			clouds[string(ev.Key)] = cloud
+			clouds[evk] = cloud
 			switch cloud.Provider {
 			case "openstack":
 				var ops model.OpenStack
-				_ = json.Unmarshal(ev.Value, &ops)
-				clouds[string(ev.Key)] = ops
+				_ = json.Unmarshal(evv, &ops)
+				clouds[evk] = ops
 			default:
 			}
-		}()
+		}(ev.Value, string(ev.Key))
 	}
 	wg.Wait()
 	a.respondSuccess(w, http.StatusOK, clouds)

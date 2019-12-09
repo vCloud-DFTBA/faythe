@@ -15,16 +15,68 @@
 package utils
 
 import (
+	"context"
 	"crypto"
 	"crypto/md5"
+	"crypto/rand"
 	"crypto/sha1"
 	"crypto/sha256"
 	"crypto/sha512"
+	"fmt"
 	"hash"
 	"hash/fnv"
+	"net"
+	"net/http"
 	"reflect"
+	"runtime"
+	"strconv"
 	"strings"
+	"syscall"
+
+	"github.com/pkg/errors"
+	etcdv3 "go.etcd.io/etcd/clientv3"
 )
+
+// BasicAuthTransport is an http.RoundTripper that authenticates all requests
+// using HTTP Basic Authentication with the provided username and password
+type BasicAuthTransport struct {
+	Username string
+	Password string
+	// Transport is the underlying HTTP transport to use when making requests.
+	// It will default to http.DefaultTransport if nil
+	Tranport http.RoundTripper
+}
+
+// RoundTrip implements the RoundTripper interface.
+func (t *BasicAuthTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	// To set extra headers, we must make a copy of the Request so
+	// that we don't modify the Request we were given. This is required by the
+	// specification of http.RoundTripper.
+	//
+	// Since we are going to modify only req.Header here, we only need a deep copy
+	// of req.Header.
+	clnReq := new(http.Request)
+	*clnReq = *req
+	clnReq.Header = make(http.Header, len(req.Header))
+	for k, s := range req.Header {
+		clnReq.Header[k] = append([]string(nil), s...)
+	}
+
+	clnReq.SetBasicAuth(t.Username, t.Password)
+	return t.transport().RoundTrip(clnReq)
+}
+
+func (t *BasicAuthTransport) transport() http.RoundTripper {
+	if t.Tranport == nil {
+		return http.DefaultTransport
+	}
+	return t.Tranport
+}
+
+// WatchContext returns a cancelable context and cancel function
+func WatchContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(etcdv3.WithRequireLeader(context.Background()))
+}
 
 // HashFNV generates a new 64-bit number from a given string
 // using 64-bit FNV-1a hash function.
@@ -36,7 +88,7 @@ func HashFNV(s string) string {
 
 // Hash generates a new slice of bytee hash from a given string
 // using a given hash algorithms.
-func Hash(s string, f crypto.Hash) []byte {
+func Hash(s string, f crypto.Hash) string {
 	var h hash.Hash
 	switch f {
 	case crypto.MD5:
@@ -50,36 +102,19 @@ func Hash(s string, f crypto.Hash) []byte {
 	default:
 	}
 	h.Write([]byte(s))
-	return h.Sum(nil)
+	return fmt.Sprintf("%x", h.Sum(nil))
+}
+
+// RandToken generates a random 16-bit token
+func RandToken() string {
+	b := make([]byte, 16)
+	_, _ = rand.Read(b)
+	return fmt.Sprintf("%x", b)
 }
 
 // Path returns a etcd key path.
 func Path(keys ...string) string {
 	return strings.Join(append([]string{}, keys...), "/")
-}
-
-// Secret special type for storing secrets.
-type Secret string
-
-// MarshalYAML implements the yaml.Marshaler interface for Secrets.
-func (s Secret) MarshalYAML() (interface{}, error) {
-	if s != "" {
-		return "<secret>", nil
-	}
-	return nil, nil
-}
-
-// UnmarshalYAML implements the yaml.Unmarshaler interface for Secrets.
-func (s *Secret) UnmarshalYAML(unmarshal func(interface{}) error) error {
-	type plain Secret
-	return unmarshal((*plain)(s))
-}
-
-func (s Secret) MarshalJSON() ([]byte, error) {
-	if s != "" {
-		return []byte(`"<secret>"`), nil
-	}
-	return nil, nil
 }
 
 // Find tells whether string contains x.
@@ -106,4 +141,94 @@ func Find(a []string, x interface{}, op string) bool {
 		}
 	}
 	return r
+}
+
+// AddParts returns the parts of the address
+func AddParts(address string) (string, int, error) {
+	_, _, err := net.SplitHostPort(address)
+	if err != nil {
+		return "", 0, err
+	}
+
+	// Get the address
+	addr, err := net.ResolveTCPAddr("tcp", address)
+	if err != nil {
+		return "", 0, err
+	}
+
+	return addr.IP.String(), addr.Port, nil
+}
+
+// RuntimeStats is used to return various runtime information
+func RuntimeStats() map[string]string {
+	return map[string]string{
+		"os":         runtime.GOOS,
+		"arch":       runtime.GOARCH,
+		"version":    runtime.Version(),
+		"max_procs":  strconv.FormatInt(int64(runtime.GOMAXPROCS(0)), 10),
+		"goroutines": strconv.FormatInt(int64(runtime.NumGoroutine()), 10),
+		"cpu_count":  strconv.FormatInt(int64(runtime.NumCPU()), 10),
+	}
+}
+
+// ExternalIP returns an external ip address of the current host
+func ExternalIP() (string, error) {
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return "", err
+	}
+	for _, iface := range ifaces {
+		if iface.Flags&net.FlagUp == 0 {
+			continue // interface down
+		}
+		if iface.Flags&net.FlagLoopback != 0 {
+			continue // loopback interface
+		}
+		addrs, err := iface.Addrs()
+		if err != nil {
+			return "", err
+		}
+		for _, addr := range addrs {
+			var ip net.IP
+			switch v := addr.(type) {
+			case *net.IPNet:
+				ip = v.IP
+			case *net.IPAddr:
+				ip = v.IP
+			}
+			if ip == nil || ip.IsLoopback() {
+				continue
+			}
+			ip = ip.To4()
+			if ip == nil {
+				continue // not an ipv4 address
+			}
+			return ip.String(), nil
+		}
+	}
+	return "", errors.New("a node didn't connect to any networks")
+}
+
+// RetryableError determines that given error is retryable or not.
+func RetryableError(err error) bool {
+	if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+		return true
+	}
+
+	switch t := err.(type) {
+	case *net.OpError:
+		if t.Op == "dial" {
+			return false
+		}
+		if t.Op == "read" {
+			// Accept retry if there is connection refused error
+			return true
+		}
+	case syscall.Errno:
+		if t == syscall.ECONNREFUSED {
+			// Accept retry if there is connection refused error
+			return true
+		}
+	}
+	return false
 }

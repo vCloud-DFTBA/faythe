@@ -1,6 +1,6 @@
 # Faythe
 
-[![license](https://img.shields.io/badge/license-Apache%20v2.0-blue.svg)](LICENSE) [![Go Report Card](https://goreportcard.com/badge/github.com/ntk148v/faythe)](https://goreportcard.com/report/github.com/ntk148v/faythe)
+[![license](https://img.shields.io/badge/license-Apache%20v2.0-blue.svg)](LICENSE) [![Go Report Card](https://goreportcard.com/badge/github.com/vCloud-DFTBA/faythe)](https://goreportcard.com/report/github.com/vCloud-DFTBA/faythe)
 
 ```
   _____                __  .__            
@@ -33,4 +33,4 @@ Check out [documentation directory](./docs).
 
 ## Version
 
-You can find [Faythe legacy version](https://github.com/ntk148v/faythe/tree/legacy). This is a just work version with autoscaling & autohealing.
+You can find [Faythe legacy version](https://github.com/vCloud-DFTBA/faythe/tree/legacy). This is a just work version with autoscaling & autohealing.
