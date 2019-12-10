@@ -349,6 +349,6 @@ func (hm *Manager) getATEngine(key string) (model.ATEngine, error) {
 }
 
 // MakeKey creates key from id and instance
-func MakeKey(name string, instance string) string {
-	return fmt.Sprintf("%s/%s", name, instance)
+func MakeKey(id string, instance string) string {
+	return fmt.Sprintf("%s/%s", id, instance)
 }
