@@ -89,7 +89,7 @@ func (nr *NResolver) run(ctx context.Context, wg *sync.WaitGroup, nc *chan NodeM
 
 // Stop destroys name resolver instance
 func (nr *NResolver) Stop() {
-	level.Debug(nr.logger).Log("msg", "NResolver is stopping", "id", nr.ID)
+	level.Debug(nr.logger).Log("msg", "NResolver is stopping")
 	close(nr.done)
-	level.Debug(nr.logger).Log("msg", "NResolver is stopped", "id", nr.ID)
+	level.Debug(nr.logger).Log("msg", "NResolver is stopped")
 }

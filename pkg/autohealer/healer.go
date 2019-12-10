@@ -151,8 +151,7 @@ func (h *Healer) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string
 
 				// If no of instance > 3, clear all goroutines
 				if len(rIs) > 3 {
-					level.Info(h.logger).Log("msg", fmt.Sprintf("Not processed because the number of instance needed healing > %d",len(rIs)),
-						"name", h.ID)
+					level.Info(h.logger).Log("msg", fmt.Sprintf("Not processed because the number of instance needed healing > %d",len(rIs)))
 					for k, c := range chans {
 						close(*c)
 						delete(chans, k)
@@ -272,7 +271,7 @@ func (h *Healer) do(compute string) {
 						"url", at.URL.String(), "err", err)
 					return
 				}
-				level.Info(h.logger).Log("msg", "Sending request", "id", h.ID,
+				level.Info(h.logger).Log("msg", "Sending request",
 					"url", url, "method", at.Method)
 			}(string(at.URL), compute)
 		case *model.ActionMail:
@@ -302,10 +301,10 @@ func (h *Healer) Stop() {
 	if h.state == stateStopping || h.state == stateStopped {
 		return
 	}
-	level.Debug(h.logger).Log("msg", "Healer is stopping", "id", h.ID)
+	level.Debug(h.logger).Log("msg", "Healer is stopping", "id")
 	h.state = stateStopping
 	close(h.done)
 	<-h.terminated
 	h.state = stateStopped
-	level.Debug(h.logger).Log("msg", "Healer is stopped", "id", h.ID)
+	level.Debug(h.logger).Log("msg", "Healer is stopped", "id")
 }

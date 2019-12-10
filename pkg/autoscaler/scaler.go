@@ -99,12 +99,12 @@ func (s *Scaler) Stop() {
 	if s.state == stateStopping || s.state == stateStopped {
 		return
 	}
-	level.Debug(s.logger).Log("msg", "Scaler is stopping", "id", s.ID)
+	level.Debug(s.logger).Log("msg", "Scaler is stopping")
 	s.state = stateStopping
 	close(s.done)
 	<-s.terminated
 	s.state = stateStopped
-	level.Debug(s.logger).Log("msg", "Scaler is stopped", "id", s.ID)
+	level.Debug(s.logger).Log("msg", "Scaler is stopped")
 }
 
 func (s *Scaler) run(ctx context.Context, wg *sync.WaitGroup) {
@@ -213,7 +213,7 @@ func (s *Scaler) do() {
 				level.Error(s.logger).Log("msg", "Error doing scale action", "url", url, "err", err)
 				return
 			}
-			level.Info(s.logger).Log("msg", "Sending request", "id", s.ID,
+			level.Info(s.logger).Log("msg", "Sending request",
 				"url", url, "method", a.Method)
 			s.alert.Fire(time.Now())
 			defer wg.Done()
