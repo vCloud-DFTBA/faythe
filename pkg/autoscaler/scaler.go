@@ -146,6 +146,7 @@ func (s *Scaler) run(ctx context.Context, wg *sync.WaitGroup) {
 				s.mtx.Lock()
 				if len(result) == 0 {
 					s.alert.Reset()
+					s.mtx.Unlock()
 					continue
 				}
 				if !s.alert.IsActive() {
