@@ -92,7 +92,7 @@ func newScaler(l log.Logger, data []byte, b metrics.Backend) *Scaler {
 	return s
 }
 
-func (s *Scaler) stop() {
+func (s *Scaler) Stop() {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 	// Ignore close channel if scaler is already stopped/stopping

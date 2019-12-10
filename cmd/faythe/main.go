@@ -144,8 +144,8 @@ func main() {
 	defer func() {
 		watchCancel()
 		fas.Stop()
-		cls.Stop()
 		fah.Stop()
+		cls.Stop()
 		etcdCli.Close()
 		level.Info(logger).Log("msg", "Faythe is stopped, bye bye!")
 	}()

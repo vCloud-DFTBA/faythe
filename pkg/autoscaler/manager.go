@@ -35,7 +35,7 @@ import (
 // Manager manages a set of Scaler instances.
 type Manager struct {
 	logger  log.Logger
-	rgt     *Registry
+	rgt     *utils.Registry
 	stop    chan struct{}
 	etcdcli *etcdv3.Client
 	watch   etcdv3.WatchChan
@@ -47,7 +47,7 @@ type Manager struct {
 func NewManager(l log.Logger, e *etcdv3.Client, c *cluster.Cluster) *Manager {
 	m := &Manager{
 		logger:  l,
-		rgt:     &Registry{items: make(map[string]*Scaler)},
+		rgt:     &utils.Registry{Items: make(map[string]utils.Worker)},
 		stop:    make(chan struct{}),
 		etcdcli: e,
 		wg:      &sync.WaitGroup{},
@@ -118,7 +118,7 @@ func (m *Manager) stopScaler(id string) {
 		return
 	}
 	level.Info(m.logger).Log("msg", "Removing scaler", "id", id)
-	s.stop()
+	s.Stop()
 	m.rgt.Delete(id)
 }
 
@@ -182,22 +182,25 @@ func (m *Manager) getBackend(key string) (metrics.Backend, error) {
 func (m *Manager) save() {
 	for i := range m.rgt.Iter() {
 		m.wg.Add(1)
-		go func(i RegistryItem) {
-			defer m.wg.Done()
-			i.Value.Alert = &i.Value.alert.State
-			raw, err := json.Marshal(&i.Value)
-			if err != nil {
-				level.Error(m.logger).Log("msg", "Error serializing scaler object",
-					"id", i.Key, "err", err)
-				return
+		defer m.wg.Done()
+		go func(i utils.RegistryItem) {
+			switch it := i.Value.(type) {
+			case *Scaler:
+				it.Alert = &it.alert.State
+				raw, err := json.Marshal(&i.Value)
+				if err != nil {
+					level.Error(m.logger).Log("msg", "Error serializing scaler object",
+						"id", i.Name, "err", err)
+					return
+				}
+				_, err = m.etcdcli.Put(context.Background(), i.Name, string(raw))
+				if err != nil {
+					level.Error(m.logger).Log("msg", "Error putting scaler object",
+						"key", i.Name, "err", err)
+					return
+				}
+				m.stopScaler(i.Name)
 			}
-			_, err = m.etcdcli.Put(context.Background(), i.Key, string(raw))
-			if err != nil {
-				level.Error(m.logger).Log("msg", "Error putting scaler object",
-					"key", i.Key, "err", err)
-				return
-			}
-			m.stopScaler(i.Key)
 		}(i)
 	}
 }
@@ -235,7 +238,10 @@ func (m *Manager) rebalance() {
 
 			if !ok1 {
 				if ok2 {
-					scaler.Alert = &scaler.alert.State
+					switch s := scaler.(type) {
+					case *Scaler:
+						s.Alert = &s.alert.State
+					}
 					raw, err := json.Marshal(&scaler)
 					if err != nil {
 						level.Error(m.logger).Log("msg", "Error serializing scaler object",
@@ -250,7 +256,7 @@ func (m *Manager) rebalance() {
 					}
 					level.Info(m.logger).Log("msg", "Removing scaler, another worker node takes it",
 						"scaler", id, "local", local, "worker", worker)
-					scaler.stop()
+					scaler.Stop()
 					m.rgt.Delete(id)
 				}
 			} else if !ok2 {
