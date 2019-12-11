@@ -10,6 +10,9 @@ const (
 	// OpenStackType represents a OpenStack type
 	OpenStackType string = "openstack"
 
+	// PrometheusType is a Prometheus backend
+	PrometheusType string = "prometheus"
+
 	FixedDelay   string = "fixed"
 	BackoffDelay string = "backoff"
 

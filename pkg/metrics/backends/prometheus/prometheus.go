@@ -26,12 +26,14 @@ import (
 	prometheus "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
 
+	fmodel "github.com/vCloud-DFTBA/faythe/pkg/model"
 	"github.com/vCloud-DFTBA/faythe/pkg/utils"
 )
 
 // Backend implements a metric backend for Prometheus.
 type Backend struct {
 	prometheus prometheus.API
+	address    string
 	logger     log.Logger
 }
 
@@ -60,6 +62,16 @@ func New(logger log.Logger, address, username, password string) (*Backend, error
 		prometheus: api,
 		logger:     logger,
 	}, nil
+}
+
+// GetType returns backend type, for example Prometheus.
+func (b *Backend) GetType() string {
+	return fmodel.PrometheusType
+}
+
+// GetAddress returns backend address.
+func (b *Backend) GetAddress() string {
+	return b.address
 }
 
 // QueryInstant performs instant query and returns results in model.Vector type.
