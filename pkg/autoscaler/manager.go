@@ -187,20 +187,24 @@ func (m *Manager) save() {
 			switch it := i.Value.(type) {
 			case *Scaler:
 				it.Alert = &it.alert.State
-				raw, err := json.Marshal(&i.Value)
-				if err != nil {
-					level.Error(m.logger).Log("msg", "Error serializing scaler object",
-						"name", i.Name, "err", err)
-					return
-				}
-				_, err = m.etcdcli.Put(context.Background(), i.Name, string(raw))
-				if err != nil {
-					level.Error(m.logger).Log("msg", "Error putting scaler object",
-						"name", i.Name, "err", err)
-					return
-				}
-				m.stopScaler(i.Name)
+			default:
+				level.Error(m.logger).Log("msg", "Registry can contains only Scalers",
+					"name", i.Name)
+				return
 			}
+			raw, err := json.Marshal(&i.Value)
+			if err != nil {
+				level.Error(m.logger).Log("msg", "Error serializing scaler object",
+					"name", i.Name, "err", err)
+				return
+			}
+			_, err = m.etcdcli.Put(context.Background(), i.Name, string(raw))
+			if err != nil {
+				level.Error(m.logger).Log("msg", "Error putting scaler object",
+					"name", i.Name, "err", err)
+				return
+			}
+			m.stopScaler(i.Name)
 		}(i)
 	}
 }
@@ -241,6 +245,10 @@ func (m *Manager) rebalance() {
 					switch s := scaler.(type) {
 					case *Scaler:
 						s.Alert = &s.alert.State
+					default:
+						level.Error(m.logger).Log("msg", "Registry can contains only Scalers",
+							"name", name)
+						return
 					}
 					raw, err := json.Marshal(&scaler)
 					if err != nil {

@@ -130,7 +130,7 @@ func (h *Healer) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string
 					instance := strings.Split(string(e.Metric["instance"]), ":")[0]
 					rIs[instance]++
 				}
-				
+
 				for k, v := range rIs {
 					if v != h.EvaluationLevel {
 						delete(rIs, k)
@@ -151,7 +151,7 @@ func (h *Healer) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string
 
 				// If no of instance > 3, clear all goroutines
 				if len(rIs) > 3 {
-					level.Info(h.logger).Log("msg", fmt.Sprintf("Not processed because the number of instance needed healing > %d",len(rIs)))
+					level.Info(h.logger).Log("msg", fmt.Sprintf("Not processed because the number of instance needed healing > %d", len(rIs)))
 					for k, c := range chans {
 						close(*c)
 						delete(chans, k)
