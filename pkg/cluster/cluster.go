@@ -261,16 +261,6 @@ func (c *Cluster) LocalIsWorker(key string) (string, string, bool) {
 	return c.local.Name, worker.Name, workerID == c.local.ID
 }
 
-// LocalMember returns the local node member.
-func (c *Cluster) LocalMember() model.Member {
-	return c.local
-}
-
-// ClusterID returns the cluster id.
-func (c *Cluster) ClusterID() string {
-	return c.id
-}
-
 func newLocalMember(bindAddr string) (model.Member, error) {
 	m := model.Member{}
 	hostname, err := os.Hostname()

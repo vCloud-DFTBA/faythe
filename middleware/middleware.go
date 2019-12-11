@@ -29,54 +29,6 @@ import (
 	"github.com/vCloud-DFTBA/faythe/pkg/exporter"
 )
 
-var (
-	inFlightGauge = prometheus.NewGauge(
-		prometheus.GaugeOpts{
-			Name: "faythe_in_flight_requests",
-			Help: "A gauge of requests currently being served by the wrapper handler.",
-		},
-	)
-
-	requestsCount = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "faythe_api_requests_total",
-			Help: "A counter for requests to the wrapped handler.",
-		},
-		[]string{"handler", "code", "method"},
-	)
-
-	requestDuration = prometheus.NewHistogramVec(
-		prometheus.HistogramOpts{
-			Name:    "faythe_request_duration_seconds",
-			Help:    "A histogram of latencies for requests.",
-			Buckets: []float64{.05, 0.1, .25, .5, .75, 1, 2, 5, 20, 60},
-		},
-		[]string{"handler", "code", "method"},
-	)
-
-	requestSize = prometheus.NewHistogramVec(
-		prometheus.HistogramOpts{
-			Name:    "faythe_request_size_bytes",
-			Help:    "A histogram of request sizes for requests.",
-			Buckets: prometheus.ExponentialBuckets(100, 10, 7),
-		},
-		[]string{"handler", "code", "method"},
-	)
-
-	responseSize = prometheus.NewHistogramVec(
-		prometheus.HistogramOpts{
-			Name:    "faythe_response_size_bytes",
-			Help:    "A histogram of response sizes for requests.",
-			Buckets: prometheus.ExponentialBuckets(100, 10, 7),
-		},
-		[]string{"handler", "code", "method"},
-	)
-)
-
-func init() {
-	prometheus.MustRegister(inFlightGauge, requestsCount, requestDuration, requestSize, responseSize)
-}
-
 // Middleware represents middleware handlers.
 type Middleware struct {
 	logger log.Logger
