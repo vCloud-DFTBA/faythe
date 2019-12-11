@@ -187,7 +187,7 @@ func (hm *Manager) Run(ctx context.Context) {
 			return
 		case watchResp := <-hm.watchc:
 			if watchResp.Err() != nil {
-				level.Error(hm.logger).Log("msg", "Error watching cluster state", "err", watchResp.Err())
+				level.Error(hm.logger).Log("msg", "Error watching etcd cloud provider keys", "err", watchResp.Err())
 				break
 			}
 			for _, event := range watchResp.Events {
@@ -224,7 +224,7 @@ func (hm *Manager) Run(ctx context.Context) {
 			}
 		case watchResp := <-hm.watchh:
 			if watchResp.Err() != nil {
-				level.Error(hm.logger).Log("msg", "Error watching cluster state", "err", watchResp.Err())
+				level.Error(hm.logger).Log("msg", "Error watching etcd healer keys", "err", watchResp.Err())
 				break
 			}
 			for _, event := range watchResp.Events {
