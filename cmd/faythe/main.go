@@ -154,9 +154,9 @@ func main() {
 		fah.Stop()
 		etcdcli.Close()
 	}
-	defer func() {
-		stopFunc()
-	}()
+
+	// Force clean-up when shutdown.
+	defer stopFunc()
 
 	// Init HTTP server
 	srv := http.Server{Addr: cfg.listenAddress, Handler: router}
