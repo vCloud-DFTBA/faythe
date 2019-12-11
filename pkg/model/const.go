@@ -30,4 +30,7 @@ const (
 
 	// DefaultScalerPrefix is the etcd default prefix for scaler
 	DefaultScalerPrefix string = "/scalers"
+
+	// DefaultSilencePrefix is default etcd prefix for Silences
+	DefaultSilencePrefix string = "/silences"
 )
