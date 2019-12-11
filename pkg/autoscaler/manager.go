@@ -28,6 +28,7 @@ import (
 
 	"github.com/vCloud-DFTBA/faythe/pkg/cluster"
 	"github.com/vCloud-DFTBA/faythe/pkg/common"
+	"github.com/vCloud-DFTBA/faythe/pkg/exporter"
 	"github.com/vCloud-DFTBA/faythe/pkg/metrics"
 	"github.com/vCloud-DFTBA/faythe/pkg/model"
 )
@@ -54,7 +55,7 @@ func NewManager(l log.Logger, e *etcdv3.Client, c *cluster.Cluster) *Manager {
 		cluster: c,
 	}
 	// Init with 0
-	reportNumScalers(m.cluster.ClusterID(), m.cluster.LocalMember().Name, 0)
+	exporter.ReportNumScalers(cluster.ClusterID, 0)
 	// Load at init
 	m.load()
 	return m
@@ -122,7 +123,7 @@ func (m *Manager) stopScaler(name string) {
 	level.Info(m.logger).Log("msg", "Removing scaler", "name", name)
 	s.Stop()
 	m.rgt.Delete(name)
-	reportNumScalers(m.cluster.ClusterID(), m.cluster.LocalMember().Name, -1)
+	exporter.ReportNumScalers(cluster.ClusterID, -1)
 }
 
 func (m *Manager) startScaler(name string, data []byte) {
@@ -143,7 +144,7 @@ func (m *Manager) startScaler(name string, data []byte) {
 	go func() {
 		m.wg.Add(1)
 		s.run(context.Background(), m.wg)
-		reportNumScalers(m.cluster.ClusterID(), m.cluster.LocalMember().Name, 1)
+		exporter.ReportNumScalers(cluster.ClusterID, 1)
 	}()
 }
 

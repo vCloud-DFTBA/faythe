@@ -29,6 +29,7 @@ import (
 
 	"github.com/vCloud-DFTBA/faythe/pkg/cluster"
 	"github.com/vCloud-DFTBA/faythe/pkg/common"
+	"github.com/vCloud-DFTBA/faythe/pkg/exporter"
 	"github.com/vCloud-DFTBA/faythe/pkg/metrics"
 	"github.com/vCloud-DFTBA/faythe/pkg/model"
 )
@@ -61,6 +62,7 @@ func NewManager(l log.Logger, e *etcdv3.Client, c *cluster.Cluster) *Manager {
 		ncout:   make(chan map[string]string),
 		cluster: c,
 	}
+	exporter.ReportNumberOfHealers(cluster.ClusterID, 0)
 	hm.load()
 	return hm
 }
@@ -116,6 +118,7 @@ func (hm *Manager) startWorker(p string, name string, data []byte) {
 		go func() {
 			hm.wg.Add(1)
 			h.run(context.Background(), hm.wg, hm.ncout)
+			exporter.ReportNumberOfHealers(cluster.ClusterID, 1)
 		}()
 	}
 }
@@ -131,6 +134,7 @@ func (hm *Manager) stopWorker(name string) {
 
 	w.Stop()
 	hm.rqt.Delete(name)
+	exporter.ReportNumberOfHealers(cluster.ClusterID, -1)
 }
 
 // Stop destroy name resolver, healer and itself
