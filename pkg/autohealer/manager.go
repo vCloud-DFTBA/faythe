@@ -241,7 +241,7 @@ func (hm *Manager) Run(ctx context.Context) {
 				}
 			}
 		case nm := <-hm.ncin:
-			hm.nodes[MakeKey(nm.CloudID, strings.Split(nm.Metric.Instance, ":")[0])] = nm.Metric.Nodename
+			hm.nodes[makeKey(nm.CloudID, strings.Split(nm.Metric.Instance, ":")[0])] = nm.Metric.Nodename
 		case nm := <-hm.ncout:
 			if len(hm.nodes) != 0 {
 				if m, ok := hm.nodes[nm["instance"]]; ok {
@@ -328,7 +328,7 @@ func (hm *Manager) getATEngine(key string) (model.ATEngine, error) {
 	return atengine, nil
 }
 
-// MakeKey creates key from id and instance
-func MakeKey(id string, instance string) string {
+// makeKey creates key from id and instance
+func makeKey(id string, instance string) string {
 	return fmt.Sprintf("%s/%s", id, instance)
 }
