@@ -28,7 +28,7 @@ import (
 )
 
 // NResolver stands for name resolver
-// it collects information from metrics which map instance IP to instance name
+// it collects information from metrics backend which map instance IP to instance name
 type NResolver struct {
 	model.NResolver
 	logger  log.Logger
@@ -63,7 +63,7 @@ func (nr *NResolver) run(ctx context.Context, wg *sync.WaitGroup, nc *chan NodeM
 					"query", model.DefaultNResolverQuery, "err", err)
 				continue
 			}
-			level.Debug(nr.logger).Log("msg", "Execcuting query success", "query", model.DefaultNResolverQuery)
+			level.Debug(nr.logger).Log("msg", "Executing query success", "query", model.DefaultNResolverQuery)
 			nr.mtx.Lock()
 			for _, el := range result {
 				j, err := el.MarshalJSON()

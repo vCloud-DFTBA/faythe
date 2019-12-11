@@ -35,7 +35,7 @@ import (
 
 const httpTimeout = time.Second * 15
 
-// Healer scrape metrics from metrics backend priodically
+// Healer scrape metric from metrics backend periodically
 // and evaluate whether it is necessary to do healing action
 type Healer struct {
 	model.Healer
