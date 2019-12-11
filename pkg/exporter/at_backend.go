@@ -12,31 +12,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package autoscaler
+package exporter
 
 import "github.com/prometheus/client_golang/prometheus"
 
 // Set of raw Prometheus metrics.
 // Do not increment directly, use Report* methods.
 var (
-	numberOfScalers = prometheus.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Name: "faythe_scalers_total",
-			Help: "Total number of scalers are currently managed by this cluster member.",
+	atRequestFailureCounter = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "faythe",
+			Subsystem: "metric",
+			Name:      "query_failures_total",
+			Help:      "The total number of automation system (Stackstorm for ex) request failures total.",
 		},
-		[]string{"cluster", "member"})
+		[]string{"cluster", "endpoint"})
 )
 
 func init() {
-	prometheus.MustRegister(numberOfScalers)
+	prometheus.MustRegister(atRequestFailureCounter)
 }
 
-func reportNumScalers(clusterID, memberName string, val float64) {
-	if val == 0 {
-		numberOfScalers.WithLabelValues(clusterID, memberName).Set(val)
-	} else if val < 0 {
-		numberOfScalers.WithLabelValues(clusterID, memberName).Sub(val)
-	} else {
-		numberOfScalers.WithLabelValues(clusterID, memberName).Add(val)
-	}
+func ReportATRequestFailureCounter(clusterID, endpoint string) {
+	atRequestFailureCounter.WithLabelValues(clusterID, endpoint).Inc()
 }

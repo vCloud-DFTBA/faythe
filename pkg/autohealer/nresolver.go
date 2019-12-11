@@ -23,6 +23,8 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 
+	"github.com/vCloud-DFTBA/faythe/pkg/cluster"
+	"github.com/vCloud-DFTBA/faythe/pkg/exporter"
 	"github.com/vCloud-DFTBA/faythe/pkg/metrics"
 	"github.com/vCloud-DFTBA/faythe/pkg/model"
 )
@@ -61,6 +63,8 @@ func (nr *NResolver) run(ctx context.Context, wg *sync.WaitGroup, nc *chan NodeM
 			if err != nil {
 				level.Error(nr.logger).Log("msg", "Executing query failed",
 					"query", model.DefaultNResolverQuery, "err", err)
+				exporter.ReportMetricQueryFailureCounter(cluster.ClusterID,
+					nr.backend.GetType(), nr.backend.GetAddress())
 				continue
 			}
 			level.Debug(nr.logger).Log("msg", "Executing query success", "query", model.DefaultNResolverQuery)
