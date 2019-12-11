@@ -28,6 +28,8 @@ import (
 	"github.com/go-kit/kit/log/level"
 
 	"github.com/vCloud-DFTBA/faythe/pkg/alert"
+	"github.com/vCloud-DFTBA/faythe/pkg/cluster"
+	"github.com/vCloud-DFTBA/faythe/pkg/exporter"
 	"github.com/vCloud-DFTBA/faythe/pkg/metrics"
 	"github.com/vCloud-DFTBA/faythe/pkg/model"
 	"github.com/vCloud-DFTBA/faythe/pkg/utils"
@@ -116,6 +118,8 @@ func (h *Healer) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string
 					level.Error(h.logger).Log("msg", "Executing query failed, skip current interval",
 						"query", h.Query, "err", err)
 					h.state = stateFailed
+					exporter.ReportMetricQueryFailureCounter(cluster.ClusterID,
+						h.backend.GetType(), h.backend.GetAddress())
 					if utils.RetryableError(err) {
 						continue
 					} else {
@@ -130,7 +134,7 @@ func (h *Healer) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string
 					instance := strings.Split(string(e.Metric["instance"]), ":")[0]
 					rIs[instance]++
 				}
-				
+
 				for k, v := range rIs {
 					if v != h.EvaluationLevel {
 						delete(rIs, k)
@@ -151,7 +155,7 @@ func (h *Healer) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string
 
 				// If no of instance > 3, clear all goroutines
 				if len(rIs) > 3 {
-					level.Info(h.logger).Log("msg", fmt.Sprintf("Not processed because the number of instance needed healing > %d",len(rIs)),
+					level.Info(h.logger).Log("msg", fmt.Sprintf("Not processed because the number of instance needed healing > %d", len(rIs)),
 						"name", h.ID)
 					for k, c := range chans {
 						close(*c)
@@ -270,6 +274,8 @@ func (h *Healer) do(compute string) {
 				if err := alert.SendHTTP(h.logger, cli, at, params); err != nil {
 					level.Error(h.logger).Log("msg", "Error doing HTTP action",
 						"url", at.URL.String(), "err", err)
+					exporter.ReportFailureHealerActionCounter(cluster.ClusterID, "http")
+					exporter.ReportATRequestFailureCounter(cluster.ClusterID, at.URL.String())
 					return
 				}
 				level.Info(h.logger).Log("msg", "Sending request", "id", h.ID,
@@ -284,6 +290,7 @@ func (h *Healer) do(compute string) {
 				if err := alert.SendMail(at); err != nil {
 					level.Error(h.logger).Log("msg", "Error doing Mail action",
 						"err", err)
+					exporter.ReportFailureHealerActionCounter(cluster.ClusterID, "mail")
 					return
 				}
 				level.Info(h.logger).Log("msg", "Sending mail to", "receivers", strings.Join(at.Receivers, ","))

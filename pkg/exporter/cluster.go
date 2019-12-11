@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cluster
+package exporter
 
 import (
 	"github.com/prometheus/client_golang/prometheus"
@@ -23,24 +23,28 @@ import (
 // Set of raw Prometheus metrics.
 // Do not increment directly, use Report* methods.
 var (
-	memberJoinCounter = prometheus.NewCounter(
+	MemberJoinCounter = prometheus.NewCounter(
 		prometheus.CounterOpts{
-			Name: "faythe_cluster_member_join_total",
-			Help: "A counter of the number of members that have joined.",
+			Namespace: "faythe",
+			Subsystem: "cluster",
+			Name:      "member_join_total",
+			Help:      "A counter of the number of members that have joined.",
 		})
-	memberLeaveCounter = prometheus.NewCounter(
+	MemberLeaveCounter = prometheus.NewCounter(
 		prometheus.CounterOpts{
-			Name: "faythe_cluster_member_leave_total",
-			Help: "A counter of the number of members that have left.",
+			Namespace: "faythe",
+			Subsystem: "cluster",
+			Name:      "member_leave_total",
+			Help:      "A counter of the number of members that have left.",
 		})
 )
 
 func init() {
-	prometheus.MustRegister(memberJoinCounter)
-	prometheus.MustRegister(memberLeaveCounter)
+	prometheus.MustRegister(MemberJoinCounter)
+	prometheus.MustRegister(MemberLeaveCounter)
 }
 
-func registerMemberInfo(clusterID string, member model.Member) {
+func RegisterMemberInfo(clusterID string, member model.Member) {
 	memberInfo := prometheus.NewGauge(
 		prometheus.GaugeOpts{
 			Name: "faythe_cluster_member_info",
@@ -56,10 +60,10 @@ func registerMemberInfo(clusterID string, member model.Member) {
 	memberInfo.Set(1)
 }
 
-func reportClusterJoin() {
-	memberJoinCounter.Inc()
+func ReportClusterJoin() {
+	MemberJoinCounter.Inc()
 }
 
-func reportClusterLeave() {
-	memberLeaveCounter.Inc()
+func ReportClusterLeave() {
+	MemberLeaveCounter.Inc()
 }
