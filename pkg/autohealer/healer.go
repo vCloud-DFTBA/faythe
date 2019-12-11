@@ -301,10 +301,10 @@ func (h *Healer) Stop() {
 	if h.state == stateStopping || h.state == stateStopped {
 		return
 	}
-	level.Debug(h.logger).Log("msg", "Healer is stopping", "id")
+	level.Debug(h.logger).Log("msg", "Healer is stopping")
 	h.state = stateStopping
 	close(h.done)
 	<-h.terminated
 	h.state = stateStopped
-	level.Debug(h.logger).Log("msg", "Healer is stopped", "id")
+	level.Debug(h.logger).Log("msg", "Healer is stopped")
 }
