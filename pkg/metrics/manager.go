@@ -22,6 +22,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/vCloud-DFTBA/faythe/pkg/metrics/backends/prometheus"
+	"github.com/vCloud-DFTBA/faythe/pkg/model"
 )
 
 // Manager maintains a set of Backends.
@@ -47,7 +48,7 @@ func init() {
 
 func (m *Manager) initBackend(btype string, address, username, password string) (Backend, error) {
 	switch btype {
-	case Prometheus:
+	case model.PrometheusType:
 		return prometheus.New(log.With(m.logger, "component", "metric backend",
 			"name", fmt.Sprintf("%s-%s", btype, address)),
 			address, username, password)
