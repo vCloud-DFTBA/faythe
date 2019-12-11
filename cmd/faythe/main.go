@@ -95,7 +95,7 @@ func main() {
 
 	var (
 		etcdConf = etcdv3.Config{}
-		etcdCli  = &etcd.V3{}
+		etcdcli  = &etcd.V3{}
 		router   = mux.NewRouter()
 		fmw      = &middleware.Middleware{}
 		fapi     = &api.API{}
@@ -113,7 +113,7 @@ func main() {
 
 	// Init Etcdv3 client
 	copier.Copy(&etcdConf, config.Get().EtcdConfig)
-	etcdCli, err = etcd.New(etcdConf)
+	etcdcli, err = etcd.New(etcdConf)
 
 	if err != nil {
 		level.Error(logger).Log("err", errors.Wrapf(err, "Error instantiating Etcd V3 client."))
@@ -121,9 +121,9 @@ func main() {
 	}
 
 	// Init cluster
-	watchCtx, watchCancel := etcdCli.WatchContext(context.Background())
+	watchCtx, watchCancel := etcdcli.WatchContext(context.Background())
 	cls, err = cluster.New(cfg.clusterID, cfg.listenAddress,
-		log.With(logger, "component", "cluster"), etcdCli)
+		log.With(logger, "component", "cluster"), etcdcli)
 	if err != nil {
 		level.Error(logger).Log("err", errors.Wrap(err, "Error initializing Cluster"))
 		os.Exit(2)
@@ -133,26 +133,26 @@ func main() {
 
 	fmw = middleware.New(log.With(logger, "component", "transport middleware"))
 
-	fapi = api.New(log.With(logger, "component", "api"), etcdCli)
+	fapi = api.New(log.With(logger, "component", "api"), etcdcli)
 	fapi.Register(router)
 	router.Use(fmw.Logging, fmw.RestrictDomain, fmw.Authenticate)
 
 	fas = autoscaler.NewManager(log.With(logger, "component", "autoscale manager"),
-		etcdCli, cls)
+		etcdcli, cls)
 	go fas.Run(watchCtx)
 	// Init healer manager
-	fah := autohealer.NewManager(log.With(logger, "component", "healer manager"), etcdCli, cls)
+	fah := autohealer.NewManager(log.With(logger, "component", "healer manager"), etcdcli, cls)
 	go fah.Run(watchCtx)
 
 	stopc := make(chan struct{})
-	go etcdCli.Run(stopc)
+	go etcdcli.Run(stopc)
 	stopFunc := func() {
 		watchCancel()
 		fas.Stop()
 		fah.Stop()
 		cls.Stop()
 		fah.Stop()
-		etcdCli.Close()
+		etcdcli.Close()
 	}
 	defer func() {
 		stopFunc()
