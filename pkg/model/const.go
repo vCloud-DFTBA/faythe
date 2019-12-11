@@ -33,4 +33,5 @@ const (
 
 	// DefaultSilencePrefix is default etcd prefix for Silences
 	DefaultSilencePrefix string = "/silences"
+	DefaultSilenceValidationInterval = "30s"
 )

@@ -19,13 +19,12 @@ import (
 	"crypto"
 	"encoding/json"
 	"fmt"
-	"strings"
-	"sync"
-
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	etcdv3 "go.etcd.io/etcd/clientv3"
 	"go.etcd.io/etcd/mvcc/mvccpb"
+	"strings"
+	"sync"
 
 	"github.com/vCloud-DFTBA/faythe/pkg/cluster"
 
@@ -116,7 +115,7 @@ func (hm *Manager) startWorker(p string, name string, data []byte) {
 			level.Error(hm.logger).Log("msg", "Error getting automation engine for worker",
 				"name", name, "err", err)
 		}
-		h := newHealer(log.With(hm.logger, "healer", name), data, backend, atengine)
+		h := newHealer(log.With(hm.logger, "healer", name), data, hm.etcdcli, backend, atengine)
 		hm.rqt.Set(name, h)
 		go func() {
 			hm.wg.Add(1)

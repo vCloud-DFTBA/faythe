@@ -26,6 +26,7 @@ import (
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
+	etcdv3 "go.etcd.io/etcd/clientv3"
 
 	"github.com/vCloud-DFTBA/faythe/pkg/alert"
 	"github.com/vCloud-DFTBA/faythe/pkg/cluster"
@@ -47,15 +48,20 @@ type Healer struct {
 	mtx        sync.RWMutex
 	state      model.State
 	terminated chan struct{}
+	silences   map[string]model.Silence
+	etcdcli    *etcdv3.Client
+	watchs     etcdv3.WatchChan
 }
 
-func newHealer(l log.Logger, data []byte, b metrics.Backend, atengine model.ATEngine) *Healer {
+func newHealer(l log.Logger, data []byte, e *etcdv3.Client, b metrics.Backend, ate model.ATEngine) *Healer {
 	h := &Healer{
-		at:         atengine,
+		at:         ate,
 		backend:    b,
 		done:       make(chan struct{}),
 		logger:     l,
 		terminated: make(chan struct{}),
+		silences:   make(map[string]model.Silence),
+		etcdcli:    e,
 	}
 	json.Unmarshal(data, h)
 	h.Validate()
@@ -65,10 +71,14 @@ func newHealer(l log.Logger, data []byte, b metrics.Backend, atengine model.ATEn
 
 func (h *Healer) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string]string) {
 	interval, _ := time.ParseDuration(h.Interval)
+	sinterval, _ := time.ParseDuration(model.DefaultSilenceValidationInterval)
 	duration, _ := time.ParseDuration(h.Duration)
 	ticker := time.NewTicker(interval)
+	sticker := time.NewTicker(sinterval)
 	chans := make(map[string]*chan struct{})
 	whitelist := make(map[string]struct{})
+	h.watchs = h.etcdcli.Watch(ctx, utils.Path(model.DefaultSilencePrefix, h.CloudID), etcdv3.WithPrefix())
+	h.updateSilence()
 	// Record the number of healers
 	exporter.ReportNumberOfHealers(cluster.ClusterID, 1)
 	defer func() {
@@ -84,6 +94,23 @@ func (h *Healer) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string
 			select {
 			case <-h.done:
 				return
+			case <-sticker.C:
+				h.validateSilence()
+			case watchResp := <-h.watchs:
+				if watchResp.Err() != nil {
+					level.Error(h.logger).Log("msg", "error watching etcd events", "err", watchResp.Err())
+					continue
+				}
+				for _, event := range watchResp.Events {
+					sid := string(event.Kv.Key)
+					if event.IsCreate() {
+						s := model.Silence{}
+						json.Unmarshal(event.Kv.Value, &s)
+						h.silences[sid] = s
+					} else if event.Type == etcdv3.EventTypeDelete {
+						delete(h.silences, sid)
+					}
+				}
 			case <-ticker.C:
 				if !h.Active {
 					continue
@@ -155,6 +182,12 @@ func (h *Healer) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string
 				for instance := range rIs {
 					if _, ok := whitelist[instance]; ok {
 						continue
+					}
+					for k, v := range h.silences {
+						if matched := v.RegexPattern.MatchString(instance); matched {
+							level.Info(h.logger).Log("msg", fmt.Sprintf("instance %s is ignored because of silence: %s", instance, k))
+							continue
+						}
 					}
 					if _, ok := chans[instance]; !ok {
 						ci := make(chan struct{})
@@ -288,4 +321,31 @@ func (h *Healer) Stop() {
 	// Record the number of healers
 	exporter.ReportNumberOfHealers(cluster.ClusterID, -1)
 	level.Debug(h.logger).Log("msg", "Healer is stopped")
+}
+
+func (h *Healer) validateSilence() {
+	now := time.Now()
+	for k, s := range h.silences {
+		if s.ExpiredAt.Before(now) || s.ExpiredAt.Equal(now) {
+			delete(h.silences, k)
+		}
+	}
+}
+
+func (h *Healer) updateSilence() {
+	resp, err := h.etcdcli.Get(context.Background(), utils.Path(model.DefaultSilencePrefix, h.CloudID), etcdv3.WithPrefix())
+	if err != nil {
+		level.Error(h.logger).Log("msg", "error while getting information from etcd", "err", err)
+		return
+	}
+	// Best way to clear a map https://github.com/golang/go/blob/master/doc/go1.11.html#L447
+	for k := range h.silences {
+		delete(h.silences, k)
+	}
+	for _, v := range resp.Kvs {
+		sid := string(v.Key)
+		s := model.Silence{}
+		json.Unmarshal(v.Value, s)
+		h.silences[sid] = s
+	}
 }
