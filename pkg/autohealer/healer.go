@@ -49,11 +49,11 @@ type Healer struct {
 	state      model.State
 	terminated chan struct{}
 	silences   map[string]model.Silence
-	etcdcli    *etcdv3.Client
+	etcdcli    *common.Etcd
 	watchs     etcdv3.WatchChan
 }
 
-func newHealer(l log.Logger, data []byte, e *etcdv3.Client, b metrics.Backend, ate model.ATEngine) *Healer {
+func newHealer(l log.Logger, data []byte, e *common.Etcd, b metrics.Backend, ate model.ATEngine) *Healer {
 	h := &Healer{
 		at:         ate,
 		backend:    b,
@@ -77,7 +77,7 @@ func (h *Healer) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string
 	sticker := time.NewTicker(sinterval)
 	chans := make(map[string]*chan struct{})
 	whitelist := make(map[string]struct{})
-	h.watchs = h.etcdcli.Watch(ctx, utils.Path(model.DefaultSilencePrefix, h.CloudID), etcdv3.WithPrefix())
+	h.watchs = h.etcdcli.Watch(ctx, common.Path(model.DefaultSilencePrefix, h.CloudID), etcdv3.WithPrefix())
 	h.updateSilence()
 	// Record the number of healers
 	exporter.ReportNumberOfHealers(cluster.ClusterID, 1)
@@ -333,7 +333,7 @@ func (h *Healer) validateSilence() {
 }
 
 func (h *Healer) updateSilence() {
-	resp, err := h.etcdcli.Get(context.Background(), utils.Path(model.DefaultSilencePrefix, h.CloudID), etcdv3.WithPrefix())
+	resp, err := h.etcdcli.DoGet(common.Path(model.DefaultSilencePrefix, h.CloudID), etcdv3.WithPrefix())
 	if err != nil {
 		level.Error(h.logger).Log("msg", "error while getting information from etcd", "err", err)
 		return

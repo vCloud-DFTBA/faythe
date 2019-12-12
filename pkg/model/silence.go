@@ -17,9 +17,10 @@ package model
 import (
 	"crypto"
 	"fmt"
-	"github.com/vCloud-DFTBA/faythe/pkg/utils"
 	"regexp"
 	"time"
+
+	"github.com/vCloud-DFTBA/faythe/pkg/common"
 )
 
 type Silence struct {
@@ -31,8 +32,8 @@ type Silence struct {
 	Tags         []string       `json:"tags"`
 	Description  string         `json:"description"`
 	// TODO: Do we need `created_at` ?
-	CreatedAt    time.Time      `json:"created_at"`
-	ExpiredAt    time.Time      `json:"expired_at"`
+	CreatedAt time.Time `json:"created_at"`
+	ExpiredAt time.Time `json:"expired_at"`
 }
 
 func (s *Silence) Validate() error {
@@ -57,7 +58,7 @@ func (s *Silence) Validate() error {
 
 	s.CreatedAt = time.Now()
 	s.ExpiredAt = s.CreatedAt.Add(t)
-	s.ID = utils.Hash(fmt.Sprintf("%s-%s", s.Pattern, s.ExpiredAt.String()), crypto.MD5)
+	s.ID = common.Hash(fmt.Sprintf("%s-%s", s.Pattern, s.ExpiredAt.String()), crypto.MD5)
 
 	return nil
 }

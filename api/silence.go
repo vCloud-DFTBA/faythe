@@ -17,21 +17,23 @@ package api
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/gorilla/mux"
-	"github.com/vCloud-DFTBA/faythe/pkg/model"
-	"github.com/vCloud-DFTBA/faythe/pkg/utils"
-	etcdv3 "go.etcd.io/etcd/clientv3"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/gorilla/mux"
+	etcdv3 "go.etcd.io/etcd/clientv3"
+
+	"github.com/vCloud-DFTBA/faythe/pkg/common"
+	"github.com/vCloud-DFTBA/faythe/pkg/model"
 )
 
 func (a *API) createSilence(rw http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
 	pid := strings.ToLower(vars["provider_id"])
 
-	path := utils.Path(model.DefaultHealerPrefix, pid)
-	resp, err := a.etcdclient.Get(req.Context(), path)
+	path := common.Path(model.DefaultHealerPrefix, pid)
+	resp, err := a.etcdcli.DoGet(path)
 	if err != nil {
 		a.respondError(rw, apiError{code: http.StatusInternalServerError, err: err})
 		return
@@ -56,8 +58,8 @@ func (a *API) createSilence(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	path = utils.Path(model.DefaultSilencePrefix, pid, s.ID)
-	resp, err = a.etcdclient.Get(req.Context(), path, etcdv3.WithCountOnly())
+	path = common.Path(model.DefaultSilencePrefix, pid, s.ID)
+	resp, err = a.etcdcli.DoGet(path, etcdv3.WithCountOnly())
 	if err != nil {
 		a.respondError(rw, apiError{code: http.StatusInternalServerError, err: err})
 		return
@@ -65,27 +67,27 @@ func (a *API) createSilence(rw http.ResponseWriter, req *http.Request) {
 	if resp.Count > 0 {
 		a.respondError(rw, apiError{
 			code: http.StatusBadRequest,
-			err: fmt.Errorf("there exists an silence with exact the same pattern and expiration time"),
+			err:  fmt.Errorf("there exists an silence with exact the same pattern and expiration time"),
 		})
 		return
 	}
 
 	t, _ := time.ParseDuration(s.TTL)
 
-	r, err := a.etcdclient.Grant(req.Context(), int64(t.Seconds()))
+	r, err := a.etcdcli.DoGrant(int64(t.Seconds()))
 	if err != nil {
 		a.respondError(rw, apiError{
 			code: http.StatusInternalServerError,
-			err: fmt.Errorf("error while getting grant for silence: %s", err),
+			err:  fmt.Errorf("error while getting grant for silence: %s", err),
 		})
 		return
 	}
 
 	raw, _ := json.Marshal(&s)
-	if _, err := a.etcdclient.Put(req.Context(), path, string(raw), etcdv3.WithLease(r.ID)); err != nil {
+	if _, err := a.etcdcli.DoPut(path, string(raw), etcdv3.WithLease(r.ID)); err != nil {
 		a.respondError(rw, apiError{
 			code: http.StatusInternalServerError,
-			err: fmt.Errorf("error putting a key-value pair into etcd: %s", err.Error()),
+			err:  fmt.Errorf("error putting a key-value pair into etcd: %s", err.Error()),
 		})
 		return
 	}
@@ -97,9 +99,9 @@ func (a *API) createSilence(rw http.ResponseWriter, req *http.Request) {
 func (a *API) listSilences(rw http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
 	pid := strings.ToLower(vars["provider_id"])
-	path := utils.Path(model.DefaultHealerPrefix, pid)
+	path := common.Path(model.DefaultHealerPrefix, pid)
 
-	resp, err := a.etcdclient.Get(req.Context(), path, etcdv3.WithPrefix(),
+	resp, err := a.etcdcli.DoGet(path, etcdv3.WithPrefix(),
 		etcdv3.WithSort(etcdv3.SortByKey, etcdv3.SortAscend))
 	if err != nil {
 		a.respondError(rw, apiError{
@@ -122,8 +124,8 @@ func (a *API) expireSilence(w http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
 	pid := strings.ToLower(vars["provider_id"])
 	id := strings.ToLower(vars["id"])
-	path := utils.Path(model.DefaultHealerPrefix, pid, id)
-	_, err := a.etcdclient.Delete(req.Context(), path, etcdv3.WithPrefix())
+	path := common.Path(model.DefaultHealerPrefix, pid, id)
+	_, err := a.etcdcli.DoDelete(path, etcdv3.WithPrefix())
 	if err != nil {
 		a.respondError(w, apiError{
 			code: http.StatusInternalServerError,
