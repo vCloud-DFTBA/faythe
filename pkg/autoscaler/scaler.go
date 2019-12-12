@@ -44,7 +44,7 @@ type Scaler struct {
 	terminated chan struct{}
 	backend    metrics.Backend
 	dlock      concurrency.Mutex
-	state      common.State
+	state      model.State
 }
 
 func newScaler(l log.Logger, data []byte, b metrics.Backend) *Scaler {
@@ -59,7 +59,7 @@ func newScaler(l log.Logger, data []byte, b metrics.Backend) *Scaler {
 		s.Alert = &model.Alert{}
 	}
 	s.alert = &alert.Alert{State: *s.Alert}
-	s.state = common.StateActive
+	s.state = model.StateActive
 	return s
 }
 
@@ -67,14 +67,14 @@ func (s *Scaler) Stop() {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 	// Ignore close channel if scaler is already stopped/stopping
-	if s.state == common.StateStopping || s.state == common.StateStopped {
+	if s.state == model.StateStopping || s.state == model.StateStopped {
 		return
 	}
 	level.Debug(s.logger).Log("msg", "Scaler is stopping")
-	s.state = common.StateStopping
+	s.state = model.StateStopping
 	close(s.done)
 	<-s.terminated
-	s.state = common.StateStopped
+	s.state = model.StateStopped
 	level.Debug(s.logger).Log("msg", "Scaler is stopped")
 }
 
@@ -105,7 +105,7 @@ func (s *Scaler) run(ctx context.Context, wg *sync.WaitGroup) {
 				if err != nil {
 					level.Error(s.logger).Log("msg", "Executing query failed, skip current interval",
 						"query", s.Query, "err", err)
-					s.state = common.StateFailed
+					s.state = model.StateFailed
 					if common.RetryableError(err) {
 						continue
 					} else {

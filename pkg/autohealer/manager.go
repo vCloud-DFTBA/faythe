@@ -47,7 +47,7 @@ type Manager struct {
 	ncin    chan NodeMetric
 	ncout   chan map[string]string
 	cluster *cluster.Cluster
-	state   common.State
+	state   model.State
 }
 
 // NewManager create new Manager for name resolver and healer
@@ -64,7 +64,7 @@ func NewManager(l log.Logger, e *common.Etcd, c *cluster.Cluster) *Manager {
 		cluster: c,
 	}
 	hm.load()
-	hm.state = common.StateActive
+	hm.state = model.StateActive
 	return hm
 }
 
@@ -139,15 +139,15 @@ func (hm *Manager) stopWorker(name string) {
 // Stop destroy name resolver, healer and itself
 func (hm *Manager) Stop() {
 	// Ignore close channel if manager is already stopped/stopping
-	if hm.state == common.StateStopping || hm.state == common.StateStopped {
+	if hm.state == model.StateStopping || hm.state == model.StateStopped {
 		return
 	}
 	level.Info(hm.logger).Log("msg", "Cleaning before stopping autohealer managger")
-	hm.state = common.StateStopping
+	hm.state = model.StateStopping
 	close(hm.stop)
 	hm.save()
 	hm.wg.Wait()
-	hm.state = common.StateStopped
+	hm.state = model.StateStopped
 	level.Info(hm.logger).Log("msg", "Autohealer manager is stopped!")
 }
 

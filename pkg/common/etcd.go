@@ -32,8 +32,8 @@ type Etcd struct {
 	ErrCh chan error
 }
 
-// New constructs a new Etcd client
-func New(cfg etcdv3.Config) (*Etcd, error) {
+// NewEtcd constructs a new Etcd client
+func NewEtcd(cfg etcdv3.Config) (*Etcd, error) {
 	cli, err := etcdv3.New(cfg)
 	if err != nil {
 		return nil, err

@@ -41,7 +41,7 @@ type Manager struct {
 	watch   etcdv3.WatchChan
 	wg      *sync.WaitGroup
 	cluster *cluster.Cluster
-	state   common.State
+	state   model.State
 }
 
 // NewManager returns an Autoscale Manager
@@ -56,7 +56,7 @@ func NewManager(l log.Logger, e *common.Etcd, c *cluster.Cluster) *Manager {
 	}
 	// Load at init
 	m.load()
-	m.state = common.StateActive
+	m.state = model.StateActive
 	return m
 }
 
@@ -70,16 +70,16 @@ func (m *Manager) Reload() {
 // Stop the manager and its scaler cycles.
 func (m *Manager) Stop() {
 	// Ignore close channel if manager is already stopped/stopping
-	if m.state == common.StateStopping || m.state == common.StateStopped {
+	if m.state == model.StateStopping || m.state == model.StateStopped {
 		return
 	}
 	level.Info(m.logger).Log("msg", "Stopping autoscale manager...")
-	m.state = common.StateStopping
+	m.state = model.StateStopping
 	close(m.stop)
 	m.save()
 	// Wait until all scalers shut down
 	m.wg.Wait()
-	m.state = common.StateStopped
+	m.state = model.StateStopped
 	level.Info(m.logger).Log("msg", "Autoscale manager stopped")
 }
 
