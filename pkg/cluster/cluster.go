@@ -115,7 +115,7 @@ func New(cid, bindAddr string, l log.Logger, e *etcd.V3) (*Cluster, error) {
 
 	_ = c.mtx.Lock(lockCtx)
 	// Load the existing cluster
-	getResp, _ := c.etcdcli.DoGet(context.Background(), model.DefaultClusterPrefix, etcdv3.WithPrefix())
+	getResp, _ := c.etcdcli.DoGet(model.DefaultClusterPrefix, etcdv3.WithPrefix())
 	for _, kv := range getResp.Kvs {
 		var m model.Member
 		_ = json.Unmarshal(kv.Value, &m)
@@ -131,7 +131,7 @@ func New(cid, bindAddr string, l log.Logger, e *etcd.V3) (*Cluster, error) {
 	}
 
 	// Grant lease
-	leaseResp, err := c.etcdcli.DoGrant(nil, DefaultLeaseTTL)
+	leaseResp, err := c.etcdcli.DoGrant(DefaultLeaseTTL)
 	if err != nil {
 		return c, err
 	}
@@ -141,8 +141,7 @@ func New(cid, bindAddr string, l log.Logger, e *etcd.V3) (*Cluster, error) {
 		c.members[c.local.ID] = c.local
 		// Add new member
 		v, _ := json.Marshal(&c.local)
-		_, err := c.etcdcli.DoPut(nil,
-			common.Path(model.DefaultClusterPrefix, c.local.ID),
+		_, err := c.etcdcli.DoPut(common.Path(model.DefaultClusterPrefix, c.local.ID),
 			string(v), etcdv3.WithLease(c.lease))
 		if err != nil {
 			return c, err
@@ -178,7 +177,7 @@ func (c *Cluster) Run(ctx context.Context, rc chan struct{}) {
 			ticker.Stop()
 			return
 		case <-ticker.C:
-			_, err := c.etcdcli.DoKeepAliveOnce(nil, c.lease)
+			_, err := c.etcdcli.DoKeepAliveOnce(c.lease)
 			if err != nil {
 				level.Error(c.logger).Log("msg", "Error refreshing lease for cluster member",
 					"err", err)
@@ -232,7 +231,7 @@ func (c *Cluster) Stop() {
 	level.Info(c.logger).Log("msg", "A member of cluster is stopping...",
 		"name", c.local.Name, "address", c.local.Address)
 	c.state = ClusterLeaving
-	_, err := c.etcdcli.DoRevoke(nil, c.lease)
+	_, err := c.etcdcli.DoRevoke(c.lease)
 	if err != nil {
 		level.Error(c.logger).Log("msg", "Error revoking the lease", "id", c.lease)
 	}

@@ -31,11 +31,11 @@ type Config struct {
 }
 
 type MailConfig struct {
-	Host     string       `yaml:"host"`
-	Protocol string       `yaml:"protocol"`
-	Port     int          `yaml:"port"`
-	Username string       `yaml:"username"`
-	Password string       `yaml:"password"`
+	Host     string `yaml:"host"`
+	Protocol string `yaml:"protocol"`
+	Port     int    `yaml:"port"`
+	Username string `yaml:"username"`
+	Password string `yaml:"password"`
 }
 
 // GlobalConfig configures values that are used to config Faythe HTTP server
@@ -53,8 +53,8 @@ type GlobalConfig struct {
 // BasicAuthentication - HTTP Basic authentication.
 type BasicAuthentication struct {
 	// Usename, Password to implement HTTP basic authentication
-	Username string  `yaml:"username"`
-	Password string  `yaml:"password"`
+	Username string `yaml:"username"`
+	Password string `yaml:"password"`
 }
 
 // EtcdConfig stores Etcd related configurations.

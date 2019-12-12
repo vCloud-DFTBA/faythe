@@ -155,7 +155,7 @@ func (m *Manager) startScaler(name string, data []byte) {
 func (m *Manager) getBackend(key string) (metrics.Backend, error) {
 	// There is format -> Cloud provider id
 	providerID := strings.Split(key, "/")[2]
-	resp, err := m.etcdcli.DoGet(context.Background(), common.Path(model.DefaultCloudPrefix, providerID))
+	resp, err := m.etcdcli.DoGet(common.Path(model.DefaultCloudPrefix, providerID))
 	if err != nil {
 		return nil, err
 	}
@@ -210,7 +210,7 @@ func (m *Manager) save() {
 					"name", i.Name, "err", err)
 				return
 			}
-			_, err = m.etcdcli.DoPut(context.Background(), i.Name, string(raw))
+			_, err = m.etcdcli.DoPut(i.Name, string(raw))
 			if err != nil {
 				level.Error(m.logger).Log("msg", "Error putting scaler object",
 					"name", i.Name, "err", err)
@@ -221,8 +221,8 @@ func (m *Manager) save() {
 }
 
 func (m *Manager) load() {
-	resp, err := m.etcdcli.DoGet(context.Background(), model.DefaultScalerPrefix,
-		etcdv3.WithPrefix(), etcdv3.WithSort(etcdv3.SortByKey, etcdv3.SortAscend))
+	resp, err := m.etcdcli.DoGet(model.DefaultScalerPrefix, etcdv3.WithPrefix(),
+		etcdv3.WithSort(etcdv3.SortByKey, etcdv3.SortAscend))
 	if err != nil {
 		level.Error(m.logger).Log("msg", "Error getting scalers", "err", err)
 		return
@@ -235,8 +235,8 @@ func (m *Manager) load() {
 }
 
 func (m *Manager) rebalance() {
-	resp, err := m.etcdcli.DoGet(context.Background(), model.DefaultScalerPrefix,
-		etcdv3.WithPrefix(), etcdv3.WithSort(etcdv3.SortByKey, etcdv3.SortAscend))
+	resp, err := m.etcdcli.DoGet(model.DefaultScalerPrefix, etcdv3.WithPrefix(),
+		etcdv3.WithSort(etcdv3.SortByKey, etcdv3.SortAscend))
 	if err != nil {
 		level.Error(m.logger).Log("msg", "Error getting scalers", "err", err)
 		return
@@ -267,7 +267,7 @@ func (m *Manager) rebalance() {
 							"name", name, "err", err)
 						return
 					}
-					_, err = m.etcdcli.DoPut(context.Background(), name, string(raw))
+					_, err = m.etcdcli.DoPut(name, string(raw))
 					if err != nil {
 						level.Error(m.logger).Log("msg", "Error putting scaler object",
 							"name", name, "err", err)

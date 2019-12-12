@@ -15,7 +15,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"net"
 	"net/http"
@@ -121,7 +120,7 @@ func main() {
 	}
 
 	// Init cluster
-	watchCtx, watchCancel := etcdcli.WatchContext(context.Background())
+	watchCtx, watchCancel := etcdcli.WatchContext()
 	cls, err = cluster.New(cfg.clusterID, cfg.listenAddress,
 		log.With(logger, "component", "cluster"), etcdcli)
 	if err != nil {

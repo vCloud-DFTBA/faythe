@@ -32,7 +32,7 @@ func (a *API) createHealer(rw http.ResponseWriter, req *http.Request) {
 	h := &model.Healer{}
 	vars := mux.Vars(req)
 	path := common.Path(model.DefaultCloudPrefix, vars["provider_id"])
-	resp, _ := a.etcdcli.DoGet(req.Context(), path)
+	resp, _ := a.etcdcli.DoGet(path)
 	if resp.Count == 0 {
 		err := fmt.Errorf("unknown provider id: %s", vars["provider_id"])
 		a.respondError(rw, apiError{
@@ -61,7 +61,7 @@ func (a *API) createHealer(rw http.ResponseWriter, req *http.Request) {
 	}
 
 	path = common.Path(model.DefaultHealerPrefix, vars["provider_id"])
-	resp, _ = a.etcdcli.DoGet(req.Context(), path, etcdv3.WithPrefix(), etcdv3.WithCountOnly())
+	resp, _ = a.etcdcli.DoGet(path, etcdv3.WithPrefix(), etcdv3.WithCountOnly())
 	if resp.Count > 0 {
 		err := fmt.Errorf("there is only 1 healer can be existed for 1 cloud provider")
 		a.respondError(rw, apiError{
@@ -77,7 +77,7 @@ func (a *API) createHealer(rw http.ResponseWriter, req *http.Request) {
 	h.CloudID = c.ID
 
 	r, _ := json.Marshal(&h)
-	_, err := a.etcdcli.DoPut(req.Context(), common.Path(path, h.ID), string(r))
+	_, err := a.etcdcli.DoPut(common.Path(path, h.ID), string(r))
 	if err != nil {
 		err = fmt.Errorf("error putting a key-value pair into etcd: %s", err.Error())
 		a.respondError(rw, apiError{
@@ -94,7 +94,7 @@ func (a *API) listHealers(rw http.ResponseWriter, req *http.Request) {
 	pid := strings.ToLower(vars["provider_id"])
 	path := common.Path(model.DefaultHealerPrefix, pid)
 
-	resp, err := a.etcdcli.DoGet(req.Context(), path, etcdv3.WithPrefix(),
+	resp, err := a.etcdcli.DoGet(path, etcdv3.WithPrefix(),
 		etcdv3.WithSort(etcdv3.SortByKey, etcdv3.SortAscend))
 	if err != nil {
 		a.respondError(rw, apiError{
@@ -118,7 +118,7 @@ func (a *API) deleteHealer(w http.ResponseWriter, req *http.Request) {
 	pid := strings.ToLower(vars["provider_id"])
 	sid := strings.ToLower(vars["id"])
 	path := common.Path(model.DefaultHealerPrefix, pid, sid)
-	_, err := a.etcdcli.DoDelete(req.Context(), path, etcdv3.WithPrefix())
+	_, err := a.etcdcli.DoDelete(path, etcdv3.WithPrefix())
 	if err != nil {
 		a.respondError(w, apiError{
 			code: http.StatusInternalServerError,

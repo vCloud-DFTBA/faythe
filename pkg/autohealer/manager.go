@@ -78,7 +78,7 @@ func (hm *Manager) Reload() {
 
 func (hm *Manager) load() {
 	for _, p := range []string{model.DefaultNResolverPrefix, model.DefaultHealerPrefix} {
-		r, err := hm.etcdcli.DoGet(context.Background(), p, etcdv3.WithPrefix())
+		r, err := hm.etcdcli.DoGet(p, etcdv3.WithPrefix())
 		if err != nil {
 			level.Error(hm.logger).Log("msg", "Error getting list Workers", "err", err)
 			return
@@ -167,7 +167,7 @@ func (hm *Manager) save() {
 					"name", e.Name, "err", err)
 				return
 			}
-			_, err = hm.etcdcli.DoPut(context.Background(), e.Name, string(raw))
+			_, err = hm.etcdcli.DoPut(e.Name, string(raw))
 			if err != nil {
 				level.Error(hm.logger).Log("msg", "Error putting worker object",
 					"name", e.Name, "err", err)
@@ -210,16 +210,16 @@ func (hm *Manager) Run(ctx context.Context) {
 					if err != nil {
 						level.Error(hm.logger).Log("msg", "Error while marshalling nresolver object", "err", err)
 					}
-					hm.etcdcli.DoPut(ctx, name, string(raw))
+					hm.etcdcli.DoPut(name, string(raw))
 					hm.startWorker(model.DefaultNResolverPrefix, name, raw)
 				}
 				if event.Type == etcdv3.EventTypeDelete {
 					if _, ok := hm.rqt.Get(name); ok {
 						hm.stopWorker(name)
-						hm.etcdcli.DoDelete(ctx, name, etcdv3.WithPrefix())
+						hm.etcdcli.DoDelete(name, etcdv3.WithPrefix())
 					}
 					hname := strings.ReplaceAll(name, model.DefaultNResolverPrefix, model.DefaultHealerPrefix)
-					hm.etcdcli.DoDelete(ctx, hname, etcdv3.WithPrefix())
+					hm.etcdcli.DoDelete(hname, etcdv3.WithPrefix())
 				}
 			}
 		case watchResp := <-hm.watchh:
@@ -253,8 +253,8 @@ func (hm *Manager) Run(ctx context.Context) {
 }
 
 func (hm *Manager) rebalance() {
-	resp, err := hm.etcdcli.DoGet(context.Background(), model.DefaultHealerPrefix,
-		etcdv3.WithPrefix(), etcdv3.WithSort(etcdv3.SortByKey, etcdv3.SortAscend))
+	resp, err := hm.etcdcli.DoGet(model.DefaultHealerPrefix, etcdv3.WithPrefix(),
+		etcdv3.WithSort(etcdv3.SortByKey, etcdv3.SortAscend))
 	if err != nil {
 		level.Error(hm.logger).Log("msg", "Error getting healers", "err", err)
 		return
@@ -277,7 +277,7 @@ func (hm *Manager) rebalance() {
 							"name", name, "err", err)
 						return
 					}
-					_, err = hm.etcdcli.DoPut(context.Background(), name, string(raw))
+					_, err = hm.etcdcli.DoPut(name, string(raw))
 					if err != nil {
 						level.Error(hm.logger).Log("msg", "Error putting healer object",
 							"key", name, "err", err)
@@ -299,7 +299,7 @@ func (hm *Manager) rebalance() {
 func (hm *Manager) getBackend(key string) (metrics.Backend, error) {
 	// There is format -> Cloud provider id
 	providerID := strings.Split(key, "/")[2]
-	resp, err := hm.etcdcli.DoGet(context.Background(), common.Path(model.DefaultCloudPrefix, providerID))
+	resp, err := hm.etcdcli.DoGet(common.Path(model.DefaultCloudPrefix, providerID))
 	if err != nil {
 		return nil, err
 	}
@@ -333,7 +333,7 @@ func (hm *Manager) getBackend(key string) (metrics.Backend, error) {
 
 func (hm *Manager) getATEngine(key string) (model.ATEngine, error) {
 	providerID := strings.Split(key, "/")[2]
-	resp, err := hm.etcdcli.DoGet(context.Background(), common.Path(model.DefaultCloudPrefix, providerID))
+	resp, err := hm.etcdcli.DoGet(common.Path(model.DefaultCloudPrefix, providerID))
 	if err != nil {
 		return model.ATEngine{}, err
 	}

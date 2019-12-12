@@ -59,7 +59,7 @@ func (a *API) registerCloud(w http.ResponseWriter, req *http.Request) {
 		if strings.ToLower(req.URL.Query().Get("force")) == "true" {
 			force = true
 		}
-		resp, _ := a.etcdcli.DoGet(req.Context(), k, etcdv3.WithCountOnly())
+		resp, _ := a.etcdcli.DoGet(k, etcdv3.WithCountOnly())
 		if resp.Count > 0 && !force {
 			err := fmt.Errorf("the provider with id %s is existed", ops.ID)
 			a.respondError(w, apiError{
@@ -70,7 +70,7 @@ func (a *API) registerCloud(w http.ResponseWriter, req *http.Request) {
 		}
 
 		v, _ = json.Marshal(&ops)
-		_, err := a.etcdcli.DoPut(req.Context(), k, string(v))
+		_, err := a.etcdcli.DoPut(k, string(v))
 		if err != nil {
 			err = fmt.Errorf("error putting a key-value pair into etcd: %s", err.Error())
 			a.respondError(w, apiError{
@@ -91,7 +91,7 @@ func (a *API) listClouds(w http.ResponseWriter, req *http.Request) {
 		clouds map[string]interface{}
 		wg     sync.WaitGroup
 	)
-	resp, err := a.etcdcli.DoGet(req.Context(), model.DefaultCloudPrefix, etcdv3.WithPrefix(),
+	resp, err := a.etcdcli.DoGet(model.DefaultCloudPrefix, etcdv3.WithPrefix(),
 		etcdv3.WithSort(etcdv3.SortByKey, etcdv3.SortAscend))
 	if err != nil {
 		a.respondError(w, apiError{
@@ -154,7 +154,7 @@ func (a *API) unregisterCloud(w http.ResponseWriter, req *http.Request) {
 	vars = mux.Vars(req)
 	pid = strings.ToLower(vars["id"])
 	path = common.Path(model.DefaultCloudPrefix, pid)
-	_, err := a.etcdcli.DoDelete(req.Context(), path, etcdv3.WithPrefix())
+	_, err := a.etcdcli.DoDelete(path, etcdv3.WithPrefix())
 	if err != nil {
 		a.respondError(w, apiError{
 			code: http.StatusInternalServerError,
@@ -164,7 +164,7 @@ func (a *API) unregisterCloud(w http.ResponseWriter, req *http.Request) {
 	}
 
 	scalerPath := common.Path(model.DefaultScalerPrefix, pid)
-	_, err = a.etcdcli.DoDelete(req.Context(), scalerPath, etcdv3.WithPrefix())
+	_, err = a.etcdcli.DoDelete(scalerPath, etcdv3.WithPrefix())
 	if err != nil {
 		a.respondError(w, apiError{
 			code: http.StatusInternalServerError,
