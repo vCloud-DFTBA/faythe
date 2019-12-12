@@ -19,15 +19,15 @@ import (
 	"crypto"
 	"encoding/json"
 	"fmt"
+	"strings"
+	"sync"
+
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	etcdv3 "go.etcd.io/etcd/clientv3"
 	"go.etcd.io/etcd/mvcc/mvccpb"
-	"strings"
-	"sync"
 
 	"github.com/vCloud-DFTBA/faythe/pkg/cluster"
-
 	"github.com/vCloud-DFTBA/faythe/pkg/common"
 	"github.com/vCloud-DFTBA/faythe/pkg/exporter"
 	"github.com/vCloud-DFTBA/faythe/pkg/metrics"
