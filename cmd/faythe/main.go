@@ -42,7 +42,7 @@ import (
 	"github.com/vCloud-DFTBA/faythe/pkg/autohealer"
 	"github.com/vCloud-DFTBA/faythe/pkg/autoscaler"
 	"github.com/vCloud-DFTBA/faythe/pkg/cluster"
-	"github.com/vCloud-DFTBA/faythe/pkg/utils"
+	"github.com/vCloud-DFTBA/faythe/pkg/common"
 )
 
 func main() {
@@ -85,7 +85,7 @@ func main() {
 	logger := promlog.New(&cfg.logConfig)
 	cfg.externalURL, err = computeExternalURL(cfg.url, cfg.listenAddress)
 	level.Info(logger).Log("msg", "Staring Faythe...")
-	rtStats := utils.RuntimeStats()
+	rtStats := common.RuntimeStats()
 	level.Debug(logger).Log("msg", "Golang runtime stats")
 	for k, v := range rtStats {
 		level.Debug(logger).Log(k, v)
@@ -119,7 +119,7 @@ func main() {
 	}
 
 	// Init cluster
-	watchCtx, watchCancel := utils.WatchContext()
+	watchCtx, watchCancel := common.WatchContext()
 	cls, err = cluster.New(cfg.clusterID, cfg.listenAddress,
 		log.With(logger, "component", "cluster"), etcdCli)
 	if err != nil {
@@ -139,13 +139,13 @@ func main() {
 		etcdCli, cls)
 	go fas.Run(watchCtx)
 	// Init healer manager
-	nr := autohealer.NewManager(log.With(logger, "component", "healer manager"), etcdCli, cls)
-	go nr.Run(watchCtx)
+	fah := autohealer.NewManager(log.With(logger, "component", "healer manager"), etcdCli, cls)
+	go fah.Run(watchCtx)
 	defer func() {
 		watchCancel()
 		fas.Stop()
+		fah.Stop()
 		cls.Stop()
-		nr.Stop()
 		etcdCli.Close()
 		level.Info(logger).Log("msg", "Faythe is stopped, bye bye!")
 	}()
@@ -159,7 +159,7 @@ func main() {
 			select {
 			case <-reloadCh:
 				fas.Reload()
-				nr.Reload()
+				fah.Reload()
 			}
 		}
 	}()

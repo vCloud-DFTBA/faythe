@@ -28,15 +28,15 @@ import (
 	"go.etcd.io/etcd/mvcc/mvccpb"
 
 	"github.com/vCloud-DFTBA/faythe/pkg/cluster"
+	"github.com/vCloud-DFTBA/faythe/pkg/common"
 	"github.com/vCloud-DFTBA/faythe/pkg/metrics"
 	"github.com/vCloud-DFTBA/faythe/pkg/model"
-	"github.com/vCloud-DFTBA/faythe/pkg/utils"
 )
 
 // Manager controls name resolver and healer instances
 type Manager struct {
 	logger  log.Logger
-	rqt     *utils.Registry
+	rqt     *common.Registry
 	stop    chan struct{}
 	etcdcli *etcdv3.Client
 	watchc  etcdv3.WatchChan
@@ -52,7 +52,7 @@ type Manager struct {
 func NewManager(l log.Logger, e *etcdv3.Client, c *cluster.Cluster) *Manager {
 	hm := &Manager{
 		logger:  l,
-		rqt:     &utils.Registry{Items: make(map[string]utils.Worker)},
+		rqt:     &common.Registry{Items: make(map[string]common.Worker)},
 		stop:    make(chan struct{}),
 		etcdcli: e,
 		wg:      &sync.WaitGroup{},
@@ -88,14 +88,14 @@ func (hm *Manager) load() {
 func (hm *Manager) startWorker(p string, name string, data []byte) {
 	if local, worker, ok := hm.cluster.LocalIsWorker(name); !ok && p == model.DefaultHealerPrefix {
 		level.Debug(hm.logger).Log("msg", "Ignoring healer, another worker node takes it",
-			"scaler", name, "local", local, "worker", worker)
+			"healer", name, "local", local, "worker", worker)
 		return
 	}
 	level.Info(hm.logger).Log("msg", "Creating worker", "name", name)
 	backend, err := hm.getBackend(name)
 	if err != nil {
 		level.Error(hm.logger).Log("msg", "Error creating registry backend for worker",
-			"id", name, "err", err)
+			"name", name, "err", err)
 		return
 	}
 	if p == model.DefaultNResolverPrefix {
@@ -109,7 +109,7 @@ func (hm *Manager) startWorker(p string, name string, data []byte) {
 		atengine, err := hm.getATEngine(name)
 		if err != nil {
 			level.Error(hm.logger).Log("msg", "Error getting automation engine for worker",
-				"id", name, "err", err)
+				"name", name, "err", err)
 		}
 		h := newHealer(log.With(hm.logger, "healer", name), data, backend, atengine)
 		hm.rqt.Set(name, h)
@@ -127,7 +127,7 @@ func (hm *Manager) stopWorker(name string) {
 			"healing_worker", name, "local", local, "worker", worker)
 		return
 	}
-	level.Info(hm.logger).Log("msg", "Removing healing worker", "id", name)
+	level.Info(hm.logger).Log("msg", "Removing healing worker", "name", name)
 
 	w.Stop()
 	hm.rqt.Delete(name)
@@ -145,7 +145,7 @@ func (hm *Manager) Stop() {
 func (hm *Manager) save() {
 	for e := range hm.rqt.Iter() {
 		hm.wg.Add(1)
-		go func(e utils.RegistryItem) {
+		go func(e common.RegistryItem) {
 			defer hm.wg.Done()
 
 			raw, err := json.Marshal(&e.Value)
@@ -179,8 +179,8 @@ func (hm *Manager) Run(ctx context.Context) {
 				break
 			}
 			for _, event := range watchResp.Events {
-				name := utils.Path(model.DefaultNResolverPrefix, strings.Split(string(event.Kv.Key), "/")[2],
-					utils.Hash(strings.Split(string(event.Kv.Key), "/")[2], crypto.MD5))
+				name := common.Path(model.DefaultNResolverPrefix, strings.Split(string(event.Kv.Key), "/")[2],
+					common.Hash(strings.Split(string(event.Kv.Key), "/")[2], crypto.MD5))
 				if event.IsCreate() {
 					cloud := model.Cloud{}
 					err := json.Unmarshal(event.Kv.Value, &cloud)
@@ -189,7 +189,7 @@ func (hm *Manager) Run(ctx context.Context) {
 					}
 					// NResolver
 					nr := model.NResolver{
-						ID:      utils.Hash(cloud.ID, crypto.MD5),
+						ID:      common.Hash(cloud.ID, crypto.MD5),
 						Monitor: cloud.Monitor,
 						CloudID: cloud.ID,
 					}
@@ -216,8 +216,8 @@ func (hm *Manager) Run(ctx context.Context) {
 				break
 			}
 			for _, event := range watchResp.Events {
-				name := utils.Path(model.DefaultHealerPrefix, strings.Split(string(event.Kv.Key), "/")[2],
-					utils.Hash(strings.Split(string(event.Kv.Key), "/")[2], crypto.MD5))
+				name := common.Path(model.DefaultHealerPrefix, strings.Split(string(event.Kv.Key), "/")[2],
+					common.Hash(strings.Split(string(event.Kv.Key), "/")[2], crypto.MD5))
 				if event.IsCreate() {
 					hm.startWorker(model.DefaultHealerPrefix, name, event.Kv.Value)
 				}
@@ -253,31 +253,31 @@ func (hm *Manager) rebalance() {
 		wg.Add(1)
 		go func(ev *mvccpb.KeyValue) {
 			defer wg.Done()
-			id := string(ev.Key)
-			local, worker, ok1 := hm.cluster.LocalIsWorker(id)
-			healer, ok2 := hm.rqt.Get(id)
+			name := string(ev.Key)
+			local, worker, ok1 := hm.cluster.LocalIsWorker(name)
+			healer, ok2 := hm.rqt.Get(name)
 
 			if !ok1 {
 				if ok2 {
 					raw, err := json.Marshal(&healer)
 					if err != nil {
 						level.Error(hm.logger).Log("msg", "Error serializing healer object",
-							"id", id, "err", err)
+							"name", name, "err", err)
 						return
 					}
-					_, err = hm.etcdcli.Put(context.Background(), id, string(raw))
+					_, err = hm.etcdcli.Put(context.Background(), name, string(raw))
 					if err != nil {
 						level.Error(hm.logger).Log("msg", "Error putting healer object",
-							"key", id, "err", err)
+							"key", name, "err", err)
 						return
 					}
 					level.Info(hm.logger).Log("msg", "Removing healer, another worker node takes it",
-						"scaler", id, "local", local, "worker", worker)
+						"healer", name, "local", local, "worker", worker)
 					healer.Stop()
-					hm.rqt.Delete(id)
+					hm.rqt.Delete(name)
 				}
 			} else if !ok2 {
-				hm.startWorker(model.DefaultHealerPrefix, id, ev.Value)
+				hm.startWorker(model.DefaultHealerPrefix, name, ev.Value)
 			}
 		}(ev)
 	}
@@ -287,7 +287,7 @@ func (hm *Manager) rebalance() {
 func (hm *Manager) getBackend(key string) (metrics.Backend, error) {
 	// There is format -> Cloud provider id
 	providerID := strings.Split(key, "/")[2]
-	resp, err := hm.etcdcli.Get(context.Background(), utils.Path(model.DefaultCloudPrefix, providerID))
+	resp, err := hm.etcdcli.Get(context.Background(), common.Path(model.DefaultCloudPrefix, providerID))
 	if err != nil {
 		return nil, err
 	}
@@ -321,7 +321,7 @@ func (hm *Manager) getBackend(key string) (metrics.Backend, error) {
 
 func (hm *Manager) getATEngine(key string) (model.ATEngine, error) {
 	providerID := strings.Split(key, "/")[2]
-	resp, err := hm.etcdcli.Get(context.Background(), utils.Path(model.DefaultCloudPrefix, providerID))
+	resp, err := hm.etcdcli.Get(context.Background(), common.Path(model.DefaultCloudPrefix, providerID))
 	if err != nil {
 		return model.ATEngine{}, err
 	}

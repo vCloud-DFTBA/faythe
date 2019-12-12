@@ -24,8 +24,8 @@ import (
 	"github.com/avast/retry-go"
 	"github.com/go-kit/kit/log"
 
+	"github.com/vCloud-DFTBA/faythe/pkg/common"
 	"github.com/vCloud-DFTBA/faythe/pkg/model"
-	"github.com/vCloud-DFTBA/faythe/pkg/utils"
 )
 
 func SendHTTP(l log.Logger, cli *http.Client, a *model.ActionHTTP, add ...map[string]map[string]string) error {
@@ -75,7 +75,7 @@ func SendHTTP(l log.Logger, cli *http.Client, a *model.ActionHTTP, add ...map[st
 		retry.Attempts(a.Attempts),
 		retry.Delay(delay),
 		retry.RetryIf(func(err error) bool {
-			return utils.RetryableError(err)
+			return common.RetryableError(err)
 		}),
 	)
 	return err

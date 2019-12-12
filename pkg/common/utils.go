@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package utils
+package common
 
 import (
 	"context"
@@ -44,7 +44,7 @@ type BasicAuthTransport struct {
 	Password string
 	// Transport is the underlying HTTP transport to use when making requests.
 	// It will default to http.DefaultTransport if nil
-	Tranport http.RoundTripper
+	Transport http.RoundTripper
 }
 
 // RoundTrip implements the RoundTripper interface.
@@ -67,10 +67,10 @@ func (t *BasicAuthTransport) RoundTrip(req *http.Request) (*http.Response, error
 }
 
 func (t *BasicAuthTransport) transport() http.RoundTripper {
-	if t.Tranport == nil {
+	if t.Transport == nil {
 		return http.DefaultTransport
 	}
-	return t.Tranport
+	return t.Transport
 }
 
 // WatchContext returns a cancelable context and cancel function

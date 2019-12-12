@@ -29,9 +29,9 @@ import (
 	"go.etcd.io/etcd/clientv3/concurrency"
 
 	"github.com/vCloud-DFTBA/faythe/pkg/alert"
+	"github.com/vCloud-DFTBA/faythe/pkg/common"
 	"github.com/vCloud-DFTBA/faythe/pkg/metrics"
 	"github.com/vCloud-DFTBA/faythe/pkg/model"
-	"github.com/vCloud-DFTBA/faythe/pkg/utils"
 )
 
 // scalerState is the state that a scaler is in.
@@ -92,19 +92,19 @@ func newScaler(l log.Logger, data []byte, b metrics.Backend) *Scaler {
 	return s
 }
 
-func (s *Scaler) stop() {
+func (s *Scaler) Stop() {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 	// Ignore close channel if scaler is already stopped/stopping
 	if s.state == stateStopping || s.state == stateStopped {
 		return
 	}
-	level.Debug(s.logger).Log("msg", "Scaler is stopping", "id", s.ID)
+	level.Debug(s.logger).Log("msg", "Scaler is stopping")
 	s.state = stateStopping
 	close(s.done)
 	<-s.terminated
 	s.state = stateStopped
-	level.Debug(s.logger).Log("msg", "Scaler is stopped", "id", s.ID)
+	level.Debug(s.logger).Log("msg", "Scaler is stopped")
 }
 
 func (s *Scaler) run(ctx context.Context, wg *sync.WaitGroup) {
@@ -135,7 +135,7 @@ func (s *Scaler) run(ctx context.Context, wg *sync.WaitGroup) {
 					level.Error(s.logger).Log("msg", "Executing query failed, skip current interval",
 						"query", s.Query, "err", err)
 					s.state = stateFailed
-					if utils.RetryableError(err) {
+					if common.RetryableError(err) {
 						continue
 					} else {
 						return
@@ -146,6 +146,7 @@ func (s *Scaler) run(ctx context.Context, wg *sync.WaitGroup) {
 				s.mtx.Lock()
 				if len(result) == 0 {
 					s.alert.Reset()
+					s.mtx.Unlock()
 					continue
 				}
 				if !s.alert.IsActive() {
@@ -205,14 +206,14 @@ func (s *Scaler) do() {
 				retry.Attempts(a.Attempts),
 				retry.Delay(delay),
 				retry.RetryIf(func(err error) bool {
-					return utils.RetryableError(err)
+					return common.RetryableError(err)
 				}),
 			)
 			if err != nil {
 				level.Error(s.logger).Log("msg", "Error doing scale action", "url", url, "err", err)
 				return
 			}
-			level.Info(s.logger).Log("msg", "Sending request", "id", s.ID,
+			level.Info(s.logger).Log("msg", "Sending request",
 				"url", url, "method", a.Method)
 			s.alert.Fire(time.Now())
 			defer wg.Done()

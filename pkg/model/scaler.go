@@ -20,7 +20,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/vCloud-DFTBA/faythe/pkg/utils"
+	"github.com/vCloud-DFTBA/faythe/pkg/common"
 )
 
 // Scaler represents a Scaler object
@@ -64,7 +64,7 @@ func (s *Scaler) Validate() error {
 		return err
 	}
 
-	s.ID = utils.Hash(s.Query, crypto.MD5)
+	s.ID = common.Hash(s.Query, crypto.MD5)
 
 	return nil
 }

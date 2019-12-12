@@ -27,15 +27,15 @@ import (
 	"go.etcd.io/etcd/mvcc/mvccpb"
 
 	"github.com/vCloud-DFTBA/faythe/pkg/cluster"
+	"github.com/vCloud-DFTBA/faythe/pkg/common"
 	"github.com/vCloud-DFTBA/faythe/pkg/metrics"
 	"github.com/vCloud-DFTBA/faythe/pkg/model"
-	"github.com/vCloud-DFTBA/faythe/pkg/utils"
 )
 
 // Manager manages a set of Scaler instances.
 type Manager struct {
 	logger  log.Logger
-	rgt     *Registry
+	rgt     *common.Registry
 	stop    chan struct{}
 	etcdcli *etcdv3.Client
 	watch   etcdv3.WatchChan
@@ -47,7 +47,7 @@ type Manager struct {
 func NewManager(l log.Logger, e *etcdv3.Client, c *cluster.Cluster) *Manager {
 	m := &Manager{
 		logger:  l,
-		rgt:     &Registry{items: make(map[string]*Scaler)},
+		rgt:     &common.Registry{Items: make(map[string]common.Worker)},
 		stop:    make(chan struct{}),
 		etcdcli: e,
 		wg:      &sync.WaitGroup{},
@@ -88,20 +88,20 @@ func (m *Manager) Run(ctx context.Context) {
 				break
 			}
 			for _, event := range watchResp.Events {
-				sid := string(event.Kv.Key)
+				sname := string(event.Kv.Key)
 				if event.IsCreate() {
 					// Create -> simply create and add it to registry
-					m.startScaler(sid, event.Kv.Value)
+					m.startScaler(sname, event.Kv.Value)
 				} else if event.IsModify() {
 					// Update -> force recreate scaler
-					if _, ok := m.rgt.Get(sid); ok {
-						m.stopScaler(sid)
-						m.startScaler(sid, event.Kv.Value)
+					if _, ok := m.rgt.Get(sname); ok {
+						m.stopScaler(sname)
+						m.startScaler(sname, event.Kv.Value)
 					}
 				} else if event.Type == etcdv3.EventTypeDelete {
 					// Delete -> remove from registry and stop the goroutine
-					if _, ok := m.rgt.Get(sid); ok {
-						m.stopScaler(sid)
+					if _, ok := m.rgt.Get(sname); ok {
+						m.stopScaler(sname)
 					}
 				}
 			}
@@ -110,33 +110,33 @@ func (m *Manager) Run(ctx context.Context) {
 	}
 }
 
-func (m *Manager) stopScaler(id string) {
-	s, _ := m.rgt.Get(id)
-	if local, worker, ok := m.cluster.LocalIsWorker(id); !ok {
+func (m *Manager) stopScaler(name string) {
+	s, _ := m.rgt.Get(name)
+	if local, worker, ok := m.cluster.LocalIsWorker(name); !ok {
 		level.Debug(m.logger).Log("msg", "Ignoring scaler, another worker node takes it",
-			"scaler", id, "local", local, "worker", worker)
+			"scaler", name, "local", local, "worker", worker)
 		return
 	}
-	level.Info(m.logger).Log("msg", "Removing scaler", "id", id)
-	s.stop()
-	m.rgt.Delete(id)
+	level.Info(m.logger).Log("msg", "Removing scaler", "name", name)
+	s.Stop()
+	m.rgt.Delete(name)
 }
 
-func (m *Manager) startScaler(id string, data []byte) {
-	if local, worker, ok := m.cluster.LocalIsWorker(id); !ok {
+func (m *Manager) startScaler(name string, data []byte) {
+	if local, worker, ok := m.cluster.LocalIsWorker(name); !ok {
 		level.Debug(m.logger).Log("msg", "Ignoring scaler, another worker node takes it",
-			"scaler", id, "local", local, "worker", worker)
+			"scaler", name, "local", local, "worker", worker)
 		return
 	}
-	level.Info(m.logger).Log("msg", "Creating scaler", "id", id)
-	backend, err := m.getBackend(id)
+	level.Info(m.logger).Log("msg", "Creating scaler", "name", name)
+	backend, err := m.getBackend(name)
 	if err != nil {
 		level.Error(m.logger).Log("msg", "Error creating registry backend for scaler",
-			"id", id, "err", err)
+			"name", name, "err", err)
 		return
 	}
-	s := newScaler(log.With(m.logger, "scaler", id), data, backend)
-	m.rgt.Set(id, s)
+	s := newScaler(log.With(m.logger, "scaler", name), data, backend)
+	m.rgt.Set(name, s)
 	go func() {
 		m.wg.Add(1)
 		s.run(context.Background(), m.wg)
@@ -146,7 +146,7 @@ func (m *Manager) startScaler(id string, data []byte) {
 func (m *Manager) getBackend(key string) (metrics.Backend, error) {
 	// There is format -> Cloud provider id
 	providerID := strings.Split(key, "/")[2]
-	resp, err := m.etcdcli.Get(context.Background(), utils.Path(model.DefaultCloudPrefix, providerID))
+	resp, err := m.etcdcli.Get(context.Background(), common.Path(model.DefaultCloudPrefix, providerID))
 	if err != nil {
 		return nil, err
 	}
@@ -182,22 +182,29 @@ func (m *Manager) getBackend(key string) (metrics.Backend, error) {
 func (m *Manager) save() {
 	for i := range m.rgt.Iter() {
 		m.wg.Add(1)
-		go func(i RegistryItem) {
-			defer m.wg.Done()
-			i.Value.Alert = &i.Value.alert.State
+		defer m.wg.Done()
+		go func(i common.RegistryItem) {
+			switch it := i.Value.(type) {
+			case *Scaler:
+				it.Alert = &it.alert.State
+			default:
+				level.Error(m.logger).Log("msg", "Registry can contains only Scalers",
+					"name", i.Name)
+				return
+			}
 			raw, err := json.Marshal(&i.Value)
 			if err != nil {
 				level.Error(m.logger).Log("msg", "Error serializing scaler object",
-					"id", i.Key, "err", err)
+					"name", i.Name, "err", err)
 				return
 			}
-			_, err = m.etcdcli.Put(context.Background(), i.Key, string(raw))
+			_, err = m.etcdcli.Put(context.Background(), i.Name, string(raw))
 			if err != nil {
 				level.Error(m.logger).Log("msg", "Error putting scaler object",
-					"key", i.Key, "err", err)
+					"name", i.Name, "err", err)
 				return
 			}
-			m.stopScaler(i.Key)
+			m.stopScaler(i.Name)
 		}(i)
 	}
 }
@@ -209,10 +216,10 @@ func (m *Manager) load() {
 		level.Error(m.logger).Log("msg", "Error getting scalers", "err", err)
 		return
 	}
-	var sid string
+	var sname string
 	for _, ev := range resp.Kvs {
-		sid = string(ev.Key)
-		m.startScaler(sid, ev.Value)
+		sname = string(ev.Key)
+		m.startScaler(sname, ev.Value)
 	}
 }
 
@@ -229,32 +236,39 @@ func (m *Manager) rebalance() {
 		wg.Add(1)
 		go func(ev *mvccpb.KeyValue) {
 			defer wg.Done()
-			id := string(ev.Key)
-			local, worker, ok1 := m.cluster.LocalIsWorker(id)
-			scaler, ok2 := m.rgt.Get(id)
+			name := string(ev.Key)
+			local, worker, ok1 := m.cluster.LocalIsWorker(name)
+			scaler, ok2 := m.rgt.Get(name)
 
 			if !ok1 {
 				if ok2 {
-					scaler.Alert = &scaler.alert.State
+					switch s := scaler.(type) {
+					case *Scaler:
+						s.Alert = &s.alert.State
+					default:
+						level.Error(m.logger).Log("msg", "Registry can contains only Scalers",
+							"name", name)
+						return
+					}
 					raw, err := json.Marshal(&scaler)
 					if err != nil {
 						level.Error(m.logger).Log("msg", "Error serializing scaler object",
-							"id", id, "err", err)
+							"name", name, "err", err)
 						return
 					}
-					_, err = m.etcdcli.Put(context.Background(), id, string(raw))
+					_, err = m.etcdcli.Put(context.Background(), name, string(raw))
 					if err != nil {
 						level.Error(m.logger).Log("msg", "Error putting scaler object",
-							"key", id, "err", err)
+							"name", name, "err", err)
 						return
 					}
 					level.Info(m.logger).Log("msg", "Removing scaler, another worker node takes it",
-						"scaler", id, "local", local, "worker", worker)
-					scaler.stop()
-					m.rgt.Delete(id)
+						"scaler", name, "local", local, "worker", worker)
+					scaler.Stop()
+					m.rgt.Delete(name)
 				}
 			} else if !ok2 {
-				m.startScaler(id, ev.Value)
+				m.startScaler(name, ev.Value)
 			}
 		}(ev)
 	}

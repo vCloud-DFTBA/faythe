@@ -20,7 +20,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/vCloud-DFTBA/faythe/pkg/utils"
+	"github.com/vCloud-DFTBA/faythe/pkg/common"
 )
 
 const (
@@ -40,6 +40,6 @@ func (m *Member) Validate() error {
 	if ip := net.ParseIP(m.Address); ip == nil {
 		return errors.Errorf("Member's address: %s is not a valid textual representation of an IP address", m.Address)
 	}
-	m.ID = utils.Hash(m.Name + m.Address, crypto.MD5)
+	m.ID = common.Hash(m.Name+m.Address, crypto.MD5)
 	return nil
 }

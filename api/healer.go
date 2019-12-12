@@ -24,14 +24,14 @@ import (
 	"github.com/gorilla/mux"
 	etcdv3 "go.etcd.io/etcd/clientv3"
 
+	"github.com/vCloud-DFTBA/faythe/pkg/common"
 	"github.com/vCloud-DFTBA/faythe/pkg/model"
-	"github.com/vCloud-DFTBA/faythe/pkg/utils"
 )
 
 func (a *API) createHealer(rw http.ResponseWriter, req *http.Request) {
 	h := &model.Healer{}
 	vars := mux.Vars(req)
-	path := utils.Path(model.DefaultCloudPrefix, vars["provider_id"])
+	path := common.Path(model.DefaultCloudPrefix, vars["provider_id"])
 	resp, _ := a.etcdclient.Get(req.Context(), path)
 	if resp.Count == 0 {
 		err := fmt.Errorf("unknown provider id: %s", vars["provider_id"])
@@ -60,7 +60,7 @@ func (a *API) createHealer(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	path = utils.Path(model.DefaultHealerPrefix, vars["provider_id"])
+	path = common.Path(model.DefaultHealerPrefix, vars["provider_id"])
 	resp, _ = a.etcdclient.Get(req.Context(), path, etcdv3.WithPrefix(), etcdv3.WithCountOnly())
 	if resp.Count > 0 {
 		err := fmt.Errorf("there is only 1 healer can be existed for 1 cloud provider")
@@ -71,13 +71,13 @@ func (a *API) createHealer(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	h.ID = utils.Hash(c.ID, crypto.MD5)
+	h.ID = common.Hash(c.ID, crypto.MD5)
 	h.Monitor = c.Monitor
 	h.ATEngine = c.ATEngine
 	h.CloudID = c.ID
 
 	r, _ := json.Marshal(&h)
-	_, err := a.etcdclient.Put(req.Context(), utils.Path(path, h.ID), string(r))
+	_, err := a.etcdclient.Put(req.Context(), common.Path(path, h.ID), string(r))
 	if err != nil {
 		err = fmt.Errorf("error putting a key-value pair into etcd: %s", err.Error())
 		a.respondError(rw, apiError{
@@ -92,7 +92,7 @@ func (a *API) createHealer(rw http.ResponseWriter, req *http.Request) {
 func (a *API) listHealers(rw http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
 	pid := strings.ToLower(vars["provider_id"])
-	path := utils.Path(model.DefaultHealerPrefix, pid)
+	path := common.Path(model.DefaultHealerPrefix, pid)
 
 	resp, err := a.etcdclient.Get(req.Context(), path, etcdv3.WithPrefix(),
 		etcdv3.WithSort(etcdv3.SortByKey, etcdv3.SortAscend))
@@ -117,7 +117,7 @@ func (a *API) deleteHealer(w http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
 	pid := strings.ToLower(vars["provider_id"])
 	sid := strings.ToLower(vars["id"])
-	path := utils.Path(model.DefaultHealerPrefix, pid, sid)
+	path := common.Path(model.DefaultHealerPrefix, pid, sid)
 	_, err := a.etcdclient.Delete(req.Context(), path, etcdv3.WithPrefix())
 	if err != nil {
 		a.respondError(w, apiError{
