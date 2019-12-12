@@ -92,13 +92,13 @@ func main() {
 	}
 
 	var (
-		etcdConf = etcdv3.Config{}
-		etcdcli  = &common.Etcd{}
-		router   = mux.NewRouter()
-		fmw      = &middleware.Middleware{}
-		fapi     = &api.API{}
-		fas      = &autoscaler.Manager{}
-		cls      = &cluster.Cluster{}
+		etcdcfg = etcdv3.Config{}
+		etcdcli = &common.Etcd{}
+		router  = mux.NewRouter()
+		fmw     = &middleware.Middleware{}
+		fapi    = &api.API{}
+		fas     = &autoscaler.Manager{}
+		cls     = &cluster.Cluster{}
 	)
 	// Load configurations from file
 	err = config.Set(cfg.configFile, log.With(logger, "component", "config manager"))
@@ -110,8 +110,8 @@ func main() {
 	config.WatchConfig()
 
 	// Init Etcdv3 client
-	copier.Copy(&etcdConf, config.Get().EtcdConfig)
-	etcdcli, err = common.New(etcdConf)
+	copier.Copy(&etcdcfg, config.Get().EtcdConfig)
+	etcdcli, err = common.NewEtcd(etcdcfg)
 
 	if err != nil {
 		level.Error(logger).Log("err", errors.Wrapf(err, "Error instantiating Etcd V3 client."))
