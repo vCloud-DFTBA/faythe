@@ -30,7 +30,6 @@ import (
 	"github.com/vCloud-DFTBA/faythe/pkg/cluster"
 
 	"github.com/vCloud-DFTBA/faythe/pkg/common"
-	"github.com/vCloud-DFTBA/faythe/pkg/etcd"
 	"github.com/vCloud-DFTBA/faythe/pkg/metrics"
 	"github.com/vCloud-DFTBA/faythe/pkg/model"
 )
@@ -40,7 +39,7 @@ type Manager struct {
 	logger  log.Logger
 	rqt     *common.Registry
 	stop    chan struct{}
-	etcdcli *etcd.V3
+	etcdcli *common.Etcd
 	watchc  etcdv3.WatchChan
 	watchh  etcdv3.WatchChan
 	wg      *sync.WaitGroup
@@ -48,11 +47,11 @@ type Manager struct {
 	ncin    chan NodeMetric
 	ncout   chan map[string]string
 	cluster *cluster.Cluster
-	state   model.State
+	state   common.State
 }
 
 // NewManager create new Manager for name resolver and healer
-func NewManager(l log.Logger, e *etcd.V3, c *cluster.Cluster) *Manager {
+func NewManager(l log.Logger, e *common.Etcd, c *cluster.Cluster) *Manager {
 	hm := &Manager{
 		logger:  l,
 		rqt:     &common.Registry{Items: make(map[string]common.Worker)},
@@ -65,7 +64,7 @@ func NewManager(l log.Logger, e *etcd.V3, c *cluster.Cluster) *Manager {
 		cluster: c,
 	}
 	hm.load()
-	hm.state = model.StateActive
+	hm.state = common.StateActive
 	return hm
 }
 
@@ -140,15 +139,15 @@ func (hm *Manager) stopWorker(name string) {
 // Stop destroy name resolver, healer and itself
 func (hm *Manager) Stop() {
 	// Ignore close channel if manager is already stopped/stopping
-	if hm.state == model.StateStopping || hm.state == model.StateStopped {
+	if hm.state == common.StateStopping || hm.state == common.StateStopped {
 		return
 	}
 	level.Info(hm.logger).Log("msg", "Cleaning before stopping autohealer managger")
-	hm.state = model.StateStopping
+	hm.state = common.StateStopping
 	close(hm.stop)
 	hm.save()
 	hm.wg.Wait()
-	hm.state = model.StateStopped
+	hm.state = common.StateStopped
 	level.Info(hm.logger).Log("msg", "Autohealer manager is stopped!")
 }
 

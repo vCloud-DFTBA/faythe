@@ -43,7 +43,6 @@ import (
 	"github.com/vCloud-DFTBA/faythe/pkg/autoscaler"
 	"github.com/vCloud-DFTBA/faythe/pkg/cluster"
 	"github.com/vCloud-DFTBA/faythe/pkg/common"
-	"github.com/vCloud-DFTBA/faythe/pkg/etcd"
 )
 
 func main() {
@@ -94,7 +93,7 @@ func main() {
 
 	var (
 		etcdConf = etcdv3.Config{}
-		etcdcli  = &etcd.V3{}
+		etcdcli  = &common.Etcd{}
 		router   = mux.NewRouter()
 		fmw      = &middleware.Middleware{}
 		fapi     = &api.API{}
@@ -112,7 +111,7 @@ func main() {
 
 	// Init Etcdv3 client
 	copier.Copy(&etcdConf, config.Get().EtcdConfig)
-	etcdcli, err = etcd.New(etcdConf)
+	etcdcli, err = common.New(etcdConf)
 
 	if err != nil {
 		level.Error(logger).Log("err", errors.Wrapf(err, "Error instantiating Etcd V3 client."))

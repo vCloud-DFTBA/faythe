@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package etcd
+package common
 
 import (
 	"context"
@@ -26,28 +26,28 @@ const (
 	defaultLeaseRequestTimeout = 2 * time.Second
 )
 
-// V3 is the Etcd v3 client wrapper with addition context.
-type V3 struct {
+// Etcd is the Etcd v3 client wrapper with addition context.
+type Etcd struct {
 	*etcdv3.Client
 	ErrCh chan error
 }
 
-// New constructs a new V3 client
-func New(cfg etcdv3.Config) (*V3, error) {
+// New constructs a new Etcd client
+func New(cfg etcdv3.Config) (*Etcd, error) {
 	cli, err := etcdv3.New(cfg)
 	if err != nil {
 		return nil, err
 	}
-	return &V3{cli, make(chan error, 1)}, nil
+	return &Etcd{cli, make(chan error, 1)}, nil
 }
 
 // Context returns a cancelable context and its cancel function.
-func (e *V3) Context() (context.Context, context.CancelFunc) {
+func (e *Etcd) Context() (context.Context, context.CancelFunc) {
 	return context.WithTimeout(context.Background(), defaultKvRequestTimeout)
 }
 
 // LeaseContext returns a cancelable context and its cancel function.
-func (e *V3) LeaseContext() (context.Context, context.CancelFunc) {
+func (e *Etcd) LeaseContext() (context.Context, context.CancelFunc) {
 	return context.WithTimeout(context.Background(), defaultLeaseRequestTimeout)
 }
 
@@ -61,13 +61,13 @@ func (e *V3) LeaseContext() (context.Context, context.CancelFunc) {
 // and then "WatchChan" is closed with non-nil "Err()".
 // In order to prevent a watch stream being stuck in a partitioned node,
 // make sure to wrap context with "WithRequireLeader".
-func (e *V3) WatchContext() (context.Context, context.CancelFunc) {
+func (e *Etcd) WatchContext() (context.Context, context.CancelFunc) {
 	return context.WithCancel(etcdv3.WithRequireLeader(context.Background()))
 }
 
 // DoGet retrieves keys.
 // More details please refer to etcd clientv3.KV interface.
-func (e *V3) DoGet(key string, opts ...etcdv3.OpOption) (*etcdv3.GetResponse, error) {
+func (e *Etcd) DoGet(key string, opts ...etcdv3.OpOption) (*etcdv3.GetResponse, error) {
 	ctx, cancel := e.Context()
 	defer cancel()
 	result, err := e.Get(ctx, key, opts...)
@@ -79,7 +79,7 @@ func (e *V3) DoGet(key string, opts ...etcdv3.OpOption) (*etcdv3.GetResponse, er
 
 // DoPut puts a key-value pair into etcd.
 // More details please refer to etcd clientv3.KV interface.
-func (e *V3) DoPut(key, val string, opts ...etcdv3.OpOption) (*etcdv3.PutResponse, error) {
+func (e *Etcd) DoPut(key, val string, opts ...etcdv3.OpOption) (*etcdv3.PutResponse, error) {
 	ctx, cancel := e.Context()
 	defer cancel()
 	result, err := e.Put(ctx, key, val, opts...)
@@ -91,7 +91,7 @@ func (e *V3) DoPut(key, val string, opts ...etcdv3.OpOption) (*etcdv3.PutRespons
 
 // DoDelete deletes a key, or optionally using WithRange(end), [key, end).
 // More details please refer to etcd clientv3.KV interface.
-func (e *V3) DoDelete(key string, opts ...etcdv3.OpOption) (*etcdv3.DeleteResponse, error) {
+func (e *Etcd) DoDelete(key string, opts ...etcdv3.OpOption) (*etcdv3.DeleteResponse, error) {
 	ctx, cancel := e.Context()
 	defer cancel()
 	result, err := e.Delete(ctx, key, opts...)
@@ -102,7 +102,7 @@ func (e *V3) DoDelete(key string, opts ...etcdv3.OpOption) (*etcdv3.DeleteRespon
 }
 
 // DoGrant creates a new lease.
-func (e *V3) DoGrant(ttl int64) (*etcdv3.LeaseGrantResponse, error) {
+func (e *Etcd) DoGrant(ttl int64) (*etcdv3.LeaseGrantResponse, error) {
 	ctx, cancel := e.LeaseContext()
 	defer cancel()
 	result, err := e.Grant(ctx, ttl)
@@ -115,7 +115,7 @@ func (e *V3) DoGrant(ttl int64) (*etcdv3.LeaseGrantResponse, error) {
 // DoKeepAliveOnce renews the lease once. The response corresponds to the
 // first message from calling KeepAlive. If the response has a recoverable
 // error, KeepAliveOnce will retry the RPC with a new keep alive message.
-func (e *V3) DoKeepAliveOnce(id etcdv3.LeaseID) (*etcdv3.LeaseKeepAliveResponse, error) {
+func (e *Etcd) DoKeepAliveOnce(id etcdv3.LeaseID) (*etcdv3.LeaseKeepAliveResponse, error) {
 	ctx, cancel := e.LeaseContext()
 	defer cancel()
 	result, err := e.KeepAliveOnce(ctx, id)
@@ -126,7 +126,7 @@ func (e *V3) DoKeepAliveOnce(id etcdv3.LeaseID) (*etcdv3.LeaseKeepAliveResponse,
 }
 
 // DoRevoke revokes the given lease.
-func (e *V3) DoRevoke(id etcdv3.LeaseID) (*etcdv3.LeaseRevokeResponse, error) {
+func (e *Etcd) DoRevoke(id etcdv3.LeaseID) (*etcdv3.LeaseRevokeResponse, error) {
 	ctx, cancel := e.LeaseContext()
 	defer cancel()
 	result, err := e.Revoke(ctx, id)
@@ -137,7 +137,7 @@ func (e *V3) DoRevoke(id etcdv3.LeaseID) (*etcdv3.LeaseRevokeResponse, error) {
 }
 
 // Run waits for Etcd client's error.
-func (e *V3) Run(stopc chan struct{}) {
+func (e *Etcd) Run(stopc chan struct{}) {
 	for {
 		select {
 		case err := <-e.ErrCh:

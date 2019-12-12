@@ -28,7 +28,6 @@ import (
 
 	"github.com/vCloud-DFTBA/faythe/pkg/cluster"
 	"github.com/vCloud-DFTBA/faythe/pkg/common"
-	"github.com/vCloud-DFTBA/faythe/pkg/etcd"
 	"github.com/vCloud-DFTBA/faythe/pkg/metrics"
 	"github.com/vCloud-DFTBA/faythe/pkg/model"
 )
@@ -38,15 +37,15 @@ type Manager struct {
 	logger  log.Logger
 	rgt     *common.Registry
 	stop    chan struct{}
-	etcdcli *etcd.V3
+	etcdcli *common.Etcd
 	watch   etcdv3.WatchChan
 	wg      *sync.WaitGroup
 	cluster *cluster.Cluster
-	state   model.State
+	state   common.State
 }
 
 // NewManager returns an Autoscale Manager
-func NewManager(l log.Logger, e *etcd.V3, c *cluster.Cluster) *Manager {
+func NewManager(l log.Logger, e *common.Etcd, c *cluster.Cluster) *Manager {
 	m := &Manager{
 		logger:  l,
 		rgt:     &common.Registry{Items: make(map[string]common.Worker)},
@@ -57,7 +56,7 @@ func NewManager(l log.Logger, e *etcd.V3, c *cluster.Cluster) *Manager {
 	}
 	// Load at init
 	m.load()
-	m.state = model.StateActive
+	m.state = common.StateActive
 	return m
 }
 
@@ -71,16 +70,16 @@ func (m *Manager) Reload() {
 // Stop the manager and its scaler cycles.
 func (m *Manager) Stop() {
 	// Ignore close channel if manager is already stopped/stopping
-	if m.state == model.StateStopping || m.state == model.StateStopped {
+	if m.state == common.StateStopping || m.state == common.StateStopped {
 		return
 	}
 	level.Info(m.logger).Log("msg", "Stopping autoscale manager...")
-	m.state = model.StateStopping
+	m.state = common.StateStopping
 	close(m.stop)
 	m.save()
 	// Wait until all scalers shut down
 	m.wg.Wait()
-	m.state = model.StateStopped
+	m.state = common.StateStopped
 	level.Info(m.logger).Log("msg", "Autoscale manager stopped")
 }
 

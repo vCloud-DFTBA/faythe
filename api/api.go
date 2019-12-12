@@ -16,6 +16,7 @@ package api
 
 import (
 	"encoding/json"
+	"github.com/vCloud-DFTBA/faythe/pkg/common"
 	"net/http"
 	"sync"
 	"time"
@@ -23,7 +24,6 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/gorilla/mux"
-	"github.com/vCloud-DFTBA/faythe/pkg/etcd"
 )
 
 var corsHeaders = map[string]string{
@@ -45,12 +45,12 @@ func setCORS(w http.ResponseWriter) {
 type API struct {
 	logger  log.Logger
 	uptime  time.Time
-	etcdcli *etcd.V3
+	etcdcli *common.Etcd
 	mtx     sync.RWMutex
 }
 
 // New returns a new API.
-func New(l log.Logger, e *etcd.V3) *API {
+func New(l log.Logger, e *common.Etcd) *API {
 	if l == nil {
 		l = log.NewNopLogger()
 	}

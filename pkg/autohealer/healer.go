@@ -44,7 +44,7 @@ type Healer struct {
 	done       chan struct{}
 	logger     log.Logger
 	mtx        sync.RWMutex
-	state      model.State
+	state      common.State
 	terminated chan struct{}
 }
 
@@ -58,7 +58,7 @@ func newHealer(l log.Logger, data []byte, b metrics.Backend, atengine model.ATEn
 	}
 	json.Unmarshal(data, h)
 	h.Validate()
-	h.state = model.StateActive
+	h.state = common.StateActive
 	return h
 }
 
@@ -89,7 +89,7 @@ func (h *Healer) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string
 				if err != nil {
 					level.Error(h.logger).Log("msg", "Executing query failed, skip current interval",
 						"query", h.Query, "err", err)
-					h.state = model.StateFailed
+					h.state = common.StateFailed
 					if common.RetryableError(err) {
 						continue
 					} else {
@@ -272,13 +272,13 @@ func (h *Healer) Stop() {
 	h.mtx.Lock()
 	defer h.mtx.Unlock()
 
-	if h.state == model.StateStopping || h.state == model.StateStopped {
+	if h.state == common.StateStopping || h.state == common.StateStopped {
 		return
 	}
 	level.Debug(h.logger).Log("msg", "Healer is stopping")
-	h.state = model.StateStopping
+	h.state = common.StateStopping
 	close(h.done)
 	<-h.terminated
-	h.state = model.StateStopped
+	h.state = common.StateStopped
 	level.Debug(h.logger).Log("msg", "Healer is stopped")
 }

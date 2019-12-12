@@ -33,7 +33,6 @@ import (
 	"stathat.com/c/consistent"
 
 	"github.com/vCloud-DFTBA/faythe/pkg/common"
-	"github.com/vCloud-DFTBA/faythe/pkg/etcd"
 	"github.com/vCloud-DFTBA/faythe/pkg/model"
 )
 
@@ -70,7 +69,7 @@ type Cluster struct {
 	lease      etcdv3.LeaseID
 	local      model.Member
 	members    map[string]model.Member
-	etcdcli    *etcd.V3
+	etcdcli    *common.Etcd
 	mtx        *concurrency.Mutex
 	ring       *consistent.Consistent
 	stopCh     chan struct{}
@@ -80,7 +79,7 @@ type Cluster struct {
 }
 
 // New creates a new cluster manager instance.
-func New(cid, bindAddr string, l log.Logger, e *etcd.V3) (*Cluster, error) {
+func New(cid, bindAddr string, l log.Logger, e *common.Etcd) (*Cluster, error) {
 	c := &Cluster{
 		logger:  l,
 		etcdcli: e,
