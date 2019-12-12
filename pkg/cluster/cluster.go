@@ -94,7 +94,7 @@ func New(cid, bindAddr string, l log.Logger, e *etcdv3.Client) (*Cluster, error)
 		stopCh:  make(chan struct{}),
 	}
 	if cid == "" {
-		ClusterID = utils.RandToken()
+		ClusterID = common.RandToken()
 		level.Info(c.logger).Log("msg", "A new cluster is starting...")
 	} else {
 		ClusterID = cid

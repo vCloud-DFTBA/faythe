@@ -27,6 +27,7 @@ import (
 	"github.com/prometheus/common/model"
 
 	"github.com/vCloud-DFTBA/faythe/pkg/common"
+	fmodel "github.com/vCloud-DFTBA/faythe/pkg/model"
 )
 
 // Backend implements a metric backend for Prometheus.
