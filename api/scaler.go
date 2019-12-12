@@ -24,8 +24,8 @@ import (
 	"github.com/gorilla/mux"
 	etcdv3 "go.etcd.io/etcd/clientv3"
 
+	"github.com/vCloud-DFTBA/faythe/pkg/common"
 	"github.com/vCloud-DFTBA/faythe/pkg/model"
-	"github.com/vCloud-DFTBA/faythe/pkg/utils"
 )
 
 func (a *API) createScaler(w http.ResponseWriter, req *http.Request) {
@@ -38,7 +38,7 @@ func (a *API) createScaler(w http.ResponseWriter, req *http.Request) {
 		force bool
 	)
 	vars = mux.Vars(req)
-	path = utils.Path(model.DefaultCloudPrefix, vars["provider_id"])
+	path = common.Path(model.DefaultCloudPrefix, vars["provider_id"])
 	resp, _ := a.etcdclient.Get(req.Context(), path, etcdv3.WithCountOnly())
 	if resp.Count == 0 {
 		err := fmt.Errorf("unknown provider id: %s", vars["provider_id"])
@@ -62,7 +62,7 @@ func (a *API) createScaler(w http.ResponseWriter, req *http.Request) {
 		})
 		return
 	}
-	path = utils.Path(model.DefaultScalerPrefix, vars["provider_id"], s.ID)
+	path = common.Path(model.DefaultScalerPrefix, vars["provider_id"], s.ID)
 	if strings.ToLower(req.URL.Query().Get("force")) == "true" {
 		force = true
 	}
@@ -101,7 +101,7 @@ func (a *API) listScalers(w http.ResponseWriter, req *http.Request) {
 	)
 	vars = mux.Vars(req)
 	pid = strings.ToLower(vars["provider_id"])
-	path = utils.Path(model.DefaultScalerPrefix, pid)
+	path = common.Path(model.DefaultScalerPrefix, pid)
 	resp, err := a.etcdclient.Get(req.Context(), path, etcdv3.WithPrefix(),
 		etcdv3.WithSort(etcdv3.SortByKey, etcdv3.SortAscend))
 	if err != nil {
@@ -123,14 +123,14 @@ func (a *API) listScalers(w http.ResponseWriter, req *http.Request) {
 			// Clouds that match all tags in this list will be returned
 			if fTags := req.FormValue("tags"); fTags != "" {
 				tags := strings.Split(fTags, ",")
-				if !utils.Find(s.Tags, tags, "and") {
+				if !common.Find(s.Tags, tags, "and") {
 					return
 				}
 			}
 			// Clouds that match any tags in this list will be returned
 			if fTagsAny := req.FormValue("tags-any"); fTagsAny != "" {
 				tags := strings.Split(fTagsAny, ",")
-				if !utils.Find(s.Tags, tags, "or") {
+				if !common.Find(s.Tags, tags, "or") {
 					return
 				}
 			}
@@ -154,7 +154,7 @@ func (a *API) deleteScaler(w http.ResponseWriter, req *http.Request) {
 	vars = mux.Vars(req)
 	pid = strings.ToLower(vars["provider_id"])
 	sid = strings.ToLower(vars["id"])
-	path = utils.Path(model.DefaultScalerPrefix, pid, sid)
+	path = common.Path(model.DefaultScalerPrefix, pid, sid)
 	resp, err := a.etcdclient.Delete(req.Context(), path, etcdv3.WithPrefix())
 	if err != nil {
 		a.respondError(w, apiError{

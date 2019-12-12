@@ -16,9 +16,10 @@ package model
 
 import (
 	"crypto"
+
 	"github.com/pkg/errors"
 
-	"github.com/vCloud-DFTBA/faythe/pkg/utils"
+	"github.com/vCloud-DFTBA/faythe/pkg/common"
 )
 
 // Cloud represents Cloud information. Other cloud provider models
@@ -119,7 +120,7 @@ func (op *OpenStack) Validate() error {
 		return errors.New("missing `IdentityEndpoint` in OpenStack AuthOpts")
 	}
 
-	op.ID = utils.Hash(op.Auth.AuthURL, crypto.MD5)
+	op.ID = common.Hash(op.Auth.AuthURL, crypto.MD5)
 
 	return nil
 }

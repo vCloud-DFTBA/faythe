@@ -28,9 +28,9 @@ import (
 	"github.com/go-kit/kit/log/level"
 
 	"github.com/vCloud-DFTBA/faythe/pkg/alert"
+	"github.com/vCloud-DFTBA/faythe/pkg/common"
 	"github.com/vCloud-DFTBA/faythe/pkg/metrics"
 	"github.com/vCloud-DFTBA/faythe/pkg/model"
-	"github.com/vCloud-DFTBA/faythe/pkg/utils"
 )
 
 type healerState int
@@ -116,7 +116,7 @@ func (h *Healer) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string
 					level.Error(h.logger).Log("msg", "Executing query failed, skip current interval",
 						"query", h.Query, "err", err)
 					h.state = stateFailed
-					if utils.RetryableError(err) {
+					if common.RetryableError(err) {
 						continue
 					} else {
 						return

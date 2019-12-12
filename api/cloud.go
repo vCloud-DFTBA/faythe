@@ -24,8 +24,8 @@ import (
 	"github.com/gorilla/mux"
 	etcdv3 "go.etcd.io/etcd/clientv3"
 
+	"github.com/vCloud-DFTBA/faythe/pkg/common"
 	"github.com/vCloud-DFTBA/faythe/pkg/model"
-	"github.com/vCloud-DFTBA/faythe/pkg/utils"
 )
 
 func (a *API) registerCloud(w http.ResponseWriter, req *http.Request) {
@@ -55,7 +55,7 @@ func (a *API) registerCloud(w http.ResponseWriter, req *http.Request) {
 			})
 			return
 		}
-		k = utils.Path(model.DefaultCloudPrefix, ops.ID)
+		k = common.Path(model.DefaultCloudPrefix, ops.ID)
 		if strings.ToLower(req.URL.Query().Get("force")) == "true" {
 			force = true
 		}
@@ -118,14 +118,14 @@ func (a *API) listClouds(w http.ResponseWriter, req *http.Request) {
 			// Clouds that match all tags in this list will be returned
 			if fTags := req.FormValue("tags"); fTags != "" {
 				tags := strings.Split(fTags, ",")
-				if !utils.Find(cloud.Tags, tags, "and") {
+				if !common.Find(cloud.Tags, tags, "and") {
 					return
 				}
 			}
 			// Clouds that match any tags in this list will be returned
 			if fTagsAny := req.FormValue("tags-any"); fTagsAny != "" {
 				tags := strings.Split(fTagsAny, ",")
-				if !utils.Find(cloud.Tags, tags, "or") {
+				if !common.Find(cloud.Tags, tags, "or") {
 					return
 				}
 			}
@@ -153,7 +153,7 @@ func (a *API) unregisterCloud(w http.ResponseWriter, req *http.Request) {
 	)
 	vars = mux.Vars(req)
 	pid = strings.ToLower(vars["id"])
-	path = utils.Path(model.DefaultCloudPrefix, pid)
+	path = common.Path(model.DefaultCloudPrefix, pid)
 	_, err := a.etcdclient.Delete(req.Context(), path, etcdv3.WithPrefix())
 	if err != nil {
 		a.respondError(w, apiError{
@@ -163,7 +163,7 @@ func (a *API) unregisterCloud(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	scalerPath := utils.Path(model.DefaultScalerPrefix, pid)
+	scalerPath := common.Path(model.DefaultScalerPrefix, pid)
 	_, err = a.etcdclient.Delete(req.Context(), scalerPath, etcdv3.WithPrefix())
 	if err != nil {
 		a.respondError(w, apiError{

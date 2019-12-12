@@ -28,15 +28,15 @@ import (
 	"go.etcd.io/etcd/mvcc/mvccpb"
 
 	"github.com/vCloud-DFTBA/faythe/pkg/cluster"
+	"github.com/vCloud-DFTBA/faythe/pkg/common"
 	"github.com/vCloud-DFTBA/faythe/pkg/metrics"
 	"github.com/vCloud-DFTBA/faythe/pkg/model"
-	"github.com/vCloud-DFTBA/faythe/pkg/utils"
 )
 
 // Manager controls name resolver and healer instances
 type Manager struct {
 	logger  log.Logger
-	rqt     *utils.Registry
+	rqt     *common.Registry
 	stop    chan struct{}
 	etcdcli *etcdv3.Client
 	watchc  etcdv3.WatchChan
@@ -52,7 +52,7 @@ type Manager struct {
 func NewManager(l log.Logger, e *etcdv3.Client, c *cluster.Cluster) *Manager {
 	hm := &Manager{
 		logger:  l,
-		rqt:     &utils.Registry{Items: make(map[string]utils.Worker)},
+		rqt:     &common.Registry{Items: make(map[string]common.Worker)},
 		stop:    make(chan struct{}),
 		etcdcli: e,
 		wg:      &sync.WaitGroup{},
@@ -145,7 +145,7 @@ func (hm *Manager) Stop() {
 func (hm *Manager) save() {
 	for e := range hm.rqt.Iter() {
 		hm.wg.Add(1)
-		go func(e utils.RegistryItem) {
+		go func(e common.RegistryItem) {
 			defer hm.wg.Done()
 
 			raw, err := json.Marshal(&e.Value)
@@ -179,8 +179,8 @@ func (hm *Manager) Run(ctx context.Context) {
 				break
 			}
 			for _, event := range watchResp.Events {
-				name := utils.Path(model.DefaultNResolverPrefix, strings.Split(string(event.Kv.Key), "/")[2],
-					utils.Hash(strings.Split(string(event.Kv.Key), "/")[2], crypto.MD5))
+				name := common.Path(model.DefaultNResolverPrefix, strings.Split(string(event.Kv.Key), "/")[2],
+					common.Hash(strings.Split(string(event.Kv.Key), "/")[2], crypto.MD5))
 				if event.IsCreate() {
 					cloud := model.Cloud{}
 					err := json.Unmarshal(event.Kv.Value, &cloud)
@@ -189,7 +189,7 @@ func (hm *Manager) Run(ctx context.Context) {
 					}
 					// NResolver
 					nr := model.NResolver{
-						ID:      utils.Hash(cloud.ID, crypto.MD5),
+						ID:      common.Hash(cloud.ID, crypto.MD5),
 						Monitor: cloud.Monitor,
 						CloudID: cloud.ID,
 					}
@@ -216,8 +216,8 @@ func (hm *Manager) Run(ctx context.Context) {
 				break
 			}
 			for _, event := range watchResp.Events {
-				name := utils.Path(model.DefaultHealerPrefix, strings.Split(string(event.Kv.Key), "/")[2],
-					utils.Hash(strings.Split(string(event.Kv.Key), "/")[2], crypto.MD5))
+				name := common.Path(model.DefaultHealerPrefix, strings.Split(string(event.Kv.Key), "/")[2],
+					common.Hash(strings.Split(string(event.Kv.Key), "/")[2], crypto.MD5))
 				if event.IsCreate() {
 					hm.startWorker(model.DefaultHealerPrefix, name, event.Kv.Value)
 				}
@@ -287,7 +287,7 @@ func (hm *Manager) rebalance() {
 func (hm *Manager) getBackend(key string) (metrics.Backend, error) {
 	// There is format -> Cloud provider id
 	providerID := strings.Split(key, "/")[2]
-	resp, err := hm.etcdcli.Get(context.Background(), utils.Path(model.DefaultCloudPrefix, providerID))
+	resp, err := hm.etcdcli.Get(context.Background(), common.Path(model.DefaultCloudPrefix, providerID))
 	if err != nil {
 		return nil, err
 	}
@@ -321,7 +321,7 @@ func (hm *Manager) getBackend(key string) (metrics.Backend, error) {
 
 func (hm *Manager) getATEngine(key string) (model.ATEngine, error) {
 	providerID := strings.Split(key, "/")[2]
-	resp, err := hm.etcdcli.Get(context.Background(), utils.Path(model.DefaultCloudPrefix, providerID))
+	resp, err := hm.etcdcli.Get(context.Background(), common.Path(model.DefaultCloudPrefix, providerID))
 	if err != nil {
 		return model.ATEngine{}, err
 	}

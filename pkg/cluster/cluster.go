@@ -32,8 +32,8 @@ import (
 	"go.etcd.io/etcd/clientv3/namespace"
 	"stathat.com/c/consistent"
 
+	"github.com/vCloud-DFTBA/faythe/pkg/common"
 	"github.com/vCloud-DFTBA/faythe/pkg/model"
-	"github.com/vCloud-DFTBA/faythe/pkg/utils"
 )
 
 // ClusterState is the state of the Cluster instance
@@ -87,7 +87,7 @@ func New(cid, bindAddr string, l log.Logger, e *etcdv3.Client) (*Cluster, error)
 		stopCh:  make(chan struct{}),
 	}
 	if cid == "" {
-		cid = utils.RandToken()
+		cid = common.RandToken()
 		level.Info(c.logger).Log("msg", "A new cluster is starting...")
 	} else {
 		level.Info(c.logger).Log("msg", "A node is joining to existing cluster...")
@@ -140,7 +140,7 @@ func New(cid, bindAddr string, l log.Logger, e *etcdv3.Client) (*Cluster, error)
 		// Add new member
 		v, _ := json.Marshal(&c.local)
 		_, err := c.etcdcli.Put(context.Background(),
-			utils.Path(model.DefaultClusterPrefix, c.local.ID),
+			common.Path(model.DefaultClusterPrefix, c.local.ID),
 			string(v), etcdv3.WithLease(c.lease))
 		if err != nil {
 			return c, err
@@ -254,7 +254,7 @@ func newLocalMember(bindAddr string) (model.Member, error) {
 	host, _, _ := net.SplitHostPort(bindAddr)
 	// If there is no bind IP, pick an address
 	if host == "0.0.0.0" {
-		host, err = utils.ExternalIP()
+		host, err = common.ExternalIP()
 		if err != nil {
 			return m, err
 		}

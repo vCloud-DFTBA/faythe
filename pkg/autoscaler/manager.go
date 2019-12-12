@@ -27,15 +27,15 @@ import (
 	"go.etcd.io/etcd/mvcc/mvccpb"
 
 	"github.com/vCloud-DFTBA/faythe/pkg/cluster"
+	"github.com/vCloud-DFTBA/faythe/pkg/common"
 	"github.com/vCloud-DFTBA/faythe/pkg/metrics"
 	"github.com/vCloud-DFTBA/faythe/pkg/model"
-	"github.com/vCloud-DFTBA/faythe/pkg/utils"
 )
 
 // Manager manages a set of Scaler instances.
 type Manager struct {
 	logger  log.Logger
-	rgt     *utils.Registry
+	rgt     *common.Registry
 	stop    chan struct{}
 	etcdcli *etcdv3.Client
 	watch   etcdv3.WatchChan
@@ -47,7 +47,7 @@ type Manager struct {
 func NewManager(l log.Logger, e *etcdv3.Client, c *cluster.Cluster) *Manager {
 	m := &Manager{
 		logger:  l,
-		rgt:     &utils.Registry{Items: make(map[string]utils.Worker)},
+		rgt:     &common.Registry{Items: make(map[string]common.Worker)},
 		stop:    make(chan struct{}),
 		etcdcli: e,
 		wg:      &sync.WaitGroup{},
@@ -146,7 +146,7 @@ func (m *Manager) startScaler(name string, data []byte) {
 func (m *Manager) getBackend(key string) (metrics.Backend, error) {
 	// There is format -> Cloud provider id
 	providerID := strings.Split(key, "/")[2]
-	resp, err := m.etcdcli.Get(context.Background(), utils.Path(model.DefaultCloudPrefix, providerID))
+	resp, err := m.etcdcli.Get(context.Background(), common.Path(model.DefaultCloudPrefix, providerID))
 	if err != nil {
 		return nil, err
 	}
@@ -183,7 +183,7 @@ func (m *Manager) save() {
 	for i := range m.rgt.Iter() {
 		m.wg.Add(1)
 		defer m.wg.Done()
-		go func(i utils.RegistryItem) {
+		go func(i common.RegistryItem) {
 			switch it := i.Value.(type) {
 			case *Scaler:
 				it.Alert = &it.alert.State

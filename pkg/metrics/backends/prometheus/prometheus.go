@@ -26,7 +26,7 @@ import (
 	prometheus "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
 
-	"github.com/vCloud-DFTBA/faythe/pkg/utils"
+	"github.com/vCloud-DFTBA/faythe/pkg/common"
 )
 
 // Backend implements a metric backend for Prometheus.
@@ -44,7 +44,7 @@ func New(logger log.Logger, address, username, password string) (*Backend, error
 	// Init Promtheus client configuration (with basic auth if provided)
 	config := prometheusclient.Config{Address: address}
 	if username != "" && password != "" {
-		config.RoundTripper = &utils.BasicAuthTransport{
+		config.RoundTripper = &common.BasicAuthTransport{
 			Username: username,
 			Password: password,
 		}

@@ -29,9 +29,9 @@ import (
 	"go.etcd.io/etcd/clientv3/concurrency"
 
 	"github.com/vCloud-DFTBA/faythe/pkg/alert"
+	"github.com/vCloud-DFTBA/faythe/pkg/common"
 	"github.com/vCloud-DFTBA/faythe/pkg/metrics"
 	"github.com/vCloud-DFTBA/faythe/pkg/model"
-	"github.com/vCloud-DFTBA/faythe/pkg/utils"
 )
 
 // scalerState is the state that a scaler is in.
@@ -135,7 +135,7 @@ func (s *Scaler) run(ctx context.Context, wg *sync.WaitGroup) {
 					level.Error(s.logger).Log("msg", "Executing query failed, skip current interval",
 						"query", s.Query, "err", err)
 					s.state = stateFailed
-					if utils.RetryableError(err) {
+					if common.RetryableError(err) {
 						continue
 					} else {
 						return
@@ -206,7 +206,7 @@ func (s *Scaler) do() {
 				retry.Attempts(a.Attempts),
 				retry.Delay(delay),
 				retry.RetryIf(func(err error) bool {
-					return utils.RetryableError(err)
+					return common.RetryableError(err)
 				}),
 			)
 			if err != nil {
