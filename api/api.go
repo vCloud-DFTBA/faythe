@@ -16,7 +16,6 @@ package api
 
 import (
 	"encoding/json"
-	"github.com/vCloud-DFTBA/faythe/pkg/common"
 	"net/http"
 	"sync"
 	"time"
@@ -24,6 +23,8 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/gorilla/mux"
+
+	"github.com/vCloud-DFTBA/faythe/pkg/common"
 )
 
 var corsHeaders = map[string]string{
