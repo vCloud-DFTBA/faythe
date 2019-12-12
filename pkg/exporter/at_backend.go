@@ -22,7 +22,7 @@ var (
 	atRequestFailureCounter = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: "faythe",
-			Subsystem: "metric",
+			Subsystem: "at_backend",
 			Name:      "query_failures_total",
 			Help:      "The total number of automation system (Stackstorm for ex) request failures total.",
 		},
