@@ -39,7 +39,7 @@ func (a *API) createScaler(w http.ResponseWriter, req *http.Request) {
 	)
 	vars = mux.Vars(req)
 	path = common.Path(model.DefaultCloudPrefix, vars["provider_id"])
-	resp, _ := a.etcdclient.Get(req.Context(), path, etcdv3.WithCountOnly())
+	resp, _ := a.etcdcli.DoGet(path, etcdv3.WithCountOnly())
 	if resp.Count == 0 {
 		err := fmt.Errorf("unknown provider id: %s", vars["provider_id"])
 		a.respondError(w, apiError{
@@ -66,7 +66,7 @@ func (a *API) createScaler(w http.ResponseWriter, req *http.Request) {
 	if strings.ToLower(req.URL.Query().Get("force")) == "true" {
 		force = true
 	}
-	resp, _ = a.etcdclient.Get(req.Context(), path, etcdv3.WithCountOnly())
+	resp, _ = a.etcdcli.DoGet(path, etcdv3.WithCountOnly())
 	if resp.Count > 0 && !force {
 		err := fmt.Errorf("the scaler with id %s is existed", s.ID)
 		a.respondError(w, apiError{
@@ -76,7 +76,7 @@ func (a *API) createScaler(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	v, _ = json.Marshal(&s)
-	_, err := a.etcdclient.Put(req.Context(), path, string(v))
+	_, err := a.etcdcli.DoPut(path, string(v))
 	if err != nil {
 		err = fmt.Errorf("error putting a key-value pair into etcd: %s", err.Error())
 		a.respondError(w, apiError{
@@ -102,7 +102,7 @@ func (a *API) listScalers(w http.ResponseWriter, req *http.Request) {
 	vars = mux.Vars(req)
 	pid = strings.ToLower(vars["provider_id"])
 	path = common.Path(model.DefaultScalerPrefix, pid)
-	resp, err := a.etcdclient.Get(req.Context(), path, etcdv3.WithPrefix(),
+	resp, err := a.etcdcli.DoGet(path, etcdv3.WithPrefix(),
 		etcdv3.WithSort(etcdv3.SortByKey, etcdv3.SortAscend))
 	if err != nil {
 		a.respondError(w, apiError{
@@ -155,7 +155,7 @@ func (a *API) deleteScaler(w http.ResponseWriter, req *http.Request) {
 	pid = strings.ToLower(vars["provider_id"])
 	sid = strings.ToLower(vars["id"])
 	path = common.Path(model.DefaultScalerPrefix, pid, sid)
-	resp, err := a.etcdclient.Delete(req.Context(), path, etcdv3.WithPrefix())
+	resp, err := a.etcdcli.DoDelete(path, etcdv3.WithPrefix())
 	if err != nil {
 		a.respondError(w, apiError{
 			code: http.StatusInternalServerError,

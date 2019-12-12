@@ -28,6 +28,7 @@ import (
 	"go.etcd.io/etcd/mvcc/mvccpb"
 
 	"github.com/vCloud-DFTBA/faythe/pkg/cluster"
+
 	"github.com/vCloud-DFTBA/faythe/pkg/common"
 	"github.com/vCloud-DFTBA/faythe/pkg/metrics"
 	"github.com/vCloud-DFTBA/faythe/pkg/model"
@@ -38,7 +39,7 @@ type Manager struct {
 	logger  log.Logger
 	rqt     *common.Registry
 	stop    chan struct{}
-	etcdcli *etcdv3.Client
+	etcdcli *common.Etcd
 	watchc  etcdv3.WatchChan
 	watchh  etcdv3.WatchChan
 	wg      *sync.WaitGroup
@@ -46,10 +47,11 @@ type Manager struct {
 	ncin    chan NodeMetric
 	ncout   chan map[string]string
 	cluster *cluster.Cluster
+	state   model.State
 }
 
 // NewManager create new Manager for name resolver and healer
-func NewManager(l log.Logger, e *etcdv3.Client, c *cluster.Cluster) *Manager {
+func NewManager(l log.Logger, e *common.Etcd, c *cluster.Cluster) *Manager {
 	hm := &Manager{
 		logger:  l,
 		rqt:     &common.Registry{Items: make(map[string]common.Worker)},
@@ -62,6 +64,7 @@ func NewManager(l log.Logger, e *etcdv3.Client, c *cluster.Cluster) *Manager {
 		cluster: c,
 	}
 	hm.load()
+	hm.state = model.StateActive
 	return hm
 }
 
@@ -74,7 +77,7 @@ func (hm *Manager) Reload() {
 
 func (hm *Manager) load() {
 	for _, p := range []string{model.DefaultNResolverPrefix, model.DefaultHealerPrefix} {
-		r, err := hm.etcdcli.Get(context.Background(), p, etcdv3.WithPrefix())
+		r, err := hm.etcdcli.DoGet(p, etcdv3.WithPrefix())
 		if err != nil {
 			level.Error(hm.logger).Log("msg", "Error getting list Workers", "err", err)
 			return
@@ -135,10 +138,16 @@ func (hm *Manager) stopWorker(name string) {
 
 // Stop destroy name resolver, healer and itself
 func (hm *Manager) Stop() {
+	// Ignore close channel if manager is already stopped/stopping
+	if hm.state == model.StateStopping || hm.state == model.StateStopped {
+		return
+	}
 	level.Info(hm.logger).Log("msg", "Cleaning before stopping autohealer managger")
+	hm.state = model.StateStopping
 	close(hm.stop)
 	hm.save()
 	hm.wg.Wait()
+	hm.state = model.StateStopped
 	level.Info(hm.logger).Log("msg", "Autohealer manager is stopped!")
 }
 
@@ -146,7 +155,10 @@ func (hm *Manager) save() {
 	for e := range hm.rqt.Iter() {
 		hm.wg.Add(1)
 		go func(e common.RegistryItem) {
-			defer hm.wg.Done()
+			defer func() {
+				hm.stopWorker(e.Name)
+				hm.wg.Done()
+			}()
 
 			raw, err := json.Marshal(&e.Value)
 			if err != nil {
@@ -154,13 +166,12 @@ func (hm *Manager) save() {
 					"name", e.Name, "err", err)
 				return
 			}
-			_, err = hm.etcdcli.Put(context.Background(), e.Name, string(raw))
+			_, err = hm.etcdcli.DoPut(e.Name, string(raw))
 			if err != nil {
 				level.Error(hm.logger).Log("msg", "Error putting worker object",
 					"name", e.Name, "err", err)
 				return
 			}
-			hm.stopWorker(e.Name)
 		}(e)
 	}
 }
@@ -198,16 +209,16 @@ func (hm *Manager) Run(ctx context.Context) {
 					if err != nil {
 						level.Error(hm.logger).Log("msg", "Error while marshalling nresolver object", "err", err)
 					}
-					hm.etcdcli.Put(ctx, name, string(raw))
+					hm.etcdcli.DoPut(name, string(raw))
 					hm.startWorker(model.DefaultNResolverPrefix, name, raw)
 				}
 				if event.Type == etcdv3.EventTypeDelete {
 					if _, ok := hm.rqt.Get(name); ok {
 						hm.stopWorker(name)
-						hm.etcdcli.Delete(ctx, name, etcdv3.WithPrefix())
+						hm.etcdcli.DoDelete(name, etcdv3.WithPrefix())
 					}
 					hname := strings.ReplaceAll(name, model.DefaultNResolverPrefix, model.DefaultHealerPrefix)
-					hm.etcdcli.Delete(ctx, hname, etcdv3.WithPrefix())
+					hm.etcdcli.DoDelete(hname, etcdv3.WithPrefix())
 				}
 			}
 		case watchResp := <-hm.watchh:
@@ -241,8 +252,8 @@ func (hm *Manager) Run(ctx context.Context) {
 }
 
 func (hm *Manager) rebalance() {
-	resp, err := hm.etcdcli.Get(context.Background(), model.DefaultHealerPrefix,
-		etcdv3.WithPrefix(), etcdv3.WithSort(etcdv3.SortByKey, etcdv3.SortAscend))
+	resp, err := hm.etcdcli.DoGet(model.DefaultHealerPrefix, etcdv3.WithPrefix(),
+		etcdv3.WithSort(etcdv3.SortByKey, etcdv3.SortAscend))
 	if err != nil {
 		level.Error(hm.logger).Log("msg", "Error getting healers", "err", err)
 		return
@@ -265,7 +276,7 @@ func (hm *Manager) rebalance() {
 							"name", name, "err", err)
 						return
 					}
-					_, err = hm.etcdcli.Put(context.Background(), name, string(raw))
+					_, err = hm.etcdcli.DoPut(name, string(raw))
 					if err != nil {
 						level.Error(hm.logger).Log("msg", "Error putting healer object",
 							"key", name, "err", err)
@@ -287,7 +298,7 @@ func (hm *Manager) rebalance() {
 func (hm *Manager) getBackend(key string) (metrics.Backend, error) {
 	// There is format -> Cloud provider id
 	providerID := strings.Split(key, "/")[2]
-	resp, err := hm.etcdcli.Get(context.Background(), common.Path(model.DefaultCloudPrefix, providerID))
+	resp, err := hm.etcdcli.DoGet(common.Path(model.DefaultCloudPrefix, providerID))
 	if err != nil {
 		return nil, err
 	}
@@ -321,7 +332,7 @@ func (hm *Manager) getBackend(key string) (metrics.Backend, error) {
 
 func (hm *Manager) getATEngine(key string) (model.ATEngine, error) {
 	providerID := strings.Split(key, "/")[2]
-	resp, err := hm.etcdcli.Get(context.Background(), common.Path(model.DefaultCloudPrefix, providerID))
+	resp, err := hm.etcdcli.DoGet(common.Path(model.DefaultCloudPrefix, providerID))
 	if err != nil {
 		return model.ATEngine{}, err
 	}

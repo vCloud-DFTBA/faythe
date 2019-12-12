@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"time"
 
+	"google.golang.org/grpc"
 	"gopkg.in/yaml.v2"
 )
 
@@ -30,11 +31,11 @@ type Config struct {
 }
 
 type MailConfig struct {
-	Host     string       `yaml:"host"`
-	Protocol string       `yaml:"protocol"`
-	Port     int          `yaml:"port"`
-	Username string       `yaml:"username"`
-	Password string       `yaml:"password"`
+	Host     string `yaml:"host"`
+	Protocol string `yaml:"protocol"`
+	Port     int    `yaml:"port"`
+	Username string `yaml:"username"`
+	Password string `yaml:"password"`
 }
 
 // GlobalConfig configures values that are used to config Faythe HTTP server
@@ -52,8 +53,8 @@ type GlobalConfig struct {
 // BasicAuthentication - HTTP Basic authentication.
 type BasicAuthentication struct {
 	// Usename, Password to implement HTTP basic authentication
-	Username string  `yaml:"username"`
-	Password string  `yaml:"password"`
+	Username string `yaml:"username"`
+	Password string `yaml:"password"`
 }
 
 // EtcdConfig stores Etcd related configurations.
@@ -103,11 +104,16 @@ type EtcdConfig struct {
 
 	// PermitWithoutStream when set will allow client to send keepalive pings to server without any active streams(RPCs).
 	PermitWithoutStream bool `yaml:"permit_without_stream,omitempty"`
+
+	// DialOptions is a list of dial options for the grpc client (e.g., for interceptors).
+	// For example, pass "grpc.WithBlock()" to block until the underlying connection is up.
+	// Without this, Dial returns immediately and connecting the server happens in background.
+	DialOptions []grpc.DialOption
 }
 
 const (
-	etcdDefaultDialTimeout      = 2 * time.Second
-	etcdDefaultKeepAliveTime    = 2 * time.Second
+	etcdDefaultDialTimeout      = 5 * time.Second
+	etcdDefaultKeepAliveTime    = 5 * time.Second
 	etcdDefaultKeepAliveTimeOut = 6 * time.Second
 )
 
@@ -130,6 +136,7 @@ var (
 		DialTimeout:          etcdDefaultDialTimeout,
 		DialKeepAliveTime:    etcdDefaultKeepAliveTime,
 		DialKeepAliveTimeout: etcdDefaultKeepAliveTimeOut,
+		DialOptions:          []grpc.DialOption{grpc.WithBlock()},
 	}
 )
 

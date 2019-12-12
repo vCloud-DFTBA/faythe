@@ -17,13 +17,11 @@ package autoscaler
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"sync"
 	"time"
 
 	"github.com/avast/retry-go"
-
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"go.etcd.io/etcd/clientv3/concurrency"
@@ -34,34 +32,7 @@ import (
 	"github.com/vCloud-DFTBA/faythe/pkg/model"
 )
 
-// scalerState is the state that a scaler is in.
-type scalerState int
-
-const (
-	httpTimeout             = time.Second * 15
-	stateNone   scalerState = iota
-	stateStopping
-	stateStopped
-	stateFailed
-	stateActive
-)
-
-func (s scalerState) String() string {
-	switch s {
-	case stateNone:
-		return "none"
-	case stateStopping:
-		return "stopping"
-	case stateStopped:
-		return "stopped"
-	case stateFailed:
-		return "failed"
-	case stateActive:
-		return "acitve"
-	default:
-		panic(fmt.Sprintf("unknown scaler state: %d", s))
-	}
-}
+const httpTimeout = time.Second * 15
 
 // Scaler does metric polling and executes scale actions.
 type Scaler struct {
@@ -73,7 +44,7 @@ type Scaler struct {
 	terminated chan struct{}
 	backend    metrics.Backend
 	dlock      concurrency.Mutex
-	state      scalerState
+	state      model.State
 }
 
 func newScaler(l log.Logger, data []byte, b metrics.Backend) *Scaler {
@@ -88,7 +59,7 @@ func newScaler(l log.Logger, data []byte, b metrics.Backend) *Scaler {
 		s.Alert = &model.Alert{}
 	}
 	s.alert = &alert.Alert{State: *s.Alert}
-	s.state = stateActive
+	s.state = model.StateActive
 	return s
 }
 
@@ -96,14 +67,14 @@ func (s *Scaler) Stop() {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 	// Ignore close channel if scaler is already stopped/stopping
-	if s.state == stateStopping || s.state == stateStopped {
+	if s.state == model.StateStopping || s.state == model.StateStopped {
 		return
 	}
 	level.Debug(s.logger).Log("msg", "Scaler is stopping")
-	s.state = stateStopping
+	s.state = model.StateStopping
 	close(s.done)
 	<-s.terminated
-	s.state = stateStopped
+	s.state = model.StateStopped
 	level.Debug(s.logger).Log("msg", "Scaler is stopped")
 }
 
@@ -134,7 +105,7 @@ func (s *Scaler) run(ctx context.Context, wg *sync.WaitGroup) {
 				if err != nil {
 					level.Error(s.logger).Log("msg", "Executing query failed, skip current interval",
 						"query", s.Query, "err", err)
-					s.state = stateFailed
+					s.state = model.StateFailed
 					if common.RetryableError(err) {
 						continue
 					} else {

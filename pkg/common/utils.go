@@ -15,7 +15,6 @@
 package common
 
 import (
-	"context"
 	"crypto"
 	"crypto/md5"
 	"crypto/rand"
@@ -34,7 +33,6 @@ import (
 	"syscall"
 
 	"github.com/pkg/errors"
-	etcdv3 "go.etcd.io/etcd/clientv3"
 )
 
 // BasicAuthTransport is an http.RoundTripper that authenticates all requests
@@ -71,11 +69,6 @@ func (t *BasicAuthTransport) transport() http.RoundTripper {
 		return http.DefaultTransport
 	}
 	return t.Transport
-}
-
-// WatchContext returns a cancelable context and cancel function
-func WatchContext() (context.Context, context.CancelFunc) {
-	return context.WithCancel(etcdv3.WithRequireLeader(context.Background()))
 }
 
 // HashFNV generates a new 64-bit number from a given string

@@ -92,13 +92,13 @@ func main() {
 	}
 
 	var (
-		etcdConf = etcdv3.Config{}
-		etcdCli  = &etcdv3.Client{}
-		router   = mux.NewRouter()
-		fmw      = &middleware.Middleware{}
-		fapi     = &api.API{}
-		fas      = &autoscaler.Manager{}
-		cls      = &cluster.Cluster{}
+		etcdcfg = etcdv3.Config{}
+		etcdcli = &common.Etcd{}
+		router  = mux.NewRouter()
+		fmw     = &middleware.Middleware{}
+		fapi    = &api.API{}
+		fas     = &autoscaler.Manager{}
+		cls     = &cluster.Cluster{}
 	)
 	// Load configurations from file
 	err = config.Set(cfg.configFile, log.With(logger, "component", "config manager"))
@@ -110,45 +110,51 @@ func main() {
 	config.WatchConfig()
 
 	// Init Etcdv3 client
-	copier.Copy(&etcdConf, config.Get().EtcdConfig)
-	etcdCli, err = etcdv3.New(etcdConf)
+	copier.Copy(&etcdcfg, config.Get().EtcdConfig)
+	etcdcli, err = common.NewEtcd(etcdcfg)
 
 	if err != nil {
-		level.Error(logger).Log("err", errors.Wrapf(err, "Error instantiating Etcd client."))
+		level.Error(logger).Log("err", errors.Wrapf(err, "Error instantiating Etcd V3 client."))
 		os.Exit(2)
 	}
 
 	// Init cluster
-	watchCtx, watchCancel := common.WatchContext()
+	watchCtx, watchCancel := etcdcli.WatchContext()
 	cls, err = cluster.New(cfg.clusterID, cfg.listenAddress,
-		log.With(logger, "component", "cluster"), etcdCli)
+		log.With(logger, "component", "cluster"), etcdcli)
 	if err != nil {
 		level.Error(logger).Log("err", errors.Wrap(err, "Error initializing Cluster"))
 		os.Exit(2)
 	}
-	reloadCh := make(chan bool)
-	go cls.Run(watchCtx, reloadCh)
+	reloadc := make(chan struct{})
+	go cls.Run(watchCtx, reloadc)
 
 	fmw = middleware.New(log.With(logger, "component", "transport middleware"))
 
-	fapi = api.New(log.With(logger, "component", "api"), etcdCli)
+	fapi = api.New(log.With(logger, "component", "api"), etcdcli)
 	fapi.Register(router)
 	router.Use(fmw.Logging, fmw.RestrictDomain, fmw.Authenticate)
 
 	fas = autoscaler.NewManager(log.With(logger, "component", "autoscale manager"),
-		etcdCli, cls)
+		etcdcli, cls)
 	go fas.Run(watchCtx)
 	// Init healer manager
-	fah := autohealer.NewManager(log.With(logger, "component", "healer manager"), etcdCli, cls)
+	fah := autohealer.NewManager(log.With(logger, "component", "healer manager"), etcdcli, cls)
 	go fah.Run(watchCtx)
-	defer func() {
+
+	stopc := make(chan struct{})
+	go etcdcli.Run(stopc)
+	stopFunc := func() {
 		watchCancel()
 		fas.Stop()
 		fah.Stop()
 		cls.Stop()
-		etcdCli.Close()
-		level.Info(logger).Log("msg", "Faythe is stopped, bye bye!")
-	}()
+		fah.Stop()
+		etcdcli.Close()
+	}
+
+	// Force clean-up when shutdown.
+	defer stopFunc()
 
 	// Init HTTP server
 	srv := http.Server{Addr: cfg.listenAddress, Handler: router}
@@ -157,9 +163,13 @@ func main() {
 	go func() {
 		for {
 			select {
-			case <-reloadCh:
+			case <-reloadc:
 				fas.Reload()
 				fah.Reload()
+			case <-stopc:
+				stopFunc()
+				level.Info(logger).Log("msg", "Faythe is stopping, bye bye!")
+				syscall.Kill(syscall.Getpid(), syscall.SIGTERM)
 			}
 		}
 	}()

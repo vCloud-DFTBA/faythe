@@ -23,7 +23,8 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/gorilla/mux"
-	etcdv3 "go.etcd.io/etcd/clientv3"
+
+	"github.com/vCloud-DFTBA/faythe/pkg/common"
 )
 
 var corsHeaders = map[string]string{
@@ -43,22 +44,22 @@ func setCORS(w http.ResponseWriter) {
 
 // API provides registration of handlers for API routes
 type API struct {
-	logger     log.Logger
-	uptime     time.Time
-	etcdclient *etcdv3.Client
-	mtx        sync.RWMutex
+	logger  log.Logger
+	uptime  time.Time
+	etcdcli *common.Etcd
+	mtx     sync.RWMutex
 }
 
 // New returns a new API.
-func New(l log.Logger, e *etcdv3.Client) *API {
+func New(l log.Logger, e *common.Etcd) *API {
 	if l == nil {
 		l = log.NewNopLogger()
 	}
 
 	return &API{
-		logger:     l,
-		uptime:     time.Now(),
-		etcdclient: e,
+		logger:  l,
+		uptime:  time.Now(),
+		etcdcli: e,
 	}
 }
 
