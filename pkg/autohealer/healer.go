@@ -29,7 +29,6 @@ import (
 
 	"github.com/vCloud-DFTBA/faythe/pkg/alert"
 	"github.com/vCloud-DFTBA/faythe/pkg/cluster"
-	
 	"github.com/vCloud-DFTBA/faythe/pkg/common"
 	"github.com/vCloud-DFTBA/faythe/pkg/exporter"
 	"github.com/vCloud-DFTBA/faythe/pkg/metrics"
@@ -278,6 +277,7 @@ func (h *Healer) do(compute string) {
 					exporter.ReportATRequestFailureCounter(cluster.ClusterID, at.URL.String())
 					return
 				}
+				exporter.ReportSuccessHealerActionCounter(cluster.ClusterID, "http")
 				level.Info(h.logger).Log("msg", "Sending request",
 					"url", url, "method", at.Method)
 			}(string(at.URL), compute)
@@ -293,6 +293,7 @@ func (h *Healer) do(compute string) {
 					exporter.ReportFailureHealerActionCounter(cluster.ClusterID, "mail")
 					return
 				}
+				exporter.ReportSuccessHealerActionCounter(cluster.ClusterID, "mail")
 				level.Info(h.logger).Log("msg", "Sending mail to", "receivers", strings.Join(at.Receivers, ","))
 			}(compute)
 		default:

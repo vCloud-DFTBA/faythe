@@ -219,6 +219,7 @@ func (s *Scaler) do() {
 				exporter.ReportFailureScalerActionCounter(cluster.ClusterID, "http")
 				return
 			}
+			exporter.ReportSuccessScalerActionCounter(cluster.ClusterID, "http")
 			level.Info(s.logger).Log("msg", "Sending request",
 				"url", url, "method", a.Method)
 			s.alert.Fire(time.Now())

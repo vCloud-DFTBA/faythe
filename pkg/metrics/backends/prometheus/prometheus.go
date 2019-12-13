@@ -61,6 +61,7 @@ func New(logger log.Logger, address, username, password string) (*Backend, error
 	return &Backend{
 		prometheus: api,
 		logger:     logger,
+		address:    address,
 	}, nil
 }
 
