@@ -11,14 +11,21 @@ type Member struct {
     ID      string      `json:"id"`
 	Name    string      `json:"name"`
 	Address net.IP      `json:"address"`
-	Tags    []string    `json:"tags"`
 }
 ```
 
 3. Beside the Etcd cluster data, a node initializes a consistent hashring to hold the abstract nodes. Every nodes belong to cluster keeps watching on a `cluster/` key:
-* Event `PUT` -> Init if not exist/Add node to hash ring.
-* Event `DELETE` -> Remove node from hash ring.
+
+- Event `PUT` -> Init if not exist/Add node to hash ring.
+- Event `DELETE` -> Remove node from hash ring.
 
 5. Each node manages a subset of workers. To locate a worker, we can leverage consistent hashring.
 
 6. When a node is joining a cluster, it puts a key-value pair with [lease](https://etcd.io/docs/v3.4.0/dev-guide/interacting_v3/#grant-leases). When a key is attached to a lease, its lifetime is bound to the lease’s lifetime which in turn is governed by a time-to-live (TTL). Periodically, node refreshs lease's TTL to keep it alive. Therefore, when a node goes down, a lease will expire and the attached key will be deleted. Other nodes that is watching for the `cluster/` key catches the DELETE event then update their hash ring and reload workers.
+
+7. The key changes trigger the reload/rebalance workers. Here is the rebalance logic:
+
+| Is Worker already in Register?/Does this local node handle a worker? | True                | False            |
+| -------------------------------------------------------------------- | ------------------- | ---------------- |
+| True                                                                 | Ignore - do nothing | Stop worker      |
+| False                                                                | Start worker        | Ignore - nothing |
