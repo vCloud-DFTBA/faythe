@@ -32,7 +32,7 @@ func (a *API) createSilence(rw http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
 	pid := strings.ToLower(vars["provider_id"])
 
-	path := common.Path(model.DefaultHealerPrefix, pid)
+	path := common.Path(model.DefaultCloudPrefix, pid)
 	resp, err := a.etcdcli.DoGet(path)
 	if err != nil {
 		a.respondError(rw, apiError{code: http.StatusInternalServerError, err: err})
@@ -99,7 +99,7 @@ func (a *API) createSilence(rw http.ResponseWriter, req *http.Request) {
 func (a *API) listSilences(rw http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
 	pid := strings.ToLower(vars["provider_id"])
-	path := common.Path(model.DefaultHealerPrefix, pid)
+	path := common.Path(model.DefaultSilencePrefix, pid)
 
 	resp, err := a.etcdcli.DoGet(path, etcdv3.WithPrefix(),
 		etcdv3.WithSort(etcdv3.SortByKey, etcdv3.SortAscend))
@@ -124,7 +124,7 @@ func (a *API) expireSilence(w http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
 	pid := strings.ToLower(vars["provider_id"])
 	id := strings.ToLower(vars["id"])
-	path := common.Path(model.DefaultHealerPrefix, pid, id)
+	path := common.Path(model.DefaultSilencePrefix, pid, id)
 	_, err := a.etcdcli.DoDelete(path, etcdv3.WithPrefix())
 	if err != nil {
 		a.respondError(w, apiError{
