@@ -28,6 +28,15 @@ var (
 		},
 		[]string{"cluster"})
 
+	successScalerActionCounter = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "faythe",
+			Subsystem: "autoscaler",
+			Name:      "action_successes_total",
+			Help:      "The total number of scaler action successes.",
+		},
+		[]string{"cluster", "type"})
+
 	failureScalerActionCounter = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: "faythe",
@@ -40,11 +49,15 @@ var (
 
 func init() {
 	prometheus.MustRegister(numberOfScalers)
-	prometheus.MustRegister(failureScalerActionCounter)
+	prometheus.MustRegister(successScalerActionCounter, failureScalerActionCounter)
 }
 
 func ReportNumScalers(clusterID string, val float64) {
 	numberOfScalers.WithLabelValues(clusterID).Add(val)
+}
+
+func ReportSuccessScalerActionCounter(clusterID, actionType string) {
+	successScalerActionCounter.WithLabelValues(clusterID, actionType).Inc()
 }
 
 func ReportFailureScalerActionCounter(clusterID, actionType string) {

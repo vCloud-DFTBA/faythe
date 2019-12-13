@@ -28,6 +28,15 @@ var (
 		},
 		[]string{"cluster"})
 
+	successHealerActionCounter = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "faythe",
+			Subsystem: "autohealer",
+			Name:      "action_successes_total",
+			Help:      "The total number of healer action successes.",
+		},
+		[]string{"cluster", "type"})
+
 	failureHealerActionCounter = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: "faythe",
@@ -40,11 +49,15 @@ var (
 
 func init() {
 	prometheus.MustRegister(numberOfHealers)
-	prometheus.MustRegister(failureHealerActionCounter)
+	prometheus.MustRegister(successHealerActionCounter, failureHealerActionCounter)
 }
 
 func ReportNumberOfHealers(clusterID string, val float64) {
 	numberOfHealers.WithLabelValues(clusterID).Add(val)
+}
+
+func ReportSuccessHealerActionCounter(clusterID, actionType string) {
+	successHealerActionCounter.WithLabelValues(clusterID, actionType).Inc()
 }
 
 func ReportFailureHealerActionCounter(clusterID, actionType string) {
