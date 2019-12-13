@@ -24,7 +24,6 @@ import (
 	"github.com/go-kit/kit/log/level"
 	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	etcdv3 "go.etcd.io/etcd/clientv3"
 
 	"github.com/vCloud-DFTBA/faythe/pkg/common"
 )
