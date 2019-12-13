@@ -45,17 +45,19 @@ The naming of metrics follows the suggested [Prometheus best practices](https://
 
 ### 2.5. Autoscaler
 
-| Name                                    | Description                                                               | Type    |
-| --------------------------------------- | ------------------------------------------------------------------------- | ------- |
-| faythe_autoscaler_workers_total         | The total number of scalers are currently managed by this cluster member. | gauge   |
-| faythe_autoscaler_action_failures_total | The total number of scaler action failures.                               | counter |
+| Name                                     | Description                                                               | Type    |
+| ---------------------------------------- | ------------------------------------------------------------------------- | ------- |
+| faythe_autoscaler_workers_total          | The total number of scalers are currently managed by this cluster member. | gauge   |
+| faythe_autoscaler_action_failures_total  | The total number of scaler action failures.                               | counter |
+| faythe_autoscaler_action_successes_total | The total number of scaler action successes.                              | counter |
 
 ### 2.5. Autohealer
 
-| Name                                    | Description                                                               | Type    |
-| --------------------------------------- | ------------------------------------------------------------------------- | ------- |
-| faythe_autohealer_workers_total         | The total number of healers are currently managed by this cluster member. | gauge   |
-| faythe_autohealer_action_failures_total | The total number of healers action failures.                              | counter |
+| Name                                     | Description                                                               | Type    |
+| ---------------------------------------- | ------------------------------------------------------------------------- | ------- |
+| faythe_autohealer_workers_total          | The total number of healers are currently managed by this cluster member. | gauge   |
+| faythe_autohealer_action_successes_total | The total number of healers action successes.                             | counter |
+| faythe_autohealer_action_failures_total  | The total number of healers action failures.                              | counter |
 
 ### 2.6. Golang application metrics
 
