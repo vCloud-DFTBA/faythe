@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -48,7 +49,7 @@ type Healer struct {
 	mtx        sync.RWMutex
 	state      model.State
 	terminated chan struct{}
-	silences   map[string]model.Silence
+	silences   map[string]*model.Silence
 	etcdcli    *common.Etcd
 	watchs     etcdv3.WatchChan
 }
@@ -60,7 +61,7 @@ func newHealer(l log.Logger, data []byte, e *common.Etcd, b metrics.Backend, ate
 		done:       make(chan struct{}),
 		logger:     l,
 		terminated: make(chan struct{}),
-		silences:   make(map[string]model.Silence),
+		silences:   make(map[string]*model.Silence),
 		etcdcli:    e,
 	}
 	json.Unmarshal(data, h)
@@ -106,7 +107,7 @@ func (h *Healer) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string
 					if event.IsCreate() {
 						s := model.Silence{}
 						json.Unmarshal(event.Kv.Value, &s)
-						h.silences[sid] = s
+						h.silences[sid] = &s
 					} else if event.Type == etcdv3.EventTypeDelete {
 						delete(h.silences, sid)
 					}
@@ -179,6 +180,7 @@ func (h *Healer) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string
 					level.Info(h.logger).Log("msg", fmt.Sprintf("instance %s goes up again, removed from whitelist", k))
 				}
 
+			processing:
 				for instance := range rIs {
 					if _, ok := whitelist[instance]; ok {
 						continue
@@ -186,7 +188,7 @@ func (h *Healer) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string
 					for k, v := range h.silences {
 						if matched := v.RegexPattern.MatchString(instance); matched {
 							level.Info(h.logger).Log("msg", fmt.Sprintf("instance %s is ignored because of silence: %s", instance, k))
-							continue
+							continue processing
 						}
 					}
 					if _, ok := chans[instance]; !ok {
@@ -345,7 +347,8 @@ func (h *Healer) updateSilence() {
 	for _, v := range resp.Kvs {
 		sid := string(v.Key)
 		s := model.Silence{}
-		json.Unmarshal(v.Value, s)
-		h.silences[sid] = s
+		json.Unmarshal(v.Value, &s)
+		s.RegexPattern, _ = regexp.Compile(s.Pattern)
+		h.silences[sid] = &s
 	}
 }

@@ -45,6 +45,10 @@ func (s *Silence) Validate() error {
 		return fmt.Errorf("silence pattern cannot be empty")
 	}
 
+	if s.TTL == "" {
+		return fmt.Errorf("silence ttl cannot be empty")
+	}
+
 	regex, err := regexp.Compile(s.Pattern)
 	if err != nil {
 		return err
