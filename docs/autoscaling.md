@@ -152,7 +152,7 @@ Resp
 POST /scalers/7f7bac1277f4c0a83a022a80060dd6cce5bcbf28666da6505c09b4c4e70e3a93
 Req
 {
-	"query": "((node_memory_MemTotal_bytes{stack_asg_id=\"cb13f760-8130-4aa4-8821-309e5eec8136\"} - (node_memory_MemFree_bytes{stack_asg_id=\"cb13f760-8130-4aa4-8821-309e5eec8136\"} + node_memory_Buffers_bytes{stack_asg_id=\"cb13f760-8130-4aa4-8821-309e5eec8136\"} + node_memory_Cached_bytes{stack_asg_id=\"cb13f760-8130-4aa4-8821-309e5eec8136\"})) / node_memory_MemTotal_bytes{stack_asg_id=\"cb13f760-8130-4aa4-8821-309e5eec8136\"} * 100) < 20",
+	"query": "avg by(stack_asg_id) ((node_memory_MemTotal_bytes{stack_asg_id=\"cb13f760-8130-4aa4-8821-309e5eec8136\"} - (node_memory_MemFree_bytes{stack_asg_id=\"cb13f760-8130-4aa4-8821-309e5eec8136\"} + node_memory_Buffers_bytes{stack_asg_id=\"cb13f760-8130-4aa4-8821-309e5eec8136\"} + node_memory_Cached_bytes{stack_asg_id=\"cb13f760-8130-4aa4-8821-309e5eec8136\"})) / node_memory_MemTotal_bytes{stack_asg_id=\"cb13f760-8130-4aa4-8821-309e5eec8136\"} * 100) < 20",
 	"duration": "5m",
 	"interval": "30s",
 	"actions": {
@@ -174,7 +174,11 @@ Req
 }
 ```
 
-- A scaler is created. If a scaler with the same id was existed, just recreate it, Manager has a registry to manage scaler lifecycle. Faythe leverages [Etcd watch for changes mechanism](https://www.oreilly.com/library/view/coreos-essentials/9781785283949/ch02s04.html) to update the registry. The rule is quite simple.
+- The user should aware of the query language (PromQL is the only one at this time).
+
+- In order for the query to target the hosts that are part of the OpenStack AutoscalingGroup, the `query` configuration parameter should contain an unique set of labels (for example: `stack_asg_id`, `stack_asg_name`...).
+
+* A scaler is created. If a scaler with the same id was existed, just recreate it, Manager has a registry to manage scaler lifecycle. Faythe leverages [Etcd watch for changes mechanism](https://www.oreilly.com/library/view/coreos-essentials/9781785283949/ch02s04.html) to update the registry. The rule is quite simple.
 
 ```
 - PUT + Create: start scaler.
