@@ -28,7 +28,7 @@ import (
 	"go.etcd.io/etcd/mvcc/mvccpb"
 
 	"github.com/vCloud-DFTBA/faythe/pkg/cluster"
-	
+
 	"github.com/vCloud-DFTBA/faythe/pkg/common"
 	"github.com/vCloud-DFTBA/faythe/pkg/exporter"
 	"github.com/vCloud-DFTBA/faythe/pkg/metrics"
@@ -118,8 +118,8 @@ func (hm *Manager) startWorker(p string, name string, data []byte) {
 		hm.rqt.Set(name, h)
 		go func() {
 			hm.wg.Add(1)
-			h.run(context.Background(), hm.wg, hm.ncout)
 			exporter.ReportNumberOfHealers(cluster.ClusterID, 1)
+			h.run(context.Background(), hm.wg, hm.ncout)
 		}()
 	}
 }
