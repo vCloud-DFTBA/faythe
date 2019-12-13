@@ -81,7 +81,7 @@ Gnocchi + Aodh + Ceilometer --> Faythe + Prometheus
 
 ### 3.2. The workflow
 
-> NOTE: When send a requst to Faythe, you might need a basic auth.
+> NOTE: When send a request to Faythe, you might need a basic auth.
 
 - Create Heat stack with AutoscalingGroup & ScalingPolicy.
 - Register your cloud with Faythe - a POST request with the following body. If you already register the cloud, skip this step
