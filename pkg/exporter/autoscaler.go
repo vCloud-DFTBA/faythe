@@ -44,13 +44,7 @@ func init() {
 }
 
 func ReportNumScalers(clusterID string, val float64) {
-	if val == 0 {
-		numberOfScalers.WithLabelValues(clusterID).Set(val)
-	} else if val < 0 {
-		numberOfScalers.WithLabelValues(clusterID).Sub(val)
-	} else {
-		numberOfScalers.WithLabelValues(clusterID).Add(val)
-	}
+	numberOfScalers.WithLabelValues(clusterID).Add(val)
 }
 
 func ReportFailureScalerActionCounter(clusterID, actionType string) {

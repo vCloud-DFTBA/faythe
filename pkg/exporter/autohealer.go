@@ -44,13 +44,7 @@ func init() {
 }
 
 func ReportNumberOfHealers(clusterID string, val float64) {
-	if val == 0 {
-		numberOfHealers.WithLabelValues(clusterID).Set(val)
-	} else if val < 0 {
-		numberOfHealers.WithLabelValues(clusterID).Sub(val)
-	} else {
-		numberOfHealers.WithLabelValues(clusterID).Add(val)
-	}
+	numberOfHealers.WithLabelValues(clusterID).Add(val)
 }
 
 func ReportFailureHealerActionCounter(clusterID, actionType string) {
