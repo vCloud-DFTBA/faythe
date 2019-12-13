@@ -120,8 +120,8 @@ func (hm *Manager) startWorker(p string, name string, data []byte) {
 		hm.rqt.Set(name, h)
 		go func() {
 			hm.wg.Add(1)
-			h.run(context.Background(), hm.wg, hm.ncout)
 			exporter.ReportNumberOfHealers(cluster.ClusterID, 1)
+			h.run(context.Background(), hm.wg, hm.ncout)
 		}()
 	}
 }
