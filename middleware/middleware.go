@@ -17,12 +17,16 @@ package middleware
 import (
 	"net/http"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/vCloud-DFTBA/faythe/config"
+	"github.com/vCloud-DFTBA/faythe/pkg/exporter"
 )
 
 // Middleware represents middleware handlers.
@@ -47,6 +51,30 @@ func New(l log.Logger) *Middleware {
 		auth:   a,
 		regexp: r,
 	}
+}
+
+type instrumentHandler struct {
+	handler http.Handler
+}
+
+func (h instrumentHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	// NOTE(kiennt): The path may contain the component uuid -> cardinality explosion?
+	handlerName := req.URL.Path
+	if !strings.HasPrefix(handlerName, "/metrics") {
+		h.handler = promhttp.InstrumentHandlerInFlight(exporter.InFlightGauge,
+			promhttp.InstrumentHandlerDuration(exporter.RequestDuration.MustCurryWith(prometheus.Labels{"handler": handlerName}),
+				promhttp.InstrumentHandlerCounter(exporter.RequestsCount.MustCurryWith(prometheus.Labels{"handler": handlerName}),
+					promhttp.InstrumentHandlerRequestSize(exporter.RequestSize.MustCurryWith(prometheus.Labels{"handler": handlerName}),
+						promhttp.InstrumentHandlerResponseSize(exporter.ResponseSize.MustCurryWith(prometheus.Labels{"handler": handlerName}),
+							h.handler)))))
+	}
+	h.handler.ServeHTTP(w, req)
+}
+
+// Instrument is a middleware that wraps the provided http.Handler
+// to observe the request result.
+func (m *Middleware) Instrument(next http.Handler) http.Handler {
+	return instrumentHandler{handler: next}
 }
 
 // Logging logs all requests with its information and the time it took to process

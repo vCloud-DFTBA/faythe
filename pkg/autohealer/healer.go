@@ -28,14 +28,16 @@ import (
 	"github.com/go-kit/kit/log/level"
 
 	"github.com/vCloud-DFTBA/faythe/pkg/alert"
+	"github.com/vCloud-DFTBA/faythe/pkg/cluster"
 	"github.com/vCloud-DFTBA/faythe/pkg/common"
+	"github.com/vCloud-DFTBA/faythe/pkg/exporter"
 	"github.com/vCloud-DFTBA/faythe/pkg/metrics"
 	"github.com/vCloud-DFTBA/faythe/pkg/model"
 )
 
 const httpTimeout = time.Second * 15
 
-// Healer scrape metrics from metrics backend priodically
+// Healer scrape metric from metrics backend periodically
 // and evaluate whether it is necessary to do healing action
 type Healer struct {
 	model.Healer
@@ -90,6 +92,8 @@ func (h *Healer) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string
 					level.Error(h.logger).Log("msg", "Executing query failed, skip current interval",
 						"query", h.Query, "err", err)
 					h.state = model.StateFailed
+					exporter.ReportMetricQueryFailureCounter(cluster.ClusterID,
+						h.backend.GetType(), h.backend.GetAddress())
 					if common.RetryableError(err) {
 						continue
 					} else {
@@ -243,8 +247,11 @@ func (h *Healer) do(compute string) {
 				if err := alert.SendHTTP(h.logger, cli, at, params); err != nil {
 					level.Error(h.logger).Log("msg", "Error doing HTTP action",
 						"url", at.URL.String(), "err", err)
+					exporter.ReportFailureHealerActionCounter(cluster.ClusterID, "http")
+					exporter.ReportATRequestFailureCounter(cluster.ClusterID, at.URL.String())
 					return
 				}
+				exporter.ReportSuccessHealerActionCounter(cluster.ClusterID, "http")
 				level.Info(h.logger).Log("msg", "Sending request",
 					"url", url, "method", at.Method)
 			}(string(at.URL), compute)
@@ -257,8 +264,10 @@ func (h *Healer) do(compute string) {
 				if err := alert.SendMail(at); err != nil {
 					level.Error(h.logger).Log("msg", "Error doing Mail action",
 						"err", err)
+					exporter.ReportFailureHealerActionCounter(cluster.ClusterID, "mail")
 					return
 				}
+				exporter.ReportSuccessHealerActionCounter(cluster.ClusterID, "mail")
 				level.Info(h.logger).Log("msg", "Sending mail to", "receivers", strings.Join(at.Receivers, ","))
 			}(compute)
 		default:

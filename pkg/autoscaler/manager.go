@@ -27,7 +27,9 @@ import (
 	"go.etcd.io/etcd/mvcc/mvccpb"
 
 	"github.com/vCloud-DFTBA/faythe/pkg/cluster"
+
 	"github.com/vCloud-DFTBA/faythe/pkg/common"
+	"github.com/vCloud-DFTBA/faythe/pkg/exporter"
 	"github.com/vCloud-DFTBA/faythe/pkg/metrics"
 	"github.com/vCloud-DFTBA/faythe/pkg/model"
 )
@@ -54,6 +56,8 @@ func NewManager(l log.Logger, e *common.Etcd, c *cluster.Cluster) *Manager {
 		wg:      &sync.WaitGroup{},
 		cluster: c,
 	}
+	// Init with 0
+	exporter.ReportNumScalers(cluster.ClusterID, 0)
 	// Load at init
 	m.load()
 	m.state = model.StateActive
@@ -126,6 +130,7 @@ func (m *Manager) stopScaler(name string) {
 		return
 	}
 	level.Info(m.logger).Log("msg", "Removing scaler", "name", name)
+	exporter.ReportNumScalers(cluster.ClusterID, -1)
 	s.Stop()
 	m.rgt.Delete(name)
 }
@@ -147,6 +152,7 @@ func (m *Manager) startScaler(name string, data []byte) {
 	m.rgt.Set(name, s)
 	go func() {
 		m.wg.Add(1)
+		exporter.ReportNumScalers(cluster.ClusterID, 1)
 		s.run(context.Background(), m.wg)
 	}()
 }

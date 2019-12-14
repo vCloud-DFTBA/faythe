@@ -33,8 +33,14 @@ import (
 	"stathat.com/c/consistent"
 
 	"github.com/vCloud-DFTBA/faythe/pkg/common"
+	"github.com/vCloud-DFTBA/faythe/pkg/exporter"
 	"github.com/vCloud-DFTBA/faythe/pkg/model"
 )
+
+// ClusterID is the id of cluster. It could be a random string
+// or a user-defined string. Just make cluster id be available
+// cross modules.
+var ClusterID string
 
 // ClusterState is the state of the Cluster instance
 type ClusterState int
@@ -65,6 +71,7 @@ func (s ClusterState) String() string {
 
 // Cluster manages a set of member and the consistent hash ring as well.
 type Cluster struct {
+	id         string
 	logger     log.Logger
 	lease      etcdv3.LeaseID
 	local      model.Member
@@ -87,12 +94,14 @@ func New(cid, bindAddr string, l log.Logger, e *common.Etcd) (*Cluster, error) {
 		stopCh:  make(chan struct{}),
 	}
 	if cid == "" {
-		cid = common.RandToken()
+		ClusterID = common.RandToken()
 		level.Info(c.logger).Log("msg", "A new cluster is starting...")
 	} else {
+		ClusterID = cid
 		level.Info(c.logger).Log("msg", "A node is joining to existing cluster...")
 	}
 	level.Info(c.logger).Log("msg", "Use the cluster id to join", "id", cid)
+	c.id = ClusterID
 	// Override the client interface with namespace
 	c.etcdcli.KV = namespace.NewKV(c.etcdcli.KV, cid)
 	c.etcdcli.Watcher = namespace.NewWatcher(c.etcdcli.Watcher, cid)
@@ -150,6 +159,7 @@ func New(cid, bindAddr string, l log.Logger, e *common.Etcd) (*Cluster, error) {
 	}
 
 	c.state = ClusterAlive
+	exporter.RegisterMemberInfo(c.id, c.local)
 
 	// Init a HashRing
 	c.ring = consistent.New()
@@ -200,6 +210,7 @@ func (c *Cluster) Run(ctx context.Context, rc chan struct{}) {
 					level.Info(c.logger).Log("msg", "A new member is joined",
 						"name", m.Name, "address", m.Address)
 					c.ring.Add(m.ID)
+					exporter.ReportClusterJoin()
 					c.members[m.ID] = m
 				}
 				if event.Type == etcdv3.EventTypeDelete {
@@ -208,6 +219,7 @@ func (c *Cluster) Run(ctx context.Context, rc chan struct{}) {
 					level.Info(c.logger).Log("msg", "A member is left",
 						"name", c.members[id].Name, "address", c.members[id].Address)
 					c.ring.Remove(id)
+					exporter.ReportClusterLeave()
 					delete(c.members, id)
 				}
 				level.Debug(c.logger).Log("msg", "The current cluster state",
@@ -247,6 +259,16 @@ func (c *Cluster) LocalIsWorker(key string) (string, string, bool) {
 	worker, _ := c.members[workerID]
 	// Return the node name, it will be easier for user.
 	return c.local.Name, worker.Name, workerID == c.local.ID
+}
+
+// LocalMember returns the local node member.
+func (c *Cluster) LocalMember() model.Member {
+	return c.local
+}
+
+// ClusterID returns the cluster id.
+func (c *Cluster) ClusterID() string {
+	return c.id
 }
 
 func newLocalMember(bindAddr string) (model.Member, error) {

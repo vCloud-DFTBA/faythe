@@ -27,7 +27,9 @@ import (
 	"go.etcd.io/etcd/clientv3/concurrency"
 
 	"github.com/vCloud-DFTBA/faythe/pkg/alert"
+	"github.com/vCloud-DFTBA/faythe/pkg/cluster"
 	"github.com/vCloud-DFTBA/faythe/pkg/common"
+	"github.com/vCloud-DFTBA/faythe/pkg/exporter"
 	"github.com/vCloud-DFTBA/faythe/pkg/metrics"
 	"github.com/vCloud-DFTBA/faythe/pkg/model"
 )
@@ -106,6 +108,8 @@ func (s *Scaler) run(ctx context.Context, wg *sync.WaitGroup) {
 					level.Error(s.logger).Log("msg", "Executing query failed, skip current interval",
 						"query", s.Query, "err", err)
 					s.state = model.StateFailed
+					exporter.ReportMetricQueryFailureCounter(cluster.ClusterID,
+						s.backend.GetType(), s.backend.GetAddress())
 					if common.RetryableError(err) {
 						continue
 					} else {
@@ -182,8 +186,10 @@ func (s *Scaler) do() {
 			)
 			if err != nil {
 				level.Error(s.logger).Log("msg", "Error doing scale action", "url", url, "err", err)
+				exporter.ReportFailureScalerActionCounter(cluster.ClusterID, "http")
 				return
 			}
+			exporter.ReportSuccessScalerActionCounter(cluster.ClusterID, "http")
 			level.Info(s.logger).Log("msg", "Sending request",
 				"url", url, "method", a.Method)
 			s.alert.Fire(time.Now())

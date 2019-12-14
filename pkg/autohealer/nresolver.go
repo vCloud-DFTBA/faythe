@@ -23,12 +23,14 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 
+	"github.com/vCloud-DFTBA/faythe/pkg/cluster"
+	"github.com/vCloud-DFTBA/faythe/pkg/exporter"
 	"github.com/vCloud-DFTBA/faythe/pkg/metrics"
 	"github.com/vCloud-DFTBA/faythe/pkg/model"
 )
 
 // NResolver stands for name resolver
-// it collects information from metrics which map instance IP to instance name
+// it collects information from metrics backend which map instance IP to instance name
 type NResolver struct {
 	model.NResolver
 	logger  log.Logger
@@ -61,9 +63,11 @@ func (nr *NResolver) run(ctx context.Context, wg *sync.WaitGroup, nc *chan NodeM
 			if err != nil {
 				level.Error(nr.logger).Log("msg", "Executing query failed",
 					"query", model.DefaultNResolverQuery, "err", err)
+				exporter.ReportMetricQueryFailureCounter(cluster.ClusterID,
+					nr.backend.GetType(), nr.backend.GetAddress())
 				continue
 			}
-			level.Debug(nr.logger).Log("msg", "Execcuting query success", "query", model.DefaultNResolverQuery)
+			level.Debug(nr.logger).Log("msg", "Executing query success", "query", model.DefaultNResolverQuery)
 			nr.mtx.Lock()
 			for _, el := range result {
 				j, err := el.MarshalJSON()
