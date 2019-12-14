@@ -107,6 +107,7 @@ func (h *Healer) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string
 					if event.IsCreate() {
 						s := model.Silence{}
 						json.Unmarshal(event.Kv.Value, &s)
+						s.RegexPattern, _ = regexp.Compile(s.Pattern)
 						h.silences[sid] = &s
 					} else if event.Type == etcdv3.EventTypeDelete {
 						delete(h.silences, sid)
