@@ -26,6 +26,11 @@ Follow the documentation [here](./docs/getting-started.md).
 ## Features
 
 * Cloud autoscaler with pluggable metric backends & cloud providers.
+* Cloud compute self-healing: Automatically migrate VMs on hosts if predicted problems occur.
+
+**NOTE**:
+* Supported metric backend: [Prometheus](prometheus.io/).
+* Support cloud providers: [OpenStack](openstack.org/).
 
 ## Documentation
 
