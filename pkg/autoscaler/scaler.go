@@ -77,6 +77,7 @@ func (s *Scaler) Stop() {
 	close(s.done)
 	<-s.terminated
 	s.state = model.StateStopped
+	exporter.ReportNumScalers(cluster.ClusterID, -1)
 	level.Debug(s.logger).Log("msg", "Scaler is stopped")
 }
 
@@ -85,6 +86,8 @@ func (s *Scaler) run(ctx context.Context, wg *sync.WaitGroup) {
 	duration, _ := time.ParseDuration(s.Duration)
 	cooldown, _ := time.ParseDuration(s.Cooldown)
 	ticker := time.NewTicker(interval)
+	// Report number of scalers
+	exporter.ReportNumScalers(cluster.ClusterID, 1)
 	defer func() {
 		ticker.Stop()
 		wg.Done()

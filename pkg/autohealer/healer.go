@@ -69,6 +69,8 @@ func (h *Healer) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string
 	ticker := time.NewTicker(interval)
 	chans := make(map[string]*chan struct{})
 	whitelist := make(map[string]struct{})
+	// Record the number of healers
+	exporter.ReportNumberOfHealers(cluster.ClusterID, 1)
 	defer func() {
 		wg.Done()
 		ticker.Stop()
@@ -284,5 +286,7 @@ func (h *Healer) Stop() {
 	close(h.done)
 	<-h.terminated
 	h.state = model.StateStopped
+	// Record the number of healers
+	exporter.ReportNumberOfHealers(cluster.ClusterID, -1)
 	level.Debug(h.logger).Log("msg", "Healer is stopped")
 }

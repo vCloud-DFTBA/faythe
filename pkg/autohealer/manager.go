@@ -120,7 +120,6 @@ func (hm *Manager) startWorker(p string, name string, data []byte) {
 		hm.rqt.Set(name, h)
 		go func() {
 			hm.wg.Add(1)
-			exporter.ReportNumberOfHealers(cluster.ClusterID, 1)
 			h.run(context.Background(), hm.wg, hm.ncout)
 		}()
 	}
@@ -137,7 +136,6 @@ func (hm *Manager) stopWorker(name string) {
 
 	w.Stop()
 	hm.rqt.Delete(name)
-	exporter.ReportNumberOfHealers(cluster.ClusterID, -1)
 }
 
 // Stop destroy name resolver, healer and itself
