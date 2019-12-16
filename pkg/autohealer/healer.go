@@ -267,7 +267,6 @@ func (h *Healer) do(compute string) {
 				exporter.ReportSuccessHealerActionCounter(cluster.ClusterID, "mail")
 				level.Info(h.logger).Log("msg", "Sending mail to", "receivers", strings.Join(at.Receivers, ","))
 			}(compute)
-		default:
 		}
 	}
 	wg.Wait()

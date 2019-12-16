@@ -161,16 +161,14 @@ func main() {
 	srvc := make(chan struct{})
 
 	go func() {
-		for {
-			select {
-			case <-reloadc:
-				fas.Reload()
-				fah.Reload()
-			case <-stopc:
-				stopFunc()
-				level.Info(logger).Log("msg", "Faythe is stopping, bye bye!")
-				syscall.Kill(syscall.Getpid(), syscall.SIGTERM)
-			}
+		select {
+		case <-reloadc:
+			fas.Reload()
+			fah.Reload()
+		case <-stopc:
+			stopFunc()
+			level.Info(logger).Log("msg", "Faythe is stopping, bye bye!")
+			syscall.Kill(syscall.Getpid(), syscall.SIGTERM)
 		}
 	}()
 
@@ -198,14 +196,12 @@ func main() {
 	// Wait for reload or termination signals.
 	close(hupReady) // Unblock SIGHUP handler.
 
-	for {
-		select {
-		case <-term:
-			level.Info(logger).Log("msg", "Received SIGTERM, exiting gracefully...")
-			return
-		case <-srvc:
-			return
-		}
+	select {
+	case <-term:
+		level.Info(logger).Log("msg", "Received SIGTERM, exiting gracefully...")
+		return
+	case <-srvc:
+		return
 	}
 }
 

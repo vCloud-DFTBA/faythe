@@ -117,7 +117,6 @@ func (m *Manager) Run(ctx context.Context) {
 					}
 				}
 			}
-		default:
 		}
 	}
 }
@@ -185,7 +184,6 @@ func (m *Manager) getBackend(key string) (metrics.Backend, error) {
 			return nil, err
 		}
 		backend, _ = metrics.Get(fmt.Sprintf("%s-%s", ops.Monitor.Backend, ops.Monitor.Address))
-	default:
 	}
 	return backend, nil
 }

@@ -81,7 +81,6 @@ func (a *API) registerCloud(w http.ResponseWriter, req *http.Request) {
 		}
 
 		a.respondSuccess(w, http.StatusOK, nil)
-	default:
 	}
 }
 
@@ -135,7 +134,6 @@ func (a *API) listClouds(w http.ResponseWriter, req *http.Request) {
 				var ops model.OpenStack
 				_ = json.Unmarshal(evv, &ops)
 				clouds[evk] = ops
-			default:
 			}
 		}(ev.Value, string(ev.Key))
 	}
