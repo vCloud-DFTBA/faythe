@@ -20,11 +20,13 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/gorilla/mux"
 	etcdv3 "go.etcd.io/etcd/clientv3"
 
 	"github.com/vCloud-DFTBA/faythe/pkg/common"
+	"github.com/vCloud-DFTBA/faythe/pkg/metrics"
 	"github.com/vCloud-DFTBA/faythe/pkg/model"
 )
 
@@ -48,6 +50,7 @@ func (a *API) createScaler(w http.ResponseWriter, req *http.Request) {
 		})
 		return
 	}
+
 	if err := a.receive(req, &s); err != nil {
 		a.respondError(w, apiError{
 			code: http.StatusBadRequest,
@@ -75,8 +78,21 @@ func (a *API) createScaler(w http.ResponseWriter, req *http.Request) {
 		})
 		return
 	}
+
+	// Validate query format.
+	backend, _ := metrics.GetBackend(a.etcdcli, vars["provider_id"])
+	_, err := backend.QueryInstant(req.Context(), s.Query, time.Now())
+	if err != nil && strings.Contains(err.Error(), "bad_data") {
+		err = fmt.Errorf("invalid query: %s", err.Error())
+		a.respondError(w, apiError{
+			code: http.StatusInternalServerError,
+			err:  err,
+		})
+		return
+	}
+
 	v, _ = json.Marshal(&s)
-	_, err := a.etcdcli.DoPut(path, string(v))
+	_, err = a.etcdcli.DoPut(path, string(v))
 	if err != nil {
 		err = fmt.Errorf("error putting a key-value pair into etcd: %s", err.Error())
 		a.respondError(w, apiError{
