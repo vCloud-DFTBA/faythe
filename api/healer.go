@@ -72,8 +72,6 @@ func (a *API) createHealer(rw http.ResponseWriter, req *http.Request) {
 	}
 
 	h.ID = common.Hash(c.ID, crypto.MD5)
-	h.Monitor = c.Monitor
-	h.ATEngine = c.ATEngine
 	h.CloudID = c.ID
 
 	r, _ := json.Marshal(&h)
