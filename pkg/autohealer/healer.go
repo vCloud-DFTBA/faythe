@@ -29,7 +29,6 @@ import (
 
 	"github.com/vCloud-DFTBA/faythe/pkg/alert"
 	"github.com/vCloud-DFTBA/faythe/pkg/cluster"
-	"github.com/vCloud-DFTBA/faythe/pkg/common"
 	"github.com/vCloud-DFTBA/faythe/pkg/exporter"
 	"github.com/vCloud-DFTBA/faythe/pkg/metrics"
 	"github.com/vCloud-DFTBA/faythe/pkg/model"
@@ -94,11 +93,7 @@ func (h *Healer) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string
 					h.state = model.StateFailed
 					exporter.ReportMetricQueryFailureCounter(cluster.ClusterID,
 						h.backend.GetType(), h.backend.GetAddress())
-					if common.RetryableError(err) {
-						continue
-					} else {
-						return
-					}
+					continue
 				}
 				level.Debug(h.logger).Log("msg", "Executing query success", "query", h.Query)
 

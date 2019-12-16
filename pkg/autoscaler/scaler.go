@@ -110,11 +110,7 @@ func (s *Scaler) run(ctx context.Context, wg *sync.WaitGroup) {
 					s.state = model.StateFailed
 					exporter.ReportMetricQueryFailureCounter(cluster.ClusterID,
 						s.backend.GetType(), s.backend.GetAddress())
-					if common.RetryableError(err) {
-						continue
-					} else {
-						return
-					}
+					continue
 				}
 				level.Debug(s.logger).Log("msg", "Executing query success",
 					"query", s.Query)
