@@ -17,6 +17,7 @@ package api
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/vCloud-DFTBA/faythe/pkg/metrics"
 	"net/http"
 	"strings"
 	"sync"
@@ -69,8 +70,19 @@ func (a *API) registerCloud(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 
+		// Register Backend to registry
+		err := metrics.Register(ops.Monitor.Backend, string(ops.Monitor.Address),
+			ops.Monitor.Username, ops.Monitor.Password)
+		if err != nil {
+			a.respondError(w, apiError{
+				code: http.StatusInternalServerError,
+				err:  err,
+			})
+			return
+		}
+
 		v, _ = json.Marshal(&ops)
-		_, err := a.etcdcli.DoPut(k, string(v))
+		_, err = a.etcdcli.DoPut(k, string(v))
 		if err != nil {
 			err = fmt.Errorf("error putting a key-value pair into etcd: %s", err.Error())
 			a.respondError(w, apiError{
