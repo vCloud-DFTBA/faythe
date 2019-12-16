@@ -97,7 +97,7 @@ func (hm *Manager) startWorker(p string, name string, data []byte) {
 		return
 	}
 	level.Info(hm.logger).Log("msg", "Creating worker", "name", name)
-	backend, err := hm.getBackend(name)
+	backend, err := metrics.GetBackend(hm.etcdcli, strings.Split(name, "/")[2])
 	if err != nil {
 		level.Error(hm.logger).Log("msg", "Error creating registry backend for worker",
 			"name", name, "err", err)
@@ -297,41 +297,6 @@ func (hm *Manager) rebalance() {
 		}(ev)
 	}
 	wg.Wait()
-}
-
-func (hm *Manager) getBackend(key string) (metrics.Backend, error) {
-	// There is format -> Cloud provider id
-	providerID := strings.Split(key, "/")[2]
-	resp, err := hm.etcdcli.DoGet(common.Path(model.DefaultCloudPrefix, providerID))
-	if err != nil {
-		return nil, err
-	}
-	value := resp.Kvs[0]
-	var (
-		cloud   model.Cloud
-		backend metrics.Backend
-	)
-	err = json.Unmarshal(value.Value, &cloud)
-	if err != nil {
-		return nil, err
-	}
-	switch cloud.Provider {
-	case model.OpenStackType:
-		var ops model.OpenStack
-		err = json.Unmarshal(value.Value, &ops)
-		if err != nil {
-			return nil, err
-		}
-		// Force register
-		err := metrics.Register(ops.Monitor.Backend, string(ops.Monitor.Address),
-			ops.Monitor.Username, ops.Monitor.Password)
-		if err != nil {
-			return nil, err
-		}
-		backend, _ = metrics.Get(fmt.Sprintf("%s-%s", ops.Monitor.Backend, ops.Monitor.Address))
-	default:
-	}
-	return backend, nil
 }
 
 func (hm *Manager) getATEngine(key string) (model.ATEngine, error) {

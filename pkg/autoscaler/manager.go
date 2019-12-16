@@ -17,7 +17,7 @@ package autoscaler
 import (
 	"context"
 	"encoding/json"
-	"fmt"
+	"github.com/vCloud-DFTBA/faythe/pkg/metrics"
 	"strings"
 	"sync"
 
@@ -30,7 +30,6 @@ import (
 
 	"github.com/vCloud-DFTBA/faythe/pkg/common"
 	"github.com/vCloud-DFTBA/faythe/pkg/exporter"
-	"github.com/vCloud-DFTBA/faythe/pkg/metrics"
 	"github.com/vCloud-DFTBA/faythe/pkg/model"
 )
 
@@ -142,7 +141,7 @@ func (m *Manager) startScaler(name string, data []byte) {
 		return
 	}
 	level.Info(m.logger).Log("msg", "Creating scaler", "name", name)
-	backend, err := m.getBackend(name)
+	backend, err := metrics.GetBackend(m.etcdcli, strings.Split(name, "/")[2])
 	if err != nil {
 		level.Error(m.logger).Log("msg", "Error creating registry backend for scaler",
 			"name", name, "err", err)
@@ -155,41 +154,6 @@ func (m *Manager) startScaler(name string, data []byte) {
 		exporter.ReportNumScalers(cluster.ClusterID, 1)
 		s.run(context.Background(), m.wg)
 	}()
-}
-
-func (m *Manager) getBackend(key string) (metrics.Backend, error) {
-	// There is format -> Cloud provider id
-	providerID := strings.Split(key, "/")[2]
-	resp, err := m.etcdcli.DoGet(common.Path(model.DefaultCloudPrefix, providerID))
-	if err != nil {
-		return nil, err
-	}
-	value := resp.Kvs[0]
-	var (
-		cloud   model.Cloud
-		backend metrics.Backend
-	)
-	err = json.Unmarshal(value.Value, &cloud)
-	if err != nil {
-		return nil, err
-	}
-	switch cloud.Provider {
-	case model.OpenStackType:
-		var ops model.OpenStack
-		err = json.Unmarshal(value.Value, &ops)
-		if err != nil {
-			return nil, err
-		}
-		// Force register
-		err := metrics.Register(ops.Monitor.Backend, string(ops.Monitor.Address),
-			ops.Monitor.Username, ops.Monitor.Password)
-		if err != nil {
-			return nil, err
-		}
-		backend, _ = metrics.Get(fmt.Sprintf("%s-%s", ops.Monitor.Backend, ops.Monitor.Address))
-	default:
-	}
-	return backend, nil
 }
 
 // save puts scalers to etcd
