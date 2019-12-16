@@ -17,6 +17,7 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	_ "net/http/pprof"
 	"sync"
 	"time"
 
@@ -98,6 +99,8 @@ func (a *API) Register(r *mux.Router) {
 	r.Handle("/healers/{provider_id:[a-z 0-9]+}", wrap(a.listHealers)).Methods("GET")
 	r.Handle("/healers/{provider_id:[a-z 0-9]+}/{id:[a-z 0-9]+}",
 		wrap(a.deleteHealer)).Methods("DELETE")
+	// Profiling endpoints
+	r.Handle("/debug/pprof/{subpath}", http.DefaultServeMux)
 
 }
 
