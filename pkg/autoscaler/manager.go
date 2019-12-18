@@ -117,7 +117,6 @@ func (m *Manager) Run(ctx context.Context) {
 					}
 				}
 			}
-		default:
 		}
 	}
 }
@@ -130,7 +129,6 @@ func (m *Manager) stopScaler(name string) {
 		return
 	}
 	level.Info(m.logger).Log("msg", "Removing scaler", "name", name)
-	exporter.ReportNumScalers(cluster.ClusterID, -1)
 	s.Stop()
 	m.rgt.Delete(name)
 }
@@ -152,7 +150,6 @@ func (m *Manager) startScaler(name string, data []byte) {
 	m.rgt.Set(name, s)
 	go func() {
 		m.wg.Add(1)
-		exporter.ReportNumScalers(cluster.ClusterID, 1)
 		s.run(context.Background(), m.wg)
 	}()
 }
@@ -187,7 +184,6 @@ func (m *Manager) getBackend(key string) (metrics.Backend, error) {
 			return nil, err
 		}
 		backend, _ = metrics.Get(fmt.Sprintf("%s-%s", ops.Monitor.Backend, ops.Monitor.Address))
-	default:
 	}
 	return backend, nil
 }

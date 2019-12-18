@@ -174,37 +174,35 @@ func (m *Manager) WatchConfig() {
 		eventsWG := sync.WaitGroup{}
 		eventsWG.Add(1)
 		go func() {
-			for {
-				select {
-				case event, ok := <-watcher.Events:
-					if !ok { // 'Event' channel is closed
-						eventsWG.Done()
-						return
-					}
-					const writeOrCreateMask = fsnotify.Write | fsnotify.Create
-					if filepath.Clean(event.Name) == m.configPath &&
-						event.Op&writeOrCreateMask != 0 {
-						level.Info(m.logger).Log("msg", "Config file is changing...")
-						err := m.LoadFile(m.configPath)
-						if err != nil {
-							level.Error(m.logger).Log("msg", "Error reading config file", "err", err)
-						}
-						if m.onConfigChange != nil {
-							m.onConfigChange(event)
-						}
-					} else if filepath.Clean(event.Name) == m.configPath &&
-						event.Op&fsnotify.Remove != 0 {
-						eventsWG.Done()
-						return
-					}
-
-				case err, ok := <-watcher.Errors:
-					if ok { // 'Errors' channel is not closed
-						level.Error(m.logger).Log("msg", "Error closing config file watcher", "err", err)
-					}
+			select {
+			case event, ok := <-watcher.Events:
+				if !ok { // 'Event' channel is closed
 					eventsWG.Done()
 					return
 				}
+				const writeOrCreateMask = fsnotify.Write | fsnotify.Create
+				if filepath.Clean(event.Name) == m.configPath &&
+					event.Op&writeOrCreateMask != 0 {
+					level.Info(m.logger).Log("msg", "Config file is changing...")
+					err := m.LoadFile(m.configPath)
+					if err != nil {
+						level.Error(m.logger).Log("msg", "Error reading config file", "err", err)
+					}
+					if m.onConfigChange != nil {
+						m.onConfigChange(event)
+					}
+				} else if filepath.Clean(event.Name) == m.configPath &&
+					event.Op&fsnotify.Remove != 0 {
+					eventsWG.Done()
+					return
+				}
+
+			case err, ok := <-watcher.Errors:
+				if ok { // 'Errors' channel is not closed
+					level.Error(m.logger).Log("msg", "Error closing config file watcher", "err", err)
+				}
+				eventsWG.Done()
+				return
 			}
 		}()
 		err = watcher.Add(m.configPath)

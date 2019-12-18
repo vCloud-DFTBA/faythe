@@ -92,7 +92,6 @@ func Hash(s string, f crypto.Hash) string {
 		h = sha256.New()
 	case crypto.SHA512:
 		h = sha512.New()
-	default:
 	}
 	h.Write([]byte(s))
 	return fmt.Sprintf("%x", h.Sum(nil))
