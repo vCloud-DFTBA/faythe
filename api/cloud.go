@@ -75,8 +75,8 @@ func (a *API) registerCloud(w http.ResponseWriter, req *http.Request) {
 			ops.Monitor.Username, ops.Monitor.Password)
 		if err != nil {
 			a.respondError(w, apiError{
-				code: http.StatusInternalServerError,
-				err:  err,
+				code: http.StatusBadRequest,
+				err:  fmt.Errorf("invalid backend connection: %s", err.Error()),
 			})
 			return
 		}
