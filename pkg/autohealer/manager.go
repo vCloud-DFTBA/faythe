@@ -309,16 +309,20 @@ func (hm *Manager) getATEngine(key string) (model.ATEngine, error) {
 	)
 	err = json.Unmarshal(value.Value, &cloud)
 	if err != nil {
-		return model.ATEngine{}, err
+		return atengine, err
 	}
 	switch cloud.Provider {
 	case model.OpenStackType:
 		var ops model.OpenStack
 		err = json.Unmarshal(value.Value, &ops)
 		if err != nil {
-			return model.ATEngine{}, err
+			return atengine, err
 		}
 
+		// Check connection
+		if err := common.ReachableTCP(ops.ATEngine.Address.String()); err != nil {
+			return atengine, err
+		}
 		atengine = ops.ATEngine
 	}
 	return atengine, nil
