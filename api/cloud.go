@@ -51,7 +51,7 @@ func (a *API) registerCloud(w http.ResponseWriter, req *http.Request) {
 		}
 		if err := ops.Validate(); err != nil {
 			a.respondError(w, apiError{
-				code: http.StatusInternalServerError,
+				code: http.StatusBadRequest,
 				err:  err,
 			})
 			return
