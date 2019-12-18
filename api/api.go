@@ -17,7 +17,7 @@ package api
 import (
 	"encoding/json"
 	"net/http"
-	_ "net/http/pprof"
+	"net/http/pprof"
 	"sync"
 	"time"
 
@@ -26,6 +26,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
+	"github.com/vCloud-DFTBA/faythe/config"
 	"github.com/vCloud-DFTBA/faythe/pkg/common"
 )
 
@@ -99,9 +100,13 @@ func (a *API) Register(r *mux.Router) {
 	r.Handle("/healers/{provider_id:[a-z 0-9]+}", wrap(a.listHealers)).Methods("GET")
 	r.Handle("/healers/{provider_id:[a-z 0-9]+}/{id:[a-z 0-9]+}",
 		wrap(a.deleteHealer)).Methods("DELETE")
-	// Profiling endpoints
-	r.Handle("/debug/pprof/{subpath}", http.DefaultServeMux)
 
+	// Profiling endpoints
+	cfg := config.Get().GlobalConfig
+	if cfg.EnableProfiling {
+		r.Handle("/debug/pprof/", http.HandlerFunc(pprof.Index))
+		r.Handle("/debug/pprof/{subpath}", http.DefaultServeMux)
+	}
 }
 
 func (a *API) receive(req *http.Request, v interface{}) error {

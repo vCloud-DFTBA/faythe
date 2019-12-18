@@ -48,6 +48,8 @@ type GlobalConfig struct {
 	RemoteHostPattern string `yaml:"remote_host_pattern,omitempty"`
 	// BasicAuthentication - HTTP Basic authentication.
 	BasicAuthentication BasicAuthentication `yaml:"basic_auth,omitempty"`
+	// EnableProfiling enables profiling via web interface host:port/debug/pprof/
+	EnableProfiling bool `yaml:"enable_profiling"`
 }
 
 // BasicAuthentication - HTTP Basic authentication.
@@ -128,6 +130,7 @@ var (
 	DefaultGlobalConfig = GlobalConfig{
 		RemoteHostPattern:   ".*",
 		BasicAuthentication: BasicAuthentication{},
+		EnableProfiling:     false,
 	}
 
 	// DefaultEtcdConfig is the default Etcd configuration.
