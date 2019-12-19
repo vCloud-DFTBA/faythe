@@ -17,7 +17,6 @@ package autoscaler
 import (
 	"context"
 	"encoding/json"
-	"github.com/vCloud-DFTBA/faythe/pkg/metrics"
 	"strings"
 	"sync"
 
@@ -27,9 +26,9 @@ import (
 	"go.etcd.io/etcd/mvcc/mvccpb"
 
 	"github.com/vCloud-DFTBA/faythe/pkg/cluster"
-
 	"github.com/vCloud-DFTBA/faythe/pkg/common"
 	"github.com/vCloud-DFTBA/faythe/pkg/exporter"
+	"github.com/vCloud-DFTBA/faythe/pkg/metrics"
 	"github.com/vCloud-DFTBA/faythe/pkg/model"
 )
 

@@ -79,13 +79,13 @@ func (a *API) createScaler(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	// Validate query format.
+	// Check whether query is syntactically correct
 	backend, _ := metrics.GetBackend(a.etcdcli, vars["provider_id"])
 	_, err := backend.QueryInstant(req.Context(), s.Query, time.Now())
 	if err != nil && strings.Contains(err.Error(), "bad_data") {
 		err = fmt.Errorf("invalid query: %s", err.Error())
 		a.respondError(w, apiError{
-			code: http.StatusInternalServerError,
+			code: http.StatusBadRequest,
 			err:  err,
 		})
 		return

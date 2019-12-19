@@ -79,7 +79,7 @@ func (a *API) createHealer(rw http.ResponseWriter, req *http.Request) {
 	if err != nil && strings.Contains(err.Error(), "bad_data") {
 		err = fmt.Errorf("invalid query: %s", err.Error())
 		a.respondError(rw, apiError{
-			code: http.StatusInternalServerError,
+			code: http.StatusBadRequest,
 			err:  err,
 		})
 		return
