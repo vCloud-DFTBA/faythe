@@ -104,8 +104,8 @@ func (a *API) Register(r *mux.Router) {
 	// Profiling endpoints
 	cfg := config.Get().GlobalConfig
 	if cfg.EnableProfiling {
-		r.Handle("/debug/pprof/", http.HandlerFunc(pprof.Index))
-		r.Handle("/debug/pprof/{subpath}", http.DefaultServeMux)
+		r.Handle("/debug/pprof", http.HandlerFunc(pprof.Index))
+		r.Handle("/debug/pprof/{profile}", http.DefaultServeMux)
 	}
 }
 

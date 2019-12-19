@@ -132,8 +132,9 @@ func main() {
 	fmw = middleware.New(log.With(logger, "component", "transport middleware"))
 
 	fapi = api.New(log.With(logger, "component", "api"), etcdcli)
-	fapi.Register(router)
+	router.StrictSlash(true)
 	router.Use(fmw.Instrument, fmw.Logging, fmw.RestrictDomain, fmw.Authenticate)
+	fapi.Register(router)
 
 	fas = autoscaler.NewManager(log.With(logger, "component", "autoscale manager"),
 		etcdcli, cls)
