@@ -52,7 +52,7 @@ type Healer struct {
 	terminated chan struct{}
 	silences   map[string]*model.Silence
 	etcdcli    *common.Etcd
-	watchs     etcdv3.WatchChan
+	swatch     etcdv3.WatchChan
 }
 
 func newHealer(l log.Logger, data []byte, e *common.Etcd, b metrics.Backend, ate model.ATEngine) *Healer {
@@ -79,7 +79,7 @@ func (h *Healer) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string
 	sticker := time.NewTicker(sinterval)
 	chans := make(map[string]*chan struct{})
 	whitelist := make(map[string]struct{})
-	h.watchs = h.etcdcli.Watch(ctx, common.Path(model.DefaultSilencePrefix, h.CloudID), etcdv3.WithPrefix())
+	h.swatch = h.etcdcli.Watch(ctx, common.Path(model.DefaultSilencePrefix, h.CloudID), etcdv3.WithPrefix())
 	h.updateSilence()
 	// Record the number of healers
 	exporter.ReportNumberOfHealers(cluster.ClusterID, 1)
@@ -98,7 +98,7 @@ func (h *Healer) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string
 				return
 			case <-sticker.C:
 				h.validateSilence()
-			case watchResp := <-h.watchs:
+			case watchResp := <-h.swatch:
 				if watchResp.Err() != nil {
 					level.Error(h.logger).Log("msg", "error watching etcd events", "err", watchResp.Err())
 					continue
@@ -210,10 +210,8 @@ func (h *Healer) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string
 										compute = com
 										break wait
 									}
-									continue
 								default:
 									nc <- map[string]string{"instance": key}
-									continue
 								}
 							}
 							level.Info(h.logger).Log("msg", fmt.Sprintf("Processing instance: %s", instance))
