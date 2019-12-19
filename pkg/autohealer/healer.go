@@ -197,7 +197,7 @@ func (h *Healer) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string
 						chans[instance] = &ci
 						go func(ci chan struct{}, instance string, nc chan map[string]string) {
 							var compute string
-							key := makeKey(h.CloudID, instance)
+							key := common.Path(h.CloudID, instance)
 						wait:
 							//	wait for correct compute-instance pair
 							for {
