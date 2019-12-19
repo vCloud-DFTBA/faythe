@@ -136,43 +136,6 @@ func (h *Healer) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string
 					rIs[instance]++
 				}
 
-				for k, v := range rIs {
-					if v != h.EvaluationLevel {
-						delete(rIs, k)
-					}
-				}
-
-				// If no of instance = 0, clear all goroutines an whitelist
-				if len(rIs) == 0 {
-					for k, c := range chans {
-						close(*c)
-						delete(chans, k)
-					}
-					for k := range whitelist {
-						delete(whitelist, k)
-					}
-					continue
-				}
-
-				// If no of instance > 3, clear all goroutines
-				if len(rIs) > 3 {
-					level.Info(h.logger).Log("msg", fmt.Sprintf("Not processed because the number of instance needed healing > %d", len(rIs)))
-					for k, c := range chans {
-						close(*c)
-						delete(chans, k)
-					}
-					continue
-				}
-
-				// Remove redundant goroutine if exists
-				for k, c := range chans {
-					if _, ok := rIs[k]; ok {
-						continue
-					}
-					close(*c)
-					delete(chans, k)
-				}
-
 				// Clear entry in whitelist if instance goes up again
 				for k := range whitelist {
 					if _, ok := rIs[k]; ok {
@@ -182,11 +145,47 @@ func (h *Healer) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string
 					level.Info(h.logger).Log("msg", fmt.Sprintf("instance %s goes up again, removed from whitelist", k))
 				}
 
-			processing:
-				for instance := range rIs {
-					if _, ok := whitelist[instance]; ok {
+				// If no of instance = 0, clear all goroutines
+				if len(rIs) == 0 {
+					for k, c := range chans {
+						close(*c)
+						delete(chans, k)
+					}
+					continue
+				}
+
+				// If number of metrics returned for a instance != EvaluationLevel
+				// Or if instances in whitelist, delete from list of Instances, not process it
+				for k, v := range rIs {
+					if _, ok := whitelist[k]; ok || v != h.EvaluationLevel {
+						delete(rIs, k)
+					}
+					}
+
+				// If no of instances > DefaultMaxNumberOfInstances, clear all goroutines
+				// Or number of instances + number of existing instances need to heal > DefaultMaxNumberOfInstances
+				if len(rIs) > model.DefaultMaxNumberOfInstances || len(rIs)+len(chans) > model.DefaultMaxNumberOfInstances {
+					level.Info(h.logger).Log("msg",
+						fmt.Sprintf("Not processed because the number of instance needed healing = %d > %d",
+							len(rIs), model.DefaultMaxNumberOfInstances))
+					for k, c := range chans {
+						close(*c)
+						delete(chans, k)
+					}
+					continue
+				}
+
+				// Update existing goroutines
+				for k, c := range chans {
+					if _, ok := rIs[k]; ok {
 						continue
 					}
+					close(*c)
+					delete(chans, k)
+				}
+
+			processing:
+				for instance := range rIs {
 					for k, v := range h.silences {
 						if matched := v.RegexPattern.MatchString(instance); matched {
 							level.Info(h.logger).Log("msg", fmt.Sprintf("instance %s is ignored because of silence: %s", instance, k))
