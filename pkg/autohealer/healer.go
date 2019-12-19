@@ -203,6 +203,8 @@ func (h *Healer) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string
 							//	wait for correct compute-instance pair
 							for {
 								select {
+								case <-h.done:
+									return
 								case <-ci:
 									return
 								case c := <-nc:
@@ -219,6 +221,8 @@ func (h *Healer) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string
 							a.Reset()
 							for {
 								select {
+								case <-h.done:
+									return
 								case <-ci:
 									return
 								default:
