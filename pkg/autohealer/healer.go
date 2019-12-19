@@ -160,7 +160,7 @@ func (h *Healer) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string
 					if _, ok := whitelist[k]; ok || v != h.EvaluationLevel {
 						delete(rIs, k)
 					}
-					}
+				}
 
 				// If no of instances > DefaultMaxNumberOfInstances, clear all goroutines
 				// Or number of instances + number of existing instances need to heal > DefaultMaxNumberOfInstances
@@ -195,7 +195,7 @@ func (h *Healer) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string
 					if _, ok := chans[instance]; !ok {
 						ci := make(chan struct{})
 						chans[instance] = &ci
-						go func(ci chan struct{}, instance string, nc chan map[string]string) {
+						go func(ci chan struct{}, instance string) {
 							var compute string
 							key := common.Path(h.CloudID, instance)
 						wait:
@@ -207,7 +207,7 @@ func (h *Healer) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string
 								case <-ci:
 									return
 								case c := <-nc:
-									if com, ok := c[key]; ok {
+									if com, ok := c[key]; ok && com != "" {
 										compute = com
 										break wait
 									}
@@ -239,7 +239,7 @@ func (h *Healer) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string
 
 								}
 							}
-						}(ci, instance, nc)
+						}(ci, instance)
 					}
 				}
 			}

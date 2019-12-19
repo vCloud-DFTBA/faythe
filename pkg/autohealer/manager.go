@@ -60,7 +60,7 @@ func NewManager(l log.Logger, e *common.Etcd, c *cluster.Cluster) *Manager {
 		wg:      &sync.WaitGroup{},
 		nodes:   make(map[string]string),
 		ncin:    make(chan NodeMetric),
-		ncout:   make(chan map[string]string),
+		ncout:   make(chan map[string]string, 1),
 		cluster: c,
 	}
 	exporter.ReportNumberOfHealers(cluster.ClusterID, 0)
@@ -242,10 +242,10 @@ func (hm *Manager) Run(ctx context.Context) {
 		case nm := <-hm.ncin:
 			hm.nodes[common.Path(nm.CloudID, strings.Split(nm.Metric.Instance, ":")[0])] = nm.Metric.Nodename
 		case nm := <-hm.ncout:
-			if len(hm.nodes) != 0 {
-				if m, ok := hm.nodes[nm["instance"]]; ok {
-					hm.ncout <- map[string]string{nm["instance"]: m}
-				}
+			if m, ok := hm.nodes[nm["instance"]]; ok && len(hm.nodes) != 0 {
+				hm.ncout <- map[string]string{nm["instance"]: m}
+			} else {
+				hm.ncout <- map[string]string{nm["instance"]: ""}
 			}
 		}
 	}
@@ -326,4 +326,3 @@ func (hm *Manager) getATEngine(key string) (model.ATEngine, error) {
 	}
 	return atengine, nil
 }
-
