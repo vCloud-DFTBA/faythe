@@ -144,7 +144,7 @@ func (h *Healer) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string
 					level.Info(h.logger).Log("msg", fmt.Sprintf("instance %s goes up again, removed from whitelist", k))
 				}
 
-				// If no of instance = 0, clear all goroutines
+				// If number of instance = 0, clear all goroutines
 				if len(rIs) == 0 {
 					for k, c := range chans {
 						close(*c)
@@ -174,11 +174,11 @@ func (h *Healer) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string
 					}
 				}
 
-				// If no of instances > DefaultMaxNumberOfInstances, clear all goroutines
+				// If number of instances > DefaultMaxNumberOfInstances, clear all goroutines
 				// Or number of instances + number of existing instances need to heal > DefaultMaxNumberOfInstances
 				if len(rIs) > model.DefaultMaxNumberOfInstances || len(rIs)+len(chans) > model.DefaultMaxNumberOfInstances {
 					level.Info(h.logger).Log("msg",
-						fmt.Sprintf("Not processed because the number of instance needed healing = %d > %d",
+						fmt.Sprintf("not processed because the number of instance needed healing = %d > %d",
 							len(rIs), model.DefaultMaxNumberOfInstances))
 					for k, c := range chans {
 						close(*c)
