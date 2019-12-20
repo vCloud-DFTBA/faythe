@@ -154,10 +154,23 @@ func (h *Healer) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string
 					continue
 				}
 
+				// Update existing goroutines
+				for k, c := range chans {
+					if _, ok := rIs[k]; ok {
+						continue
+					}
+					close(*c)
+					delete(chans, k)
+				}
+
 				// If number of metrics returned for a instance != EvaluationLevel
 				// Or if instances in whitelist, delete from list of Instances, not process it
+				// If instance is processing then delete from list of instances
 				for k, v := range rIs {
 					if _, ok := whitelist[k]; ok || v != h.EvaluationLevel {
+						delete(rIs, k)
+					}
+					if _, ok := chans[k]; ok {
 						delete(rIs, k)
 					}
 				}
@@ -173,15 +186,6 @@ func (h *Healer) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string
 						delete(chans, k)
 					}
 					continue
-				}
-
-				// Update existing goroutines
-				for k, c := range chans {
-					if _, ok := rIs[k]; ok {
-						continue
-					}
-					close(*c)
-					delete(chans, k)
 				}
 
 			processing:
