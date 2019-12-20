@@ -297,10 +297,10 @@ func (h *Healer) do(compute string) {
 			go func(compute string) {
 				wg.Add(1)
 				defer wg.Done()
-				at.Subject = "Node down, triggering autohealing"
+				at.Subject = fmt.Sprintf("[autohealing] Node %s down, trigger autohealing", compute)
 				at.Body = fmt.Sprintf("Node %s has been down for more than %s.", compute, h.Duration)
 				if err := alert.SendMail(at); err != nil {
-					level.Error(h.logger).Log("msg", "Error doing Mail action",
+					level.Error(h.logger).Log("msg", "error doing Mail action",
 						"err", err)
 					exporter.ReportFailureHealerActionCounter(cluster.ClusterID, "mail")
 					return
