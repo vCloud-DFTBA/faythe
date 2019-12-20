@@ -52,7 +52,6 @@ type Healer struct {
 	terminated chan struct{}
 	silences   map[string]*model.Silence
 	etcdcli    *common.Etcd
-	swatch     etcdv3.WatchChan
 }
 
 func newHealer(l log.Logger, data []byte, e *common.Etcd, b metrics.Backend, ate model.ATEngine) *Healer {
@@ -79,7 +78,7 @@ func (h *Healer) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string
 	sticker := time.NewTicker(sinterval)
 	chans := make(map[string]*chan struct{})
 	whitelist := make(map[string]struct{})
-	h.swatch = h.etcdcli.Watch(ctx, common.Path(model.DefaultSilencePrefix, h.CloudID), etcdv3.WithPrefix())
+	swatch := h.etcdcli.Watch(ctx, common.Path(model.DefaultSilencePrefix, h.CloudID), etcdv3.WithPrefix())
 	h.updateSilence()
 	// Record the number of healers
 	exporter.ReportNumberOfHealers(cluster.ClusterID, 1)
@@ -98,7 +97,7 @@ func (h *Healer) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string
 				return
 			case <-sticker.C:
 				h.validateSilence()
-			case watchResp := <-h.swatch:
+			case watchResp := <-swatch:
 				if watchResp.Err() != nil {
 					level.Error(h.logger).Log("msg", "error watching etcd events", "err", watchResp.Err())
 					continue
