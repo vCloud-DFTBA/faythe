@@ -31,9 +31,8 @@ type Silence struct {
 	TTL          string         `json:"ttl"`
 	Tags         []string       `json:"tags"`
 	Description  string         `json:"description"`
-	// TODO: Do we need `created_at` ?
-	CreatedAt time.Time `json:"created_at"`
-	ExpiredAt time.Time `json:"expired_at"`
+	CreatedAt    time.Time      `json:"created_at"`
+	ExpiredAt    time.Time      `json:"expired_at"`
 }
 
 func (s *Silence) Validate() error {
