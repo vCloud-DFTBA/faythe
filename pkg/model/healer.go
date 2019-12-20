@@ -33,6 +33,7 @@ type Healer struct {
 	EvaluationLevel int                        `json:"evaluation_level"`
 	ID              string                     `json:"id,omitempty"`
 	Interval        string                     `json:"interval"`
+	Receivers       Receivers                  `json:"receivers"`
 	Query           string                     `json:"query"`
 	Tags            []string                   `json:"tags,omitempty"`
 }

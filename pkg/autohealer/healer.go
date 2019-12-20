@@ -287,6 +287,20 @@ func (h *Healer) do(compute string) {
 						"url", at.URL.String(), "err", err)
 					exporter.ReportFailureHealerActionCounter(cluster.ClusterID, "http")
 					exporter.ReportATRequestFailureCounter(cluster.ClusterID, at.URL.String())
+					wg.Add(1)
+					m := &model.ActionMail{
+						Receivers: h.Receivers,
+						Subject: fmt.Sprintf("[autohealing] Node %s down, failed to trigger http request", compute),
+						Body: fmt.Sprintf("Node %s is down for more than %s.\nBut failed to trigger autohealing, due to %s",
+							compute, h.Duration, err.Error()),
+					}
+					m.Validate()
+					if err := alert.SendMail(m); err != nil {
+						level.Error(h.logger).Log("msg", "error doing Mail action",
+							"err", err)
+						return
+					}
+					wg.Done()
 					return
 				}
 				exporter.ReportSuccessHealerActionCounter(cluster.ClusterID, "http")
@@ -297,6 +311,7 @@ func (h *Healer) do(compute string) {
 			go func(compute string) {
 				wg.Add(1)
 				defer wg.Done()
+				at.Receivers = h.Receivers
 				at.Subject = fmt.Sprintf("[autohealing] Node %s down, trigger autohealing", compute)
 				at.Body = fmt.Sprintf("Node %s has been down for more than %s.", compute, h.Duration)
 				if err := alert.SendMail(at); err != nil {
