@@ -288,6 +288,7 @@ func (h *Healer) do(compute string) {
 					exporter.ReportFailureHealerActionCounter(cluster.ClusterID, "http")
 					exporter.ReportATRequestFailureCounter(cluster.ClusterID, at.URL.String())
 					wg.Add(1)
+					defer wg.Done()
 					m := &model.ActionMail{
 						Receivers: h.Receivers,
 						Subject: fmt.Sprintf("[autohealing] Node %s down, failed to trigger http request", compute),
@@ -300,7 +301,6 @@ func (h *Healer) do(compute string) {
 							"err", err)
 						return
 					}
-					wg.Done()
 					return
 				}
 				exporter.ReportSuccessHealerActionCounter(cluster.ClusterID, "http")
