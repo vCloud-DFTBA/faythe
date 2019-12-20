@@ -25,6 +25,7 @@ import (
 	etcdv3 "go.etcd.io/etcd/clientv3"
 
 	"github.com/vCloud-DFTBA/faythe/pkg/common"
+	"github.com/vCloud-DFTBA/faythe/pkg/metrics"
 	"github.com/vCloud-DFTBA/faythe/pkg/model"
 )
 
@@ -50,7 +51,7 @@ func (a *API) registerCloud(w http.ResponseWriter, req *http.Request) {
 		}
 		if err := ops.Validate(); err != nil {
 			a.respondError(w, apiError{
-				code: http.StatusInternalServerError,
+				code: http.StatusBadRequest,
 				err:  err,
 			})
 			return
@@ -69,8 +70,19 @@ func (a *API) registerCloud(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 
+		// Register Backend to registry
+		err := metrics.Register(ops.Monitor.Backend, string(ops.Monitor.Address),
+			ops.Monitor.Username, ops.Monitor.Password)
+		if err != nil {
+			a.respondError(w, apiError{
+				code: http.StatusBadRequest,
+				err:  fmt.Errorf("cannot connect to backend: %s", err.Error()),
+			})
+			return
+		}
+
 		v, _ = json.Marshal(&ops)
-		_, err := a.etcdcli.DoPut(k, string(v))
+		_, err = a.etcdcli.DoPut(k, string(v))
 		if err != nil {
 			err = fmt.Errorf("error putting a key-value pair into etcd: %s", err.Error())
 			a.respondError(w, apiError{

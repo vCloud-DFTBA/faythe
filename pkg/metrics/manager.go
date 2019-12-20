@@ -21,6 +21,7 @@ import (
 	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
 
+	"github.com/vCloud-DFTBA/faythe/pkg/common"
 	"github.com/vCloud-DFTBA/faythe/pkg/metrics/backends/prometheus"
 	"github.com/vCloud-DFTBA/faythe/pkg/model"
 )
@@ -60,6 +61,10 @@ func (m *Manager) initBackend(btype string, address, username, password string) 
 // Register inits Backend with input Type and address, puts the instantiated
 // backend to Registry.
 func (m *Manager) Register(btype, address, username, password string) error {
+	// Check a backend address is reachable
+	if err := common.ReachableTCP(address); err != nil {
+		return err
+	}
 	name := fmt.Sprintf("%s-%s", btype, address)
 	// If the instantiated metrics backend already exists, let's just
 	// ignore it.
@@ -70,7 +75,7 @@ func (m *Manager) Register(btype, address, username, password string) error {
 	level.Info(m.logger).Log("msg", "Instantiating backend client for MetricsBackend", btype)
 	b, err := m.initBackend(btype, address, username, password)
 	if err != nil {
-		return errors.Wrapf(err, "instantiating backend client for MetricsBackend %q", btype)
+		return errors.Wrapf(err, "instantiating backend client for MetricsBackend %s", btype)
 	}
 	m.rgt.Set(name, b)
 	level.Info(m.logger).Log("msg", "Backend", name, "instantiated successfully")

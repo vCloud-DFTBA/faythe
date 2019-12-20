@@ -20,11 +20,13 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gorilla/mux"
 	etcdv3 "go.etcd.io/etcd/clientv3"
 
 	"github.com/vCloud-DFTBA/faythe/pkg/common"
+	"github.com/vCloud-DFTBA/faythe/pkg/metrics"
 	"github.com/vCloud-DFTBA/faythe/pkg/model"
 )
 
@@ -71,13 +73,23 @@ func (a *API) createHealer(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	// Validate query format.
+	backend, _ := metrics.GetBackend(a.etcdcli, vars["provider_id"])
+	_, err := backend.QueryInstant(req.Context(), h.Query, time.Now())
+	if err != nil && strings.Contains(err.Error(), "bad_data") {
+		err = fmt.Errorf("invalid query: %s", err.Error())
+		a.respondError(rw, apiError{
+			code: http.StatusBadRequest,
+			err:  err,
+		})
+		return
+	}
+
 	h.ID = common.Hash(c.ID, crypto.MD5)
-	h.Monitor = c.Monitor
-	h.ATEngine = c.ATEngine
 	h.CloudID = c.ID
 
 	r, _ := json.Marshal(&h)
-	_, err := a.etcdcli.DoPut(common.Path(path, h.ID), string(r))
+	_, err = a.etcdcli.DoPut(common.Path(path, h.ID), string(r))
 	if err != nil {
 		err = fmt.Errorf("error putting a key-value pair into etcd: %s", err.Error())
 		a.respondError(rw, apiError{

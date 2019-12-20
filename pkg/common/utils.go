@@ -26,11 +26,13 @@ import (
 	"hash/fnv"
 	"net"
 	"net/http"
+	"net/url"
 	"reflect"
 	"runtime"
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/pkg/errors"
 )
@@ -223,4 +225,11 @@ func RetryableError(err error) bool {
 		}
 	}
 	return false
+}
+
+// ReachableTCP checks an address is reachable via TCP.
+func ReachableTCP(addr string) error {
+	u, _ := url.Parse(addr)
+	_, err := net.DialTimeout("tcp", u.Host, 3*time.Second)
+	return err
 }

@@ -27,14 +27,12 @@ type Healer struct {
 	ActionsRaw      map[string]json.RawMessage `json:"actions"`
 	Active          bool                       `json:"active,omitempty"`
 	Alert           Alert                      `json:"alert,omitempty"`
-	ATEngine        ATEngine                   `json:"atengine"`
 	CloudID         string                     `json:"cloudid"`
 	Description     string                     `json:"description,omitempty"`
 	Duration        string                     `json:"duration"`
 	EvaluationLevel int                        `json:"evaluation_level"`
 	ID              string                     `json:"id,omitempty"`
 	Interval        string                     `json:"interval"`
-	Monitor         Monitor                    `json:"monitor"`
 	Query           string                     `json:"query"`
 	Tags            []string                   `json:"tags,omitempty"`
 }
