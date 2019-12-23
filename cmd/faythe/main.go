@@ -114,7 +114,7 @@ func main() {
 	etcdcli, err = common.NewEtcd(etcdcfg)
 
 	if err != nil {
-		level.Error(logger).Log("err", errors.Wrapf(err, "Error instantiating Etcd V3 client."))
+		level.Error(logger).Log("msg", errors.Wrapf(err, "Error instantiating Etcd V3 client."))
 		os.Exit(2)
 	}
 
@@ -123,7 +123,7 @@ func main() {
 	cls, err = cluster.New(cfg.clusterID, cfg.listenAddress,
 		log.With(logger, "component", "cluster"), etcdcli)
 	if err != nil {
-		level.Error(logger).Log("err", errors.Wrap(err, "Error initializing Cluster"))
+		level.Error(logger).Log("msg", errors.Wrap(err, "Error initializing Cluster"))
 		os.Exit(2)
 	}
 	reloadc := make(chan struct{})
@@ -136,11 +136,20 @@ func main() {
 	router.Use(fmw.Instrument, fmw.Logging, fmw.RestrictDomain, fmw.Authenticate)
 	fapi.Register(router)
 
-	fas = autoscaler.NewManager(log.With(logger, "component", "autoscale manager"),
+	fas, err = autoscaler.NewManager(log.With(logger, "component", "autoscale manager"),
 		etcdcli, cls)
+	if err != nil {
+		level.Error(logger).Log("msg", errors.Wrap(err, "Error initializing Autoscale manager"))
+		os.Exit(2)
+	}
 	go fas.Run(watchCtx)
+
 	// Init healer manager
-	fah := autohealer.NewManager(log.With(logger, "component", "healer manager"), etcdcli, cls)
+	fah, err := autohealer.NewManager(log.With(logger, "component", "healer manager"), etcdcli, cls)
+	if err != nil {
+		level.Error(logger).Log("msg", errors.Wrap(err, "Error initializing Autoheal manager"))
+		os.Exit(2)
+	}
 	go fah.Run(watchCtx)
 
 	stopc := make(chan struct{})

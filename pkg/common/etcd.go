@@ -147,3 +147,17 @@ func (e *Etcd) Run(stopc chan struct{}) {
 		}
 	}
 }
+
+// CheckKey accepts a given Etcd key with format:
+// then finds the key. Return true if one instance is found,
+// otherwise false.
+func (e *Etcd) CheckKey(key string) bool {
+	resp, err := e.DoGet(key, etcdv3.WithCountOnly())
+	if err != nil {
+		return false
+	}
+	if resp.Count == 1 {
+		return true
+	}
+	return false
+}

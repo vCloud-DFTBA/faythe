@@ -23,6 +23,7 @@ import (
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
+	"github.com/pkg/errors"
 	etcdv3 "go.etcd.io/etcd/clientv3"
 	"go.etcd.io/etcd/mvcc/mvccpb"
 
@@ -50,7 +51,7 @@ type Manager struct {
 }
 
 // NewManager create new Manager for name resolver and healer
-func NewManager(l log.Logger, e *common.Etcd, c *cluster.Cluster) *Manager {
+func NewManager(l log.Logger, e *common.Etcd, c *cluster.Cluster) (*Manager, error) {
 	hm := &Manager{
 		logger:  l,
 		rqt:     &common.Registry{Items: make(map[string]common.Worker)},
@@ -63,9 +64,12 @@ func NewManager(l log.Logger, e *common.Etcd, c *cluster.Cluster) *Manager {
 		cluster: c,
 	}
 	exporter.ReportNumberOfHealers(cluster.ClusterID, 0)
-	hm.load()
+	err := hm.load()
+	if err != nil {
+		return nil, err
+	}
 	hm.state = model.StateActive
-	return hm
+	return hm, nil
 }
 
 // Reload stops and starts healers
@@ -75,17 +79,26 @@ func (hm *Manager) Reload() {
 	level.Info(hm.logger).Log("msg", "Reloaded")
 }
 
-func (hm *Manager) load() {
+func (hm *Manager) load() error {
 	for _, p := range []string{model.DefaultNResolverPrefix, model.DefaultHealerPrefix} {
 		r, err := hm.etcdcli.DoGet(p, etcdv3.WithPrefix())
 		if err != nil {
-			level.Error(hm.logger).Log("msg", "Error getting list Workers", "err", err)
-			return
+			level.Error(hm.logger).Log("msg", "error getting list Workers", "err", err)
+			return err
 		}
+		var hname string
 		for _, e := range r.Kvs {
+			hname = string(e.Key)
+			providerID := strings.Split(hname, "/")[2]
+			if ok := hm.etcdcli.CheckKey(common.Path(model.DefaultCloudPrefix, providerID)); !ok {
+				err = errors.Errorf("unable to find provider %s for healer %s", providerID, hname)
+				level.Error(hm.logger).Log("msg", err.Error())
+				return err
+			}
 			hm.startWorker(p, string(e.Key), e.Value)
 		}
 	}
+	return nil
 }
 
 func (hm *Manager) startWorker(p string, name string, data []byte) {

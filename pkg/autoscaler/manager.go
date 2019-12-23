@@ -22,6 +22,7 @@ import (
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
+	"github.com/pkg/errors"
 	etcdv3 "go.etcd.io/etcd/clientv3"
 	"go.etcd.io/etcd/mvcc/mvccpb"
 
@@ -45,7 +46,7 @@ type Manager struct {
 }
 
 // NewManager returns an Autoscale Manager
-func NewManager(l log.Logger, e *common.Etcd, c *cluster.Cluster) *Manager {
+func NewManager(l log.Logger, e *common.Etcd, c *cluster.Cluster) (*Manager, error) {
 	m := &Manager{
 		logger:  l,
 		rgt:     &common.Registry{Items: make(map[string]common.Worker)},
@@ -57,9 +58,12 @@ func NewManager(l log.Logger, e *common.Etcd, c *cluster.Cluster) *Manager {
 	// Init with 0
 	exporter.ReportNumScalers(cluster.ClusterID, 0)
 	// Load at init
-	m.load()
+	err := m.load()
+	if err != nil {
+		return nil, err
+	}
 	m.state = model.StateActive
-	return m
+	return m, nil
 }
 
 // Reload simply stop and start scalers selectively.
@@ -185,18 +189,25 @@ func (m *Manager) save() {
 	}
 }
 
-func (m *Manager) load() {
+func (m *Manager) load() error {
 	resp, err := m.etcdcli.DoGet(model.DefaultScalerPrefix, etcdv3.WithPrefix(),
 		etcdv3.WithSort(etcdv3.SortByKey, etcdv3.SortAscend))
 	if err != nil {
-		level.Error(m.logger).Log("msg", "Error getting scalers", "err", err)
-		return
+		level.Error(m.logger).Log("msg", "error getting scalers", "err", err)
+		return err
 	}
 	var sname string
 	for _, ev := range resp.Kvs {
 		sname = string(ev.Key)
+		providerID := strings.Split(sname, "/")[2]
+		if ok := m.etcdcli.CheckKey(common.Path(model.DefaultCloudPrefix, providerID)); !ok {
+			err = errors.Errorf("unable to find provider %s for scaler %s", providerID, sname)
+			level.Error(m.logger).Log("msg", err.Error())
+			return err
+		}
 		m.startScaler(sname, ev.Value)
 	}
+	return nil
 }
 
 func (m *Manager) rebalance() {
