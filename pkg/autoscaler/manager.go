@@ -46,7 +46,7 @@ type Manager struct {
 }
 
 // NewManager returns an Autoscale Manager
-func NewManager(l log.Logger, e *common.Etcd, c *cluster.Cluster) (*Manager, error) {
+func NewManager(l log.Logger, e *common.Etcd, c *cluster.Cluster) *Manager {
 	m := &Manager{
 		logger:  l,
 		rgt:     &common.Registry{Items: make(map[string]common.Worker)},
@@ -58,12 +58,9 @@ func NewManager(l log.Logger, e *common.Etcd, c *cluster.Cluster) (*Manager, err
 	// Init with 0
 	exporter.ReportNumScalers(cluster.ClusterID, 0)
 	// Load at init
-	err := m.load()
-	if err != nil {
-		return nil, err
-	}
+	m.load()
 	m.state = model.StateActive
-	return m, nil
+	return m
 }
 
 // Reload simply stop and start scalers selectively.
@@ -189,12 +186,12 @@ func (m *Manager) save() {
 	}
 }
 
-func (m *Manager) load() error {
+func (m *Manager) load() {
 	resp, err := m.etcdcli.DoGet(model.DefaultScalerPrefix, etcdv3.WithPrefix(),
 		etcdv3.WithSort(etcdv3.SortByKey, etcdv3.SortAscend))
 	if err != nil {
 		level.Error(m.logger).Log("msg", "error getting scalers", "err", err)
-		return err
+		return
 	}
 	var sname string
 	for _, ev := range resp.Kvs {
@@ -203,11 +200,10 @@ func (m *Manager) load() error {
 		if ok := m.etcdcli.CheckKey(common.Path(model.DefaultCloudPrefix, providerID)); !ok {
 			err = errors.Errorf("unable to find provider %s for scaler %s", providerID, sname)
 			level.Error(m.logger).Log("msg", err.Error())
-			return err
+			continue
 		}
 		m.startScaler(sname, ev.Value)
 	}
-	return nil
 }
 
 func (m *Manager) rebalance() {

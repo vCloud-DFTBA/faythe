@@ -136,20 +136,12 @@ func main() {
 	router.Use(fmw.Instrument, fmw.Logging, fmw.RestrictDomain, fmw.Authenticate)
 	fapi.Register(router)
 
-	fas, err = autoscaler.NewManager(log.With(logger, "component", "autoscale manager"),
-		etcdcli, cls)
-	if err != nil {
-		level.Error(logger).Log("msg", errors.Wrap(err, "Error initializing Autoscale manager"))
-		os.Exit(2)
-	}
+	// Init autoscale manager
+	fas = autoscaler.NewManager(log.With(logger, "component", "autoscale manager"), etcdcli, cls)
 	go fas.Run(watchCtx)
 
-	// Init healer manager
-	fah, err := autohealer.NewManager(log.With(logger, "component", "healer manager"), etcdcli, cls)
-	if err != nil {
-		level.Error(logger).Log("msg", errors.Wrap(err, "Error initializing Autoheal manager"))
-		os.Exit(2)
-	}
+	// Init autoheal manager
+	fah := autohealer.NewManager(log.With(logger, "component", "healer manager"), etcdcli, cls)
 	go fah.Run(watchCtx)
 
 	stopc := make(chan struct{})

@@ -51,7 +51,7 @@ type Manager struct {
 }
 
 // NewManager create new Manager for name resolver and healer
-func NewManager(l log.Logger, e *common.Etcd, c *cluster.Cluster) (*Manager, error) {
+func NewManager(l log.Logger, e *common.Etcd, c *cluster.Cluster) *Manager {
 	hm := &Manager{
 		logger:  l,
 		rqt:     &common.Registry{Items: make(map[string]common.Worker)},
@@ -64,12 +64,9 @@ func NewManager(l log.Logger, e *common.Etcd, c *cluster.Cluster) (*Manager, err
 		cluster: c,
 	}
 	exporter.ReportNumberOfHealers(cluster.ClusterID, 0)
-	err := hm.load()
-	if err != nil {
-		return nil, err
-	}
+	hm.load()
 	hm.state = model.StateActive
-	return hm, nil
+	return hm
 }
 
 // Reload stops and starts healers
@@ -79,12 +76,12 @@ func (hm *Manager) Reload() {
 	level.Info(hm.logger).Log("msg", "Reloaded")
 }
 
-func (hm *Manager) load() error {
+func (hm *Manager) load() {
 	for _, p := range []string{model.DefaultNResolverPrefix, model.DefaultHealerPrefix} {
 		r, err := hm.etcdcli.DoGet(p, etcdv3.WithPrefix())
 		if err != nil {
 			level.Error(hm.logger).Log("msg", "error getting list Workers", "err", err)
-			return err
+			return
 		}
 		var hname string
 		for _, e := range r.Kvs {
@@ -93,12 +90,11 @@ func (hm *Manager) load() error {
 			if ok := hm.etcdcli.CheckKey(common.Path(model.DefaultCloudPrefix, providerID)); !ok {
 				err = errors.Errorf("unable to find provider %s for healer %s", providerID, hname)
 				level.Error(hm.logger).Log("msg", err.Error())
-				return err
+				continue
 			}
 			hm.startWorker(p, string(e.Key), e.Value)
 		}
 	}
-	return nil
 }
 
 func (hm *Manager) startWorker(p string, name string, data []byte) {
