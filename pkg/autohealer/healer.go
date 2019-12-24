@@ -51,10 +51,9 @@ type Healer struct {
 	state      model.State
 	terminated chan struct{}
 	silences   map[string]*model.Silence
-	etcdcli    *common.Etcd
 }
 
-func newHealer(l log.Logger, data []byte, e *common.Etcd, b metrics.Backend, ate model.ATEngine) *Healer {
+func newHealer(l log.Logger, data []byte, b metrics.Backend, ate model.ATEngine) *Healer {
 	h := &Healer{
 		at:         ate,
 		backend:    b,
@@ -62,7 +61,6 @@ func newHealer(l log.Logger, data []byte, e *common.Etcd, b metrics.Backend, ate
 		logger:     l,
 		terminated: make(chan struct{}),
 		silences:   make(map[string]*model.Silence),
-		etcdcli:    e,
 	}
 	json.Unmarshal(data, h)
 	h.Validate()
@@ -70,7 +68,7 @@ func newHealer(l log.Logger, data []byte, e *common.Etcd, b metrics.Backend, ate
 	return h
 }
 
-func (h *Healer) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string]string) {
+func (h *Healer) run(ctx context.Context, e *common.Etcd, wg *sync.WaitGroup, nc chan map[string]string) {
 	interval, _ := time.ParseDuration(h.Interval)
 	sinterval, _ := time.ParseDuration(model.DefaultSilenceValidationInterval)
 	duration, _ := time.ParseDuration(h.Duration)
@@ -78,8 +76,8 @@ func (h *Healer) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string
 	sticker := time.NewTicker(sinterval)
 	chans := make(map[string]*chan struct{})
 	whitelist := make(map[string]struct{})
-	swatch := h.etcdcli.Watch(ctx, common.Path(model.DefaultSilencePrefix, h.CloudID), etcdv3.WithPrefix())
-	h.updateSilence()
+	swatch := e.Watch(ctx, common.Path(model.DefaultSilencePrefix, h.CloudID), etcdv3.WithPrefix())
+	h.updateSilence(e)
 	// Record the number of healers
 	exporter.ReportNumberOfHealers(cluster.ClusterID, 1)
 	defer func() {
@@ -355,8 +353,8 @@ func (h *Healer) validateSilence() {
 	}
 }
 
-func (h *Healer) updateSilence() {
-	resp, err := h.etcdcli.DoGet(common.Path(model.DefaultSilencePrefix, h.CloudID), etcdv3.WithPrefix())
+func (h *Healer) updateSilence(e *common.Etcd) {
+	resp, err := e.DoGet(common.Path(model.DefaultSilencePrefix, h.CloudID), etcdv3.WithPrefix())
 	if err != nil {
 		level.Error(h.logger).Log("msg", "error while getting information from etcd", "err", err)
 		return

@@ -114,11 +114,11 @@ func (hm *Manager) startWorker(p string, name string, data []byte) {
 			level.Error(hm.logger).Log("msg", "Error getting automation engine for worker",
 				"name", name, "err", err)
 		}
-		h := newHealer(log.With(hm.logger, "healer", name), data, hm.etcdcli, backend, atengine)
+		h := newHealer(log.With(hm.logger, "healer", name), data, backend, atengine)
 		hm.rqt.Set(name, h)
 		go func() {
 			hm.wg.Add(1)
-			h.run(context.Background(), hm.wg, hm.ncout)
+			h.run(context.Background(), hm.etcdcli, hm.wg, hm.ncout)
 		}()
 	}
 }
