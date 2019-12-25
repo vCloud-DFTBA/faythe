@@ -53,6 +53,10 @@ func (h *Healer) Validate() error {
 		h.Duration = DefaultHealerDuration
 	}
 
+	if len(h.Receivers) == 0 {
+		return fmt.Errorf("receivers cannot be empty")
+	}
+
 	if _, err := time.ParseDuration(h.Duration); err != nil {
 		return err
 	}
