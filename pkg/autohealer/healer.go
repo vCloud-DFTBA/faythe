@@ -20,15 +20,18 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
+	etcdv3 "go.etcd.io/etcd/clientv3"
 
 	"github.com/vCloud-DFTBA/faythe/pkg/alert"
 	"github.com/vCloud-DFTBA/faythe/pkg/cluster"
+	"github.com/vCloud-DFTBA/faythe/pkg/common"
 	"github.com/vCloud-DFTBA/faythe/pkg/exporter"
 	"github.com/vCloud-DFTBA/faythe/pkg/metrics"
 	"github.com/vCloud-DFTBA/faythe/pkg/model"
@@ -47,15 +50,17 @@ type Healer struct {
 	mtx        sync.RWMutex
 	state      model.State
 	terminated chan struct{}
+	silences   map[string]*model.Silence
 }
 
-func newHealer(l log.Logger, data []byte, b metrics.Backend, atengine model.ATEngine) *Healer {
+func newHealer(l log.Logger, data []byte, b metrics.Backend, ate model.ATEngine) *Healer {
 	h := &Healer{
-		at:         atengine,
+		at:         ate,
 		backend:    b,
 		done:       make(chan struct{}),
 		logger:     l,
 		terminated: make(chan struct{}),
+		silences:   make(map[string]*model.Silence),
 	}
 	json.Unmarshal(data, h)
 	h.Validate()
@@ -63,12 +68,16 @@ func newHealer(l log.Logger, data []byte, b metrics.Backend, atengine model.ATEn
 	return h
 }
 
-func (h *Healer) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string]string) {
+func (h *Healer) run(ctx context.Context, e *common.Etcd, wg *sync.WaitGroup, nc chan map[string]string) {
 	interval, _ := time.ParseDuration(h.Interval)
+	sinterval, _ := time.ParseDuration(model.DefaultSilenceValidationInterval)
 	duration, _ := time.ParseDuration(h.Duration)
 	ticker := time.NewTicker(interval)
+	sticker := time.NewTicker(sinterval)
 	chans := make(map[string]*chan struct{})
 	whitelist := make(map[string]struct{})
+	swatch := e.Watch(ctx, common.Path(model.DefaultSilencePrefix, h.CloudID), etcdv3.WithPrefix())
+	h.updateSilence(e)
 	// Record the number of healers
 	exporter.ReportNumberOfHealers(cluster.ClusterID, 1)
 	defer func() {
@@ -84,6 +93,24 @@ func (h *Healer) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string
 			select {
 			case <-h.done:
 				return
+			case <-sticker.C:
+				h.validateSilence()
+			case watchResp := <-swatch:
+				if watchResp.Err() != nil {
+					level.Error(h.logger).Log("msg", "error watching etcd events", "err", watchResp.Err())
+					continue
+				}
+				for _, event := range watchResp.Events {
+					sid := string(event.Kv.Key)
+					if event.IsCreate() {
+						s := model.Silence{}
+						json.Unmarshal(event.Kv.Value, &s)
+						s.RegexPattern, _ = regexp.Compile(s.Pattern)
+						h.silences[sid] = &s
+					} else if event.Type == etcdv3.EventTypeDelete {
+						delete(h.silences, sid)
+					}
+				}
 			case <-ticker.C:
 				if !h.Active {
 					continue
@@ -106,43 +133,6 @@ func (h *Healer) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string
 					rIs[instance]++
 				}
 
-				for k, v := range rIs {
-					if v != h.EvaluationLevel {
-						delete(rIs, k)
-					}
-				}
-
-				// If no of instance = 0, clear all goroutines an whitelist
-				if len(rIs) == 0 {
-					for k, c := range chans {
-						close(*c)
-						delete(chans, k)
-					}
-					for k := range whitelist {
-						delete(whitelist, k)
-					}
-					continue
-				}
-
-				// If no of instance > 3, clear all goroutines
-				if len(rIs) > 3 {
-					level.Info(h.logger).Log("msg", fmt.Sprintf("Not processed because the number of instance needed healing > %d", len(rIs)))
-					for k, c := range chans {
-						close(*c)
-						delete(chans, k)
-					}
-					continue
-				}
-
-				// Remove redundant goroutine if exists
-				for k, c := range chans {
-					if _, ok := rIs[k]; ok {
-						continue
-					}
-					close(*c)
-					delete(chans, k)
-				}
-
 				// Clear entry in whitelist if instance goes up again
 				for k := range whitelist {
 					if _, ok := rIs[k]; ok {
@@ -152,31 +142,78 @@ func (h *Healer) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string
 					level.Info(h.logger).Log("msg", fmt.Sprintf("instance %s goes up again, removed from whitelist", k))
 				}
 
-				for instance := range rIs {
-					if _, ok := whitelist[instance]; ok {
+				// If number of instance = 0, clear all goroutines
+				if len(rIs) == 0 {
+					for k, c := range chans {
+						close(*c)
+						delete(chans, k)
+					}
+					continue
+				}
+
+				// Update existing goroutines
+				for k, c := range chans {
+					if _, ok := rIs[k]; ok {
 						continue
+					}
+					close(*c)
+					delete(chans, k)
+				}
+
+				// If number of metrics returned for a instance != EvaluationLevel
+				// Or if instances in whitelist, delete from list of Instances, not process it
+				// If instance is processing then delete from list of instances
+				for k, v := range rIs {
+					if _, ok := whitelist[k]; ok || v != h.EvaluationLevel {
+						delete(rIs, k)
+					}
+					if _, ok := chans[k]; ok {
+						delete(rIs, k)
+					}
+				}
+
+				// If number of instances > DefaultMaxNumberOfInstances, clear all goroutines
+				// Or number of instances + number of existing instances need to heal > DefaultMaxNumberOfInstances
+				if len(rIs) > model.DefaultMaxNumberOfInstances || len(rIs)+len(chans) > model.DefaultMaxNumberOfInstances {
+					level.Info(h.logger).Log("msg",
+						fmt.Sprintf("not processed because the number of instance needed healing = %d > %d",
+							len(rIs), model.DefaultMaxNumberOfInstances))
+					for k, c := range chans {
+						close(*c)
+						delete(chans, k)
+					}
+					continue
+				}
+
+			processing:
+				for instance := range rIs {
+					for k, v := range h.silences {
+						if matched := v.RegexPattern.MatchString(instance); matched {
+							level.Info(h.logger).Log("msg", fmt.Sprintf("instance %s is ignored because of silence: %s", instance, k))
+							continue processing
+						}
 					}
 					if _, ok := chans[instance]; !ok {
 						ci := make(chan struct{})
 						chans[instance] = &ci
-						go func(ci chan struct{}, instance string, nc chan map[string]string) {
+						go func(ci chan struct{}, instance string) {
 							var compute string
-							key := MakeKey(h.CloudID, instance)
+							key := common.Path(h.CloudID, instance)
 						wait:
 							//	wait for correct compute-instance pair
 							for {
 								select {
+								case <-h.done:
+									return
 								case <-ci:
 									return
 								case c := <-nc:
-									if com, ok := c[key]; ok {
+									if com, ok := c[key]; ok && com != "" {
 										compute = com
 										break wait
 									}
-									continue
 								default:
 									nc <- map[string]string{"instance": key}
-									continue
 								}
 							}
 							level.Info(h.logger).Log("msg", fmt.Sprintf("Processing instance: %s", instance))
@@ -184,6 +221,8 @@ func (h *Healer) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string
 							a.Reset()
 							for {
 								select {
+								case <-h.done:
+									return
 								case <-ci:
 									return
 								default:
@@ -201,7 +240,7 @@ func (h *Healer) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string
 
 								}
 							}
-						}(ci, instance, nc)
+						}(ci, instance)
 					}
 				}
 			}
@@ -246,6 +285,20 @@ func (h *Healer) do(compute string) {
 						"url", at.URL.String(), "err", err)
 					exporter.ReportFailureHealerActionCounter(cluster.ClusterID, "http")
 					exporter.ReportATRequestFailureCounter(cluster.ClusterID, at.URL.String())
+					wg.Add(1)
+					defer wg.Done()
+					m := &model.ActionMail{
+						Receivers: h.Receivers,
+						Subject: fmt.Sprintf("[autohealing] Node %s down, failed to trigger http request", compute),
+						Body: fmt.Sprintf("Node %s is down for more than %s.\nBut failed to trigger autohealing, due to %s",
+							compute, h.Duration, err.Error()),
+					}
+					m.Validate()
+					if err := alert.SendMail(m); err != nil {
+						level.Error(h.logger).Log("msg", "error doing Mail action",
+							"err", err)
+						return
+					}
 					return
 				}
 				exporter.ReportSuccessHealerActionCounter(cluster.ClusterID, "http")
@@ -256,10 +309,11 @@ func (h *Healer) do(compute string) {
 			go func(compute string) {
 				wg.Add(1)
 				defer wg.Done()
-				at.Subject = "Node down, triggering autohealing"
+				at.Receivers = h.Receivers
+				at.Subject = fmt.Sprintf("[autohealing] Node %s down, trigger autohealing", compute)
 				at.Body = fmt.Sprintf("Node %s has been down for more than %s.", compute, h.Duration)
 				if err := alert.SendMail(at); err != nil {
-					level.Error(h.logger).Log("msg", "Error doing Mail action",
+					level.Error(h.logger).Log("msg", "error doing Mail action",
 						"err", err)
 					exporter.ReportFailureHealerActionCounter(cluster.ClusterID, "mail")
 					return
@@ -288,4 +342,32 @@ func (h *Healer) Stop() {
 	// Record the number of healers
 	exporter.ReportNumberOfHealers(cluster.ClusterID, -1)
 	level.Debug(h.logger).Log("msg", "Healer is stopped")
+}
+
+func (h *Healer) validateSilence() {
+	now := time.Now()
+	for k, s := range h.silences {
+		if s.ExpiredAt.Before(now) || s.ExpiredAt.Equal(now) {
+			delete(h.silences, k)
+		}
+	}
+}
+
+func (h *Healer) updateSilence(e *common.Etcd) {
+	resp, err := e.DoGet(common.Path(model.DefaultSilencePrefix, h.CloudID), etcdv3.WithPrefix())
+	if err != nil {
+		level.Error(h.logger).Log("msg", "error while getting information from etcd", "err", err)
+		return
+	}
+	// Best way to clear a map https://github.com/golang/go/blob/master/doc/go1.11.html#L447
+	for k := range h.silences {
+		delete(h.silences, k)
+	}
+	for _, v := range resp.Kvs {
+		sid := string(v.Key)
+		s := model.Silence{}
+		json.Unmarshal(v.Value, &s)
+		s.RegexPattern, _ = regexp.Compile(s.Pattern)
+		h.silences[sid] = &s
+	}
 }

@@ -94,7 +94,7 @@ func (m *Manager) Run(ctx context.Context) {
 			return
 		case watchResp := <-watch:
 			if watchResp.Err() != nil {
-				level.Error(m.logger).Log("msg", "Error watching cluster state", "err", watchResp.Err())
+				level.Error(m.logger).Log("msg", "Error watching etcd scaler keys", "err", watchResp.Err())
 				break
 			}
 			for _, event := range watchResp.Events {

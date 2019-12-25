@@ -33,6 +33,7 @@ type Healer struct {
 	EvaluationLevel int                        `json:"evaluation_level"`
 	ID              string                     `json:"id,omitempty"`
 	Interval        string                     `json:"interval"`
+	Receivers       Receivers                  `json:"receivers"`
 	Query           string                     `json:"query"`
 	Tags            []string                   `json:"tags,omitempty"`
 }
@@ -50,6 +51,10 @@ func (h *Healer) Validate() error {
 
 	if h.Duration == "" {
 		h.Duration = DefaultHealerDuration
+	}
+
+	if len(h.Receivers) == 0 {
+		return fmt.Errorf("receivers cannot be empty")
 	}
 
 	if _, err := time.ParseDuration(h.Duration); err != nil {

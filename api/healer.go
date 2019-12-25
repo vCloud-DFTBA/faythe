@@ -99,6 +99,7 @@ func (a *API) createHealer(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 	a.respondSuccess(rw, http.StatusOK, nil)
+	return
 }
 
 func (a *API) listHealers(rw http.ResponseWriter, req *http.Request) {

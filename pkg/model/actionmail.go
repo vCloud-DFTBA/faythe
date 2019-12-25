@@ -18,7 +18,7 @@ type Receivers []string
 
 type ActionMail struct {
 	Action
-	Receivers Receivers `json:"receivers"`
+	Receivers Receivers `json:"-"`
 	Subject   string    `json:"subject"`
 	Body      string    `json:"body"`
 }

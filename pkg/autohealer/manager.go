@@ -18,7 +18,6 @@ import (
 	"context"
 	"crypto"
 	"encoding/json"
-	"fmt"
 	"strings"
 	"sync"
 
@@ -28,7 +27,6 @@ import (
 	"go.etcd.io/etcd/mvcc/mvccpb"
 
 	"github.com/vCloud-DFTBA/faythe/pkg/cluster"
-
 	"github.com/vCloud-DFTBA/faythe/pkg/common"
 	"github.com/vCloud-DFTBA/faythe/pkg/exporter"
 	"github.com/vCloud-DFTBA/faythe/pkg/metrics"
@@ -61,7 +59,7 @@ func NewManager(l log.Logger, e *common.Etcd, c *cluster.Cluster) *Manager {
 		wg:      &sync.WaitGroup{},
 		nodes:   make(map[string]string),
 		ncin:    make(chan NodeMetric),
-		ncout:   make(chan map[string]string),
+		ncout:   make(chan map[string]string, 1),
 		cluster: c,
 	}
 	exporter.ReportNumberOfHealers(cluster.ClusterID, 0)
@@ -120,7 +118,7 @@ func (hm *Manager) startWorker(p string, name string, data []byte) {
 		hm.rqt.Set(name, h)
 		go func() {
 			hm.wg.Add(1)
-			h.run(context.Background(), hm.wg, hm.ncout)
+			h.run(context.Background(), hm.etcdcli, hm.wg, hm.ncout)
 		}()
 	}
 }
@@ -188,7 +186,7 @@ func (hm *Manager) Run(ctx context.Context) {
 			return
 		case watchResp := <-hm.watchc:
 			if watchResp.Err() != nil {
-				level.Error(hm.logger).Log("msg", "Error watching cluster state", "err", watchResp.Err())
+				level.Error(hm.logger).Log("msg", "Error watching etcd cloud provider keys", "err", watchResp.Err())
 				break
 			}
 			for _, event := range watchResp.Events {
@@ -225,7 +223,7 @@ func (hm *Manager) Run(ctx context.Context) {
 			}
 		case watchResp := <-hm.watchh:
 			if watchResp.Err() != nil {
-				level.Error(hm.logger).Log("msg", "Error watching cluster state", "err", watchResp.Err())
+				level.Error(hm.logger).Log("msg", "Error watching etcd healer keys", "err", watchResp.Err())
 				break
 			}
 			for _, event := range watchResp.Events {
@@ -241,12 +239,12 @@ func (hm *Manager) Run(ctx context.Context) {
 				}
 			}
 		case nm := <-hm.ncin:
-			hm.nodes[MakeKey(nm.CloudID, strings.Split(nm.Metric.Instance, ":")[0])] = nm.Metric.Nodename
+			hm.nodes[common.Path(nm.CloudID, strings.Split(nm.Metric.Instance, ":")[0])] = nm.Metric.Nodename
 		case nm := <-hm.ncout:
-			if len(hm.nodes) != 0 {
-				if m, ok := hm.nodes[nm["instance"]]; ok {
-					hm.ncout <- map[string]string{nm["instance"]: m}
-				}
+			if m, ok := hm.nodes[nm["instance"]]; ok && len(hm.nodes) != 0 {
+				hm.ncout <- map[string]string{nm["instance"]: m}
+			} else {
+				hm.ncout <- map[string]string{nm["instance"]: ""}
 			}
 		}
 	}
@@ -326,9 +324,4 @@ func (hm *Manager) getATEngine(key string) (model.ATEngine, error) {
 		atengine = ops.ATEngine
 	}
 	return atengine, nil
-}
-
-// MakeKey creates key from id and instance
-func MakeKey(id string, instance string) string {
-	return fmt.Sprintf("%s/%s", id, instance)
 }
