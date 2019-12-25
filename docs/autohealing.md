@@ -45,7 +45,7 @@ Resp
     "/nresolvers/848cf56b1fb6641570a824fde994456b/847a20c465fa0131afd3090ec2f6b8e0": {
       "address": {
         "backend": "prometheus",
-        "address": "http://10.255.77.1:9091/",
+        "address": "http://127.0.0.1:9091/",
         "metadata": null,
         "username": "admin",
         "password": "supersecretpassword"
@@ -57,7 +57,7 @@ Resp
     "/nresolvers/eb31219d766fde6d8f2d8bcad6269175/dfd8327e456413db7b3b493ef262cf20": {
       "address": {
         "backend": "prometheus",
-        "address": "http://10.240.201.100:9091/",
+        "address": "http://192.168.1.1:9091/",
         "metadata": null,
         "username": "admin",
         "password": "topsecretpassword"
@@ -81,7 +81,7 @@ Silencers come in handy if you want to add a set of ignored hosts in case of mai
 
 Parameter explains:
 
-**PATH**: POST `/silencers/{provider_id}`
+**PATH**: POST `/silences/{provider_id}`
 
 | Parameter   | In   | Type   | Required | Default | Description                                              |
 | ----------- | ---- | ------ | -------- | ------- | -------------------------------------------------------- |
@@ -113,13 +113,13 @@ Resp
 
 Silencers of a cloud provider can be listed in:
 
-**PATH**: GET `/silencers/{provider_id}`
+**PATH**: GET `/silences/{provider_id}`
 
 #### Delete Silencer/Expire Silencer
 
 Silencer is automatically deleted and expired after reaching TTL duration. However, you can manually delete it by:
 
-**PATH**: DELETE `/silencers/{provider_id}/{silencer_id}`
+**PATH**: DELETE `/silences/{provider_id}/{silencer_id}`
 
 For example:
 
@@ -147,24 +147,25 @@ Healer has 3 APIs as usual: create, list, delete
 
 Currently, we only support one healer per cloud provider.
 
-**PATH**: POST `/silencers/{provider_id}`
+**PATH**: POST `/healers/{provider_id}`
 
-| Parameter          | In   | Type    | Required | Default                        | Description                                                                                                                                                                                      |
-| ------------------ | ---- | ------- | -------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| query              | body | string  | true     | up{job=~\".*compute-cadvisor.*\|.*compute-node.*\"} < 1  | Query that will be executed against the Prometheus API. See [the official documentation](https://prometheus.io/docs/prometheus/latest/querying/basics/) for more details.                                                                                                                                                                         | Query that will be executed against the Prometheus API. See [the official documentation](https://prometheus.io/docs/prometheus/latest/querying/basics/) for more details. |
-| action             | body | object  | true     |                                | List of actions when healing is triggered                                                                                                                                                        |
-| action.receivers   | body | list    | false    |                                | List of receivers in mail action                                                                                                                                                                 |
-| action.url         | body | string  | false    |                                | The url that the action will call to                                                                                                                                                             |
-| actions.type       | body | string  | false    | http                           | The type of action.                                                                                                                                                                              |
-| actions.method     | body | string  | false    | POST                           | The HTTP method                                                                                                                                                                                  |
-| actions.attempts   | body | integer | false    | 10                             | The count of retry.                                                                                                                                                                              |
-| actions.delay      | body | string  | false    | 100ms                          | The delay between retries.                                                                                                                                                                       |
-| actions.delay_type | body | string  | false    | fixed                          | The delay type: `fixed` or `backoff`. BackOffDelay is a DelayType which increases delay between consecutive retries. FixedDelay is a DelayType which keeps delay the same through all iterations |
-| interval           | body | string  | true     | 18s                            | The time between two continuous evaluate                                                                                                                                                         |
-| duration           | body | string  | true     | 3m                             | The total evaluation time                                                                                                                                                                        |
-| description        | body | string  | false    |                                |                                                                                                                                                                                                  |
-| tags               | body | list    | false    |                                |                                                                                                                                                                                                  |
-| active             | body | boolean | true     | false                          | Enable the healer or not.                                                                                                                                                                        |
+| Parameter          | In   | Type    | Required | Default                                                 | Description                                                                                                                                                                                      |
+| ------------------ | ---- | ------- | -------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| query              | body | string  | true     | up{job=~\".*compute-cadvisor.*\|.*compute-node.*\"} < 1 | Query that will be executed against the Prometheus API. See [the official documentation](https://prometheus.io/docs/prometheus/latest/querying/basics/) for more details.                        | Query that will be executed against the Prometheus API. See [the official documentation](https://prometheus.io/docs/prometheus/latest/querying/basics/) for more details. |
+| action             | body | object  | true     |                                                         | List of actions when healing is triggered                                                                                                                                                        |
+| action.receivers   | body | list    | false    |                                                         | List of receivers in mail action                                                                                                                                                                 |
+| action.url         | body | string  | false    |                                                         | The url that the action will call to                                                                                                                                                             |
+| actions.type       | body | string  | false    | http                                                    | The type of action.                                                                                                                                                                              |
+| actions.method     | body | string  | false    | POST                                                    | The HTTP method                                                                                                                                                                                  |
+| actions.attempts   | body | integer | false    | 10                                                      | The count of retry.                                                                                                                                                                              |
+| actions.delay      | body | string  | false    | 100ms                                                   | The delay between retries.                                                                                                                                                                       |
+| actions.delay_type | body | string  | false    | fixed                                                   | The delay type: `fixed` or `backoff`. BackOffDelay is a DelayType which increases delay between consecutive retries. FixedDelay is a DelayType which keeps delay the same through all iterations |
+| interval           | body | string  | true     | 18s                                                     | The time between two continuous evaluate                                                                                                                                                         |
+| receivers          | body | list    | true     |                                                         | List of email receiving healing notifications                                                                                                                                                    |
+| duration           | body | string  | true     | 3m                                                      | The total evaluation time                                                                                                                                                                        |
+| description        | body | string  | false    |                                                         |                                                                                                                                                                                                  |
+| tags               | body | list    | false    |                                                         |                                                                                                                                                                                                  |
+| active             | body | boolean | true     | false                                                   | Enable the healer or not.                                                                                                                                                                        |
 
 For example:
 
@@ -173,14 +174,13 @@ POST /healers/eb31219d766fde6d8f2d8bcad6269175
 {
 	"actions": {
 		"http": {
-			"receivers": ["cloud_gnoc@viettel.com.vn"],
 			"attempts": 4,
 			"delay": "50ms",
 			"type": "mail",
 			"delay_type": "backoff"
 		},
 		"mail": {
-			"url": "https://10.240.202.216/api/v1/webhooks/autohealing-5f",
+			"url": "https://127.0.0.1/api/v1/webhooks/autohealing",
 			"attempts": 4,
 			"delay": "50ms",
 			"type": "http",
@@ -188,6 +188,7 @@ POST /healers/eb31219d766fde6d8f2d8bcad6269175
 			"method": "POST"
 		}
 	},
+  "receivers": ["cloud@example.com"],
 	"duration": "2m",
 	"tags": [
 		"autohealing",
@@ -205,8 +206,8 @@ Resp
 
 #### List healer
 
-**PATH**: GET `/silencers/{provider_id}`
+**PATH**: GET `/healers/{provider_id}`
 
 #### Delete healer
 
-**PATH**: DELETE `/silencers/{provider_id}/{healer_id}`
+**PATH**: DELETE `/healers/{provider_id}/{healer_id}`
