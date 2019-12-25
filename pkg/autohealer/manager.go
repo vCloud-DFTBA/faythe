@@ -88,7 +88,7 @@ func (hm *Manager) load() {
 			hname = string(e.Key)
 			providerID := strings.Split(hname, "/")[2]
 			if ok := hm.etcdcli.CheckKey(common.Path(model.DefaultCloudPrefix, providerID)); !ok {
-				err = errors.Errorf("unable to find provider %s for healer %s", providerID, hname)
+				err = errors.Errorf("unable to find provider %s for healer worker %s", providerID, hname)
 				level.Error(hm.logger).Log("msg", err.Error())
 				continue
 			}
