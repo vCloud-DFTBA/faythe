@@ -22,6 +22,7 @@ import (
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
+	"github.com/pkg/errors"
 	etcdv3 "go.etcd.io/etcd/clientv3"
 	"go.etcd.io/etcd/mvcc/mvccpb"
 
@@ -189,12 +190,18 @@ func (m *Manager) load() {
 	resp, err := m.etcdcli.DoGet(model.DefaultScalerPrefix, etcdv3.WithPrefix(),
 		etcdv3.WithSort(etcdv3.SortByKey, etcdv3.SortAscend))
 	if err != nil {
-		level.Error(m.logger).Log("msg", "Error getting scalers", "err", err)
+		level.Error(m.logger).Log("msg", "error getting scalers", "err", err)
 		return
 	}
 	var sname string
 	for _, ev := range resp.Kvs {
 		sname = string(ev.Key)
+		providerID := strings.Split(sname, "/")[2]
+		if ok := m.etcdcli.CheckKey(common.Path(model.DefaultCloudPrefix, providerID)); !ok {
+			err = errors.Errorf("unable to find provider %s for scaler %s", providerID, sname)
+			level.Error(m.logger).Log("msg", err.Error())
+			continue
+		}
 		m.startScaler(sname, ev.Value)
 	}
 }

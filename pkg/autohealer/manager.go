@@ -23,6 +23,7 @@ import (
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
+	"github.com/pkg/errors"
 	etcdv3 "go.etcd.io/etcd/clientv3"
 	"go.etcd.io/etcd/mvcc/mvccpb"
 
@@ -79,10 +80,18 @@ func (hm *Manager) load() {
 	for _, p := range []string{model.DefaultNResolverPrefix, model.DefaultHealerPrefix} {
 		r, err := hm.etcdcli.DoGet(p, etcdv3.WithPrefix())
 		if err != nil {
-			level.Error(hm.logger).Log("msg", "Error getting list Workers", "err", err)
+			level.Error(hm.logger).Log("msg", "error getting list Workers", "err", err)
 			return
 		}
+		var hname string
 		for _, e := range r.Kvs {
+			hname = string(e.Key)
+			providerID := strings.Split(hname, "/")[2]
+			if ok := hm.etcdcli.CheckKey(common.Path(model.DefaultCloudPrefix, providerID)); !ok {
+				err = errors.Errorf("unable to find provider %s for healer worker %s", providerID, hname)
+				level.Error(hm.logger).Log("msg", err.Error())
+				continue
+			}
 			hm.startWorker(p, string(e.Key), e.Value)
 		}
 	}
