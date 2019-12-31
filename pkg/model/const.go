@@ -6,8 +6,6 @@
 
 package model
 
-import "time"
-
 const (
 	// OpenStackType represents a OpenStack type
 	OpenStackType string = "openstack"
@@ -37,9 +35,4 @@ const (
 	// DefaultSilencePrefix is default etcd prefix for Silences
 	DefaultSilencePrefix             string = "/silences"
 	DefaultSilenceValidationInterval        = "30s"
-
-	// DefaultEtcdRetryCount for etcd operations
-	DefaultEtcdRetryCount = 5
-	// DefaultEtcdtIntervalBetweenRetries for etcd failed operations
-	DefaultEtcdtIntervalBetweenRetries = time.Second * 10
 )

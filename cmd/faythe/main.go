@@ -111,7 +111,7 @@ func main() {
 
 	// Init Etcdv3 client
 	copier.Copy(&etcdcfg, config.Get().EtcdConfig)
-	etcdcli, err = common.NewEtcd(etcdcfg)
+	etcdcli, err = common.NewEtcd(log.With(logger, "component", "etcd wrapper"), etcdcfg)
 
 	if err != nil {
 		level.Error(logger).Log("msg", errors.Wrapf(err, "Error instantiating Etcd V3 client."))
@@ -136,11 +136,11 @@ func main() {
 	fapi.Register(router)
 
 	// Init autoscale manager
-	fas = autoscaler.NewManager(log.With(logger, "component", "autoscale manager"), etcdcli, cls)
+	fas = autoscaler.NewManager(log.With(logger, "component", "autoscaler manager"), etcdcli, cls)
 	go fas.Run()
 
 	// Init autoheal manager
-	fah := autohealer.NewManager(log.With(logger, "component", "healer manager"), etcdcli, cls)
+	fah := autohealer.NewManager(log.With(logger, "component", "autohealer manager"), etcdcli, cls)
 	go fah.Run()
 
 	stopc := make(chan struct{})

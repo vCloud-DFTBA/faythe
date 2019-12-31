@@ -103,13 +103,13 @@ WATCH:
 		case watchResp := <-watch:
 			if err := watchResp.Err(); err != nil {
 				level.Error(m.logger).Log("msg", "Error watching etcd scaler keys", "err", err)
-				if err == rpctypes.ErrNoLeader && retryCount <= model.DefaultEtcdRetryCount {
+				if err == rpctypes.ErrNoLeader && retryCount <= common.DefaultEtcdRetryCount {
 					// Re-init watch channel
 					ctx, cancel = m.etcdcli.WatchContext()
 					watch = m.etcdcli.Watch(ctx, model.DefaultScalerPrefix, etcdv3.WithPrefix())
 					// Increase retry count
 					retryCount += 1
-					time.Sleep(model.DefaultEtcdtIntervalBetweenRetries)
+					time.Sleep(common.DefaultEtcdtIntervalBetweenRetries)
 					continue WATCH
 				}
 				m.etcdcli.ErrCh <- err

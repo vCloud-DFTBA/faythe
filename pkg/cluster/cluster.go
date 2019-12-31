@@ -48,7 +48,7 @@ type ClusterState int
 
 const (
 	// DefaultLeaseTTL etcd lease time-to-live in seconds
-	DefaultLeaseTTL int64        = 15
+	DefaultLeaseTTL int64        = 20
 	ClusterAlive    ClusterState = iota
 	ClusterLeaving
 	ClusterLeft
@@ -193,7 +193,7 @@ WATCH:
 			return
 		case <-ticker.C:
 			_, err := c.etcdcli.DoKeepAliveOnce(c.lease)
-			if err != nil {
+			if err != nil{
 				level.Error(c.logger).Log("msg", "Error refreshing lease for cluster member",
 					"err", err)
 				continue
@@ -202,13 +202,13 @@ WATCH:
 			reload := false
 			if err := watchResp.Err(); err != nil {
 				level.Error(c.logger).Log("msg", "Error watching cluster state", "err", err)
-				if err == rpctypes.ErrNoLeader && retryCount <= model.DefaultEtcdRetryCount {
+				if err == rpctypes.ErrNoLeader && retryCount <= common.DefaultEtcdRetryCount {
 					// Re-init watch channel
 					ctx, cancel = c.etcdcli.WatchContext()
 					watch = c.etcdcli.Watch(ctx, model.DefaultCloudPrefix, etcdv3.WithPrefix())
 					// Increase retry count
 					retryCount += 1
-					time.Sleep(model.DefaultEtcdtIntervalBetweenRetries)
+					time.Sleep(common.DefaultEtcdtIntervalBetweenRetries)
 					continue WATCH
 				}
 				c.etcdcli.ErrCh <- err

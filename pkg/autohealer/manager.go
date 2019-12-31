@@ -207,13 +207,13 @@ WATCH:
 		case watchResp := <-hm.watchc:
 			if err := watchResp.Err(); err != nil {
 				level.Error(hm.logger).Log("msg", "Error watching etcd cloud provider keys", "err", err)
-				if err == rpctypes.ErrNoLeader && retryCount <= model.DefaultEtcdRetryCount {
+				if err == rpctypes.ErrNoLeader && retryCount <= common.DefaultEtcdRetryCount {
 					// Re-init watch channel
 					ctxc, cancelc = hm.etcdcli.WatchContext()
 					hm.watchc = hm.etcdcli.Watch(ctxc, model.DefaultCloudPrefix, etcdv3.WithPrefix())
 					// Increase retry count
 					retryCount += 1
-					time.Sleep(model.DefaultEtcdtIntervalBetweenRetries)
+					time.Sleep(common.DefaultEtcdtIntervalBetweenRetries)
 					continue WATCH
 				}
 				hm.etcdcli.ErrCh <- err
@@ -254,13 +254,13 @@ WATCH:
 		case watchResp := <-hm.watchh:
 			if err := watchResp.Err(); err != nil {
 				level.Error(hm.logger).Log("msg", "Error watching etcd healer keys", "err", err)
-				if err == rpctypes.ErrNoLeader && retryCount <= model.DefaultEtcdRetryCount {
+				if err == rpctypes.ErrNoLeader && retryCount <= common.DefaultEtcdRetryCount {
 					// Re-init watch channel
 					ctxh, cancelh = hm.etcdcli.WatchContext()
 					hm.watchh = hm.etcdcli.Watch(ctxh, model.DefaultHealerPrefix, etcdv3.WithPrefix())
 					// Increase retry count
 					retryCount += 1
-					time.Sleep(model.DefaultEtcdtIntervalBetweenRetries)
+					time.Sleep(common.DefaultEtcdtIntervalBetweenRetries)
 					continue WATCH
 				}
 				hm.etcdcli.ErrCh <- err
