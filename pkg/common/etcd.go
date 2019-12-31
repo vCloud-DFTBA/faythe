@@ -16,9 +16,12 @@ package common
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	etcdv3 "go.etcd.io/etcd/clientv3"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 const (
@@ -158,4 +161,68 @@ func (e *Etcd) CheckKey(key string) bool {
 		return true
 	}
 	return false
+}
+
+// Stolen from the integration test:
+// https://github.com/etcd-io/etcd/blob/master/clientv3/integration/server_shutdown_test.go#L367
+// e.g. due to clock drifts in server-side,
+// client context times out first in server-side
+// while original client-side context is not timed out yet
+func isServerCtxTimeout(err error) bool {
+	if err == nil {
+		return false
+	}
+	ev, ok := status.FromError(err)
+	if !ok {
+		return false
+	}
+	code := ev.Code()
+	return code == codes.DeadlineExceeded && strings.Contains(err.Error(), "context deadline exceeded")
+}
+
+// In grpc v1.11.3+ dial timeouts can error out with transport.ErrConnClosing. Previously dial timeouts
+// would always error out with context.DeadlineExceeded.
+func isClientTimeout(err error) bool {
+	if err == nil {
+		return false
+	}
+	if err == context.DeadlineExceeded {
+		return true
+	}
+	ev, ok := status.FromError(err)
+	if !ok {
+		return false
+	}
+	code := ev.Code()
+	return code == codes.DeadlineExceeded
+}
+
+func isCanceled(err error) bool {
+	if err == nil {
+		return false
+	}
+	if err == context.Canceled {
+		return true
+	}
+	ev, ok := status.FromError(err)
+	if !ok {
+		return false
+	}
+	code := ev.Code()
+	return code == codes.Canceled
+}
+
+func isUnavailable(err error) bool {
+	if err == nil {
+		return false
+	}
+	if err == context.Canceled {
+		return true
+	}
+	ev, ok := status.FromError(err)
+	if !ok {
+		return false
+	}
+	code := ev.Code()
+	return code == codes.Unavailable
 }
