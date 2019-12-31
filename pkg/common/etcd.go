@@ -196,7 +196,7 @@ func (e *Etcd) DoKeepAliveOnce(id etcdv3.LeaseID) (*etcdv3.LeaseKeepAliveRespons
 		}
 		break
 	}
-	if err != nil {
+	if err != nil && !IsNotFound(err) {
 		e.ErrCh <- err
 	}
 	return result, err
@@ -252,7 +252,8 @@ func (e *Etcd) CheckKey(key string) bool {
 
 // isRetryNeeded checks if for the given error does a retry needed.
 func (e *Etcd) isRetryNeeded(err error, fn string, key string, retryCount int) bool {
-	if isClientTimeout(err) || isServerCtxTimeout(err) || err == rpctypes.ErrTimeout || err == rpctypes.ErrTimeoutDueToLeaderFail {
+	if isClientTimeout(err) || isServerCtxTimeout(err) ||
+		err == rpctypes.ErrTimeout || err == rpctypes.ErrTimeoutDueToLeaderFail {
 		level.Debug(e.logger).Log("msg", "retry execute", "action", fn, "err", err, "key", key, "count", retryCount)
 		return true
 	}
@@ -322,4 +323,15 @@ func isUnavailable(err error) bool {
 	}
 	code := ev.Code()
 	return code == codes.Unavailable
+}
+
+// IsNotFound verifies the type of given error is NotFound or not.
+func IsNotFound(err error) bool {
+	if err == nil || err == context.Canceled {
+		return false
+	}
+	if eerr, ok := err.(rpctypes.EtcdError); ok {
+		return eerr.Code() == codes.NotFound
+	}
+	return false
 }

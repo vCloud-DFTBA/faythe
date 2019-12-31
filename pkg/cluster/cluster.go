@@ -48,7 +48,7 @@ type ClusterState int
 
 const (
 	// DefaultLeaseTTL etcd lease time-to-live in seconds
-	DefaultLeaseTTL int64        = 20
+	DefaultLeaseTTL int64        = 15
 	ClusterAlive    ClusterState = iota
 	ClusterLeaving
 	ClusterLeft
@@ -193,10 +193,34 @@ WATCH:
 			return
 		case <-ticker.C:
 			_, err := c.etcdcli.DoKeepAliveOnce(c.lease)
-			if err != nil{
-				level.Error(c.logger).Log("msg", "Error refreshing lease for cluster member",
-					"err", err)
-				continue
+			if err != nil {
+				if common.IsNotFound(err) {
+					// Grant lease
+					level.Debug(c.logger).Log("msg", "Lease expired and attached cluster member key was deleted", "id", c.lease)
+					level.Debug(c.logger).Log("msg", "Recreating cluster member with new lease", "node", c.local.Name)
+					leaseResp, leaseErr := c.etcdcli.DoGrant(DefaultLeaseTTL)
+					c.lease = leaseResp.ID
+					if leaseErr != nil {
+						level.Error(c.logger).Log("msg", "Error recreating a cluster member",
+							"node", c.local.Name, "err", leaseErr)
+						continue
+					}
+
+					// Force create cluster member key
+					v, _ := json.Marshal(&c.local)
+					_, putErr := c.etcdcli.DoPut(common.Path(model.DefaultClusterPrefix, c.local.ID),
+						string(v), etcdv3.WithLease(c.lease))
+					if putErr != nil {
+						level.Error(c.logger).Log("msg", "Error recreating a cluster member",
+							"node", c.local.Name, "err", putErr)
+						continue
+					}
+					level.Debug(c.logger).Log("msg", "Recreated cluster member with new lease", "node", c.local.Name)
+				} else {
+					level.Error(c.logger).Log("msg", "Error refreshing lease for cluster member",
+						"err", err)
+					continue
+				}
 			}
 		case watchResp := <-watch:
 			reload := false
