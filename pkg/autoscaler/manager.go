@@ -19,11 +19,13 @@ import (
 	"encoding/json"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
 	etcdv3 "go.etcd.io/etcd/clientv3"
+	"go.etcd.io/etcd/etcdserver/api/v3rpc/rpctypes"
 	"go.etcd.io/etcd/mvcc/mvccpb"
 
 	"github.com/vCloud-DFTBA/faythe/pkg/cluster"
@@ -87,15 +89,30 @@ func (m *Manager) Stop() {
 }
 
 // Run starts processing of the autoscale manager
-func (m *Manager) Run(ctx context.Context) {
+func (m *Manager) Run() {
+	retryCount := 0
+	ctx, cancel := m.etcdcli.WatchContext()
 	watch := m.etcdcli.Watch(ctx, model.DefaultScalerPrefix, etcdv3.WithPrefix())
+	defer cancel()
+
+WATCH:
 	for {
 		select {
 		case <-m.stop:
 			return
 		case watchResp := <-watch:
-			if watchResp.Err() != nil {
-				level.Error(m.logger).Log("msg", "Error watching etcd scaler keys", "err", watchResp.Err())
+			if err := watchResp.Err(); err != nil {
+				level.Error(m.logger).Log("msg", "Error watching etcd scaler keys", "err", err)
+				if err == rpctypes.ErrNoLeader && retryCount <= model.DefaultEtcdRetryCount {
+					// Re-init watch channel
+					ctx, cancel = m.etcdcli.WatchContext()
+					watch = m.etcdcli.Watch(ctx, model.DefaultScalerPrefix, etcdv3.WithPrefix())
+					// Increase retry count
+					retryCount += 1
+					time.Sleep(model.DefaultEtcdtIntervalBetweenRetries)
+					continue WATCH
+				}
+				m.etcdcli.ErrCh <- err
 				break
 			}
 			for _, event := range watchResp.Events {

@@ -20,11 +20,13 @@ import (
 	"encoding/json"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
 	etcdv3 "go.etcd.io/etcd/clientv3"
+	"go.etcd.io/etcd/etcdserver/api/v3rpc/rpctypes"
 	"go.etcd.io/etcd/mvcc/mvccpb"
 
 	"github.com/vCloud-DFTBA/faythe/pkg/cluster"
@@ -185,17 +187,36 @@ func (hm *Manager) save() {
 	}
 }
 
-// Run start healer mamaner instance
-func (hm *Manager) Run(ctx context.Context) {
-	hm.watchc = hm.etcdcli.Watch(ctx, model.DefaultCloudPrefix, etcdv3.WithPrefix())
-	hm.watchh = hm.etcdcli.Watch(ctx, model.DefaultHealerPrefix, etcdv3.WithPrefix())
+// Run start healer mananer instance
+func (hm *Manager) Run() {
+	retryCount := 0
+	ctxc, cancelc := hm.etcdcli.WatchContext()
+	hm.watchc = hm.etcdcli.Watch(ctxc, model.DefaultCloudPrefix, etcdv3.WithPrefix())
+	ctxh, cancelh := hm.etcdcli.WatchContext()
+	hm.watchh = hm.etcdcli.Watch(ctxh, model.DefaultHealerPrefix, etcdv3.WithPrefix())
+	defer func() {
+		cancelc()
+		cancelh()
+	}()
+
+WATCH:
 	for {
 		select {
 		case <-hm.stop:
 			return
 		case watchResp := <-hm.watchc:
-			if watchResp.Err() != nil {
-				level.Error(hm.logger).Log("msg", "Error watching etcd cloud provider keys", "err", watchResp.Err())
+			if err := watchResp.Err(); err != nil {
+				level.Error(hm.logger).Log("msg", "Error watching etcd cloud provider keys", "err", err)
+				if err == rpctypes.ErrNoLeader && retryCount <= model.DefaultEtcdRetryCount {
+					// Re-init watch channel
+					ctxc, cancelc = hm.etcdcli.WatchContext()
+					hm.watchc = hm.etcdcli.Watch(ctxc, model.DefaultCloudPrefix, etcdv3.WithPrefix())
+					// Increase retry count
+					retryCount += 1
+					time.Sleep(model.DefaultEtcdtIntervalBetweenRetries)
+					continue WATCH
+				}
+				hm.etcdcli.ErrCh <- err
 				break
 			}
 			for _, event := range watchResp.Events {
@@ -231,8 +252,18 @@ func (hm *Manager) Run(ctx context.Context) {
 				}
 			}
 		case watchResp := <-hm.watchh:
-			if watchResp.Err() != nil {
-				level.Error(hm.logger).Log("msg", "Error watching etcd healer keys", "err", watchResp.Err())
+			if err := watchResp.Err(); err != nil {
+				level.Error(hm.logger).Log("msg", "Error watching etcd healer keys", "err", err)
+				if err == rpctypes.ErrNoLeader && retryCount <= model.DefaultEtcdRetryCount {
+					// Re-init watch channel
+					ctxh, cancelh = hm.etcdcli.WatchContext()
+					hm.watchh = hm.etcdcli.Watch(ctxh, model.DefaultHealerPrefix, etcdv3.WithPrefix())
+					// Increase retry count
+					retryCount += 1
+					time.Sleep(model.DefaultEtcdtIntervalBetweenRetries)
+					continue WATCH
+				}
+				hm.etcdcli.ErrCh <- err
 				break
 			}
 			for _, event := range watchResp.Events {

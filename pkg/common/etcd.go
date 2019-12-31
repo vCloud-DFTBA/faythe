@@ -140,10 +140,8 @@ func (e *Etcd) DoRevoke(id etcdv3.LeaseID) (*etcdv3.LeaseRevokeResponse, error) 
 func (e *Etcd) Run(stopc chan struct{}) {
 	for {
 		select {
-		case err := <-e.ErrCh:
-			if err == context.Canceled || err == context.DeadlineExceeded {
-				stopc <- struct{}{}
-			}
+		case <-e.ErrCh:
+			stopc <- struct{}{}
 		}
 	}
 }
