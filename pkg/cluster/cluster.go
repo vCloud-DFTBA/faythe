@@ -185,7 +185,6 @@ func (c *Cluster) Run(rc chan struct{}) {
 	ticker := time.NewTicker(time.Duration(DefaultLeaseTTL) * time.Second / 2)
 	defer cancel()
 
-WATCH:
 	for {
 		select {
 		case <-c.stopCh:
@@ -233,7 +232,7 @@ WATCH:
 					// Increase retry count
 					retryCount += 1
 					time.Sleep(common.DefaultEtcdtIntervalBetweenRetries)
-					continue WATCH
+					continue
 				}
 				c.etcdcli.ErrCh <- err
 				break

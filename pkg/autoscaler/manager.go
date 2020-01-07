@@ -95,7 +95,6 @@ func (m *Manager) Run() {
 	watch := m.etcdcli.Watch(ctx, model.DefaultScalerPrefix, etcdv3.WithPrefix())
 	defer cancel()
 
-WATCH:
 	for {
 		select {
 		case <-m.stop:
@@ -110,7 +109,7 @@ WATCH:
 					// Increase retry count
 					retryCount += 1
 					time.Sleep(common.DefaultEtcdtIntervalBetweenRetries)
-					continue WATCH
+					continue
 				}
 				m.etcdcli.ErrCh <- err
 				break

@@ -199,7 +199,6 @@ func (hm *Manager) Run() {
 		cancelh()
 	}()
 
-WATCH:
 	for {
 		select {
 		case <-hm.stop:
@@ -214,7 +213,7 @@ WATCH:
 					// Increase retry count
 					retryCount += 1
 					time.Sleep(common.DefaultEtcdtIntervalBetweenRetries)
-					continue WATCH
+					continue
 				}
 				hm.etcdcli.ErrCh <- err
 				break
@@ -261,7 +260,7 @@ WATCH:
 					// Increase retry count
 					retryCount += 1
 					time.Sleep(common.DefaultEtcdtIntervalBetweenRetries)
-					continue WATCH
+					continue
 				}
 				hm.etcdcli.ErrCh <- err
 				break
