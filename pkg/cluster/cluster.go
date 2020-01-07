@@ -179,7 +179,7 @@ func (c *Cluster) State() ClusterState {
 
 // Run watches the cluster state's changes and does its job
 func (c *Cluster) Run(rc chan struct{}) {
-	retryCount := 0
+	retryCount := 1
 	ctx, cancel := c.etcdcli.WatchContext()
 	watch := c.etcdcli.Watch(ctx, model.DefaultClusterPrefix, etcdv3.WithPrefix())
 	ticker := time.NewTicker(time.Duration(DefaultLeaseTTL) * time.Second / 2)
@@ -230,7 +230,7 @@ func (c *Cluster) Run(rc chan struct{}) {
 					ctx, cancel = c.etcdcli.WatchContext()
 					watch = c.etcdcli.Watch(ctx, model.DefaultCloudPrefix, etcdv3.WithPrefix())
 					// Increase retry count
-					retryCount += 1
+					retryCount++
 					time.Sleep(common.DefaultEtcdtIntervalBetweenRetries)
 					continue
 				}

@@ -189,7 +189,8 @@ func (hm *Manager) save() {
 
 // Run start healer mananer instance
 func (hm *Manager) Run() {
-	retryCount := 0
+	retryWatchCCount := 1
+	retryWatchHCount := 1
 	ctxc, cancelc := hm.etcdcli.WatchContext()
 	hm.watchc = hm.etcdcli.Watch(ctxc, model.DefaultCloudPrefix, etcdv3.WithPrefix())
 	ctxh, cancelh := hm.etcdcli.WatchContext()
@@ -206,18 +207,22 @@ func (hm *Manager) Run() {
 		case watchResp := <-hm.watchc:
 			if err := watchResp.Err(); err != nil {
 				level.Error(hm.logger).Log("msg", "Error watching etcd cloud provider keys", "err", err)
-				if err == rpctypes.ErrNoLeader && retryCount <= common.DefaultEtcdRetryCount {
+				if err == rpctypes.ErrNoLeader && retryWatchCCount <= common.DefaultEtcdRetryCount {
 					// Re-init watch channel
 					ctxc, cancelc = hm.etcdcli.WatchContext()
 					hm.watchc = hm.etcdcli.Watch(ctxc, model.DefaultCloudPrefix, etcdv3.WithPrefix())
 					// Increase retry count
-					retryCount += 1
+					retryWatchCCount++
 					time.Sleep(common.DefaultEtcdtIntervalBetweenRetries)
 					continue
 				}
 				hm.etcdcli.ErrCh <- err
 				break
 			}
+
+			// Reset count once got watchResp
+			retryWatchCCount = 1
+
 			for _, event := range watchResp.Events {
 				name := common.Path(model.DefaultNResolverPrefix, strings.Split(string(event.Kv.Key), "/")[2],
 					common.Hash(strings.Split(string(event.Kv.Key), "/")[2], crypto.MD5))
@@ -253,18 +258,22 @@ func (hm *Manager) Run() {
 		case watchResp := <-hm.watchh:
 			if err := watchResp.Err(); err != nil {
 				level.Error(hm.logger).Log("msg", "Error watching etcd healer keys", "err", err)
-				if err == rpctypes.ErrNoLeader && retryCount <= common.DefaultEtcdRetryCount {
+				if err == rpctypes.ErrNoLeader && retryWatchHCount <= common.DefaultEtcdRetryCount {
 					// Re-init watch channel
 					ctxh, cancelh = hm.etcdcli.WatchContext()
 					hm.watchh = hm.etcdcli.Watch(ctxh, model.DefaultHealerPrefix, etcdv3.WithPrefix())
 					// Increase retry count
-					retryCount += 1
+					retryWatchHCount++
 					time.Sleep(common.DefaultEtcdtIntervalBetweenRetries)
 					continue
 				}
 				hm.etcdcli.ErrCh <- err
 				break
 			}
+
+			// Reset count once got watchResp
+			retryWatchHCount = 1
+
 			for _, event := range watchResp.Events {
 				name := common.Path(model.DefaultHealerPrefix, strings.Split(string(event.Kv.Key), "/")[2],
 					common.Hash(strings.Split(string(event.Kv.Key), "/")[2], crypto.MD5))

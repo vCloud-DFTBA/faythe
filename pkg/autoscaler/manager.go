@@ -90,7 +90,7 @@ func (m *Manager) Stop() {
 
 // Run starts processing of the autoscale manager
 func (m *Manager) Run() {
-	retryCount := 0
+	retryCount := 1
 	ctx, cancel := m.etcdcli.WatchContext()
 	watch := m.etcdcli.Watch(ctx, model.DefaultScalerPrefix, etcdv3.WithPrefix())
 	defer cancel()
@@ -107,7 +107,7 @@ func (m *Manager) Run() {
 					ctx, cancel = m.etcdcli.WatchContext()
 					watch = m.etcdcli.Watch(ctx, model.DefaultScalerPrefix, etcdv3.WithPrefix())
 					// Increase retry count
-					retryCount += 1
+					retryCount++
 					time.Sleep(common.DefaultEtcdtIntervalBetweenRetries)
 					continue
 				}
