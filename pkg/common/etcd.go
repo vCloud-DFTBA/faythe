@@ -85,7 +85,7 @@ func (e *Etcd) DoGet(key string, opts ...etcdv3.OpOption) (*etcdv3.GetResponse, 
 		err    error
 		retry  bool
 	)
-	for i := 0; i < DefaultEtcdRetryCount; i++ {
+	for i := 1; i < DefaultEtcdRetryCount+1; i++ {
 		ctx, cancel := e.Context()
 		result, err = e.Get(ctx, key, opts...)
 		cancel()
@@ -110,7 +110,7 @@ func (e *Etcd) DoPut(key, val string, opts ...etcdv3.OpOption) (*etcdv3.PutRespo
 		err    error
 		retry  bool
 	)
-	for i := 0; i < DefaultEtcdRetryCount; i++ {
+	for i := 1; i < DefaultEtcdRetryCount+1; i++ {
 		ctx, cancel := e.Context()
 		result, err = e.Put(ctx, key, val, opts...)
 		cancel()
@@ -135,7 +135,7 @@ func (e *Etcd) DoDelete(key string, opts ...etcdv3.OpOption) (*etcdv3.DeleteResp
 		err    error
 		retry  bool
 	)
-	for i := 0; i < DefaultEtcdRetryCount; i++ {
+	for i := 1; i < DefaultEtcdRetryCount+1; i++ {
 		ctx, cancel := e.Context()
 		result, err = e.Delete(ctx, key, opts...)
 		cancel()
@@ -159,7 +159,7 @@ func (e *Etcd) DoGrant(ttl int64) (*etcdv3.LeaseGrantResponse, error) {
 		err    error
 		retry  bool
 	)
-	for i := 0; i < DefaultEtcdRetryCount; i++ {
+	for i := 1; i < DefaultEtcdRetryCount+1; i++ {
 		ctx, cancel := e.LeaseContext()
 		result, err = e.Grant(ctx, ttl)
 		cancel()
@@ -185,7 +185,7 @@ func (e *Etcd) DoKeepAliveOnce(id etcdv3.LeaseID) (*etcdv3.LeaseKeepAliveRespons
 		err    error
 		retry  bool
 	)
-	for i := 0; i < DefaultEtcdRetryCount; i++ {
+	for i := 1; i < DefaultEtcdRetryCount+1; i++ {
 		ctx, cancel := e.LeaseContext()
 		result, err = e.KeepAliveOnce(ctx, id)
 		cancel()
@@ -209,7 +209,7 @@ func (e *Etcd) DoRevoke(id etcdv3.LeaseID) (*etcdv3.LeaseRevokeResponse, error) 
 		err    error
 		retry  bool
 	)
-	for i := 0; i < DefaultEtcdRetryCount; i++ {
+	for i := 1; i < DefaultEtcdRetryCount+1; i++ {
 		ctx, cancel := e.LeaseContext()
 		result, err = e.Revoke(ctx, id)
 		cancel()
