@@ -227,10 +227,10 @@ func (c *Cluster) Run(rc chan struct{}) {
 				level.Error(c.logger).Log("msg", "Error watching cluster state", "err", err)
 				if err == rpctypes.ErrNoLeader && retryCount <= common.DefaultEtcdRetryCount {
 					level.Debug(c.logger).Log("msg", "retry execute", "action", "watch",
-						"err", err, "key", model.DefaultCloudPrefix, "count", retryCount)
+						"err", err, "key", model.DefaultClusterPrefix, "count", retryCount)
 					// Re-init watch channel
 					ctx, cancel = c.etcdcli.WatchContext()
-					watch = c.etcdcli.Watch(ctx, model.DefaultCloudPrefix, etcdv3.WithPrefix())
+					watch = c.etcdcli.Watch(ctx, model.DefaultClusterPrefix, etcdv3.WithPrefix())
 					// Increase retry count
 					retryCount++
 					time.Sleep(common.DefaultEtcdtIntervalBetweenRetries)
