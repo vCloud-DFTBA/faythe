@@ -103,6 +103,8 @@ func (m *Manager) Run() {
 			if err := watchResp.Err(); err != nil {
 				level.Error(m.logger).Log("msg", "Error watching etcd scaler keys", "err", err)
 				if err == rpctypes.ErrNoLeader && retryCount <= common.DefaultEtcdRetryCount {
+					level.Debug(m.logger).Log("msg", "retry execute", "action", "watch",
+						"err", err, "key", model.DefaultScalerPrefix, "count", retryCount)
 					// Re-init watch channel
 					ctx, cancel = m.etcdcli.WatchContext()
 					watch = m.etcdcli.Watch(ctx, model.DefaultScalerPrefix, etcdv3.WithPrefix())

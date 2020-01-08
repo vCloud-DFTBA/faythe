@@ -254,7 +254,8 @@ func (e *Etcd) CheckKey(key string) bool {
 func (e *Etcd) isRetryNeeded(err error, fn string, key string, retryCount int) bool {
 	if isClientTimeout(err) || isServerCtxTimeout(err) ||
 		err == rpctypes.ErrTimeout || err == rpctypes.ErrTimeoutDueToLeaderFail {
-		level.Debug(e.logger).Log("msg", "retry execute", "action", fn, "err", err, "key", key, "count", retryCount)
+		level.Debug(e.logger).Log("msg", "retry execute", "action", fn,
+			"err", err, "key", key, "count", retryCount)
 		return true
 	}
 	// NOTE(kiennt): Check isUnavailable or isCanceled?

@@ -208,6 +208,8 @@ func (hm *Manager) Run() {
 			if err := watchResp.Err(); err != nil {
 				level.Error(hm.logger).Log("msg", "Error watching etcd cloud provider keys", "err", err)
 				if err == rpctypes.ErrNoLeader && retryWatchCCount <= common.DefaultEtcdRetryCount {
+					level.Debug(hm.logger).Log("msg", "retry execute", "action", "watch",
+						"err", err, "key", model.DefaultCloudPrefix, "count", retryWatchCCount)
 					// Re-init watch channel
 					ctxc, cancelc = hm.etcdcli.WatchContext()
 					hm.watchc = hm.etcdcli.Watch(ctxc, model.DefaultCloudPrefix, etcdv3.WithPrefix())
@@ -259,6 +261,8 @@ func (hm *Manager) Run() {
 			if err := watchResp.Err(); err != nil {
 				level.Error(hm.logger).Log("msg", "Error watching etcd healer keys", "err", err)
 				if err == rpctypes.ErrNoLeader && retryWatchHCount <= common.DefaultEtcdRetryCount {
+					level.Debug(hm.logger).Log("msg", "retry execute", "action", "watch",
+						"err", err, "key", model.DefaultHealerPrefix, "count", retryWatchHCount)
 					// Re-init watch channel
 					ctxh, cancelh = hm.etcdcli.WatchContext()
 					hm.watchh = hm.etcdcli.Watch(ctxh, model.DefaultHealerPrefix, etcdv3.WithPrefix())
