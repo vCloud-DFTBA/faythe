@@ -16,29 +16,41 @@ package common
 
 import (
 	"context"
+	"strconv"
+	"strings"
 	"time"
 
+	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
 	etcdv3 "go.etcd.io/etcd/clientv3"
+	"go.etcd.io/etcd/etcdserver/api/v3rpc/rpctypes"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 const (
 	defaultKvRequestTimeout    = 10 * time.Second
 	defaultLeaseRequestTimeout = 2 * time.Second
+	// DefaultEtcdRetryCount for Etcd operations
+	DefaultEtcdRetryCount = 3
+	// DefaultEtcdtIntervalBetweenRetries for Etcd failed operations
+	DefaultEtcdtIntervalBetweenRetries = time.Second * 5
 )
 
 // Etcd is the Etcd v3 client wrapper with addition context.
 type Etcd struct {
 	*etcdv3.Client
-	ErrCh chan error
+	logger log.Logger
+	ErrCh  chan error
 }
 
 // NewEtcd constructs a new Etcd client
-func NewEtcd(cfg etcdv3.Config) (*Etcd, error) {
+func NewEtcd(l log.Logger, cfg etcdv3.Config) (*Etcd, error) {
 	cli, err := etcdv3.New(cfg)
 	if err != nil {
 		return nil, err
 	}
-	return &Etcd{cli, make(chan error, 1)}, nil
+	return &Etcd{cli, l, make(chan error, 1)}, nil
 }
 
 // Context returns a cancelable context and its cancel function.
@@ -68,9 +80,22 @@ func (e *Etcd) WatchContext() (context.Context, context.CancelFunc) {
 // DoGet retrieves keys.
 // More details please refer to etcd clientv3.KV interface.
 func (e *Etcd) DoGet(key string, opts ...etcdv3.OpOption) (*etcdv3.GetResponse, error) {
-	ctx, cancel := e.Context()
-	defer cancel()
-	result, err := e.Get(ctx, key, opts...)
+	var (
+		result *etcdv3.GetResponse
+		err    error
+		retry  bool
+	)
+	for i := 1; i < DefaultEtcdRetryCount+1; i++ {
+		ctx, cancel := e.Context()
+		result, err = e.Get(ctx, key, opts...)
+		cancel()
+		retry = e.isRetryNeeded(err, "get", key, i)
+		if retry {
+			time.Sleep(DefaultEtcdtIntervalBetweenRetries)
+			continue
+		}
+		break
+	}
 	if err != nil {
 		e.ErrCh <- err
 	}
@@ -80,9 +105,22 @@ func (e *Etcd) DoGet(key string, opts ...etcdv3.OpOption) (*etcdv3.GetResponse, 
 // DoPut puts a key-value pair into etcd.
 // More details please refer to etcd clientv3.KV interface.
 func (e *Etcd) DoPut(key, val string, opts ...etcdv3.OpOption) (*etcdv3.PutResponse, error) {
-	ctx, cancel := e.Context()
-	defer cancel()
-	result, err := e.Put(ctx, key, val, opts...)
+	var (
+		result *etcdv3.PutResponse
+		err    error
+		retry  bool
+	)
+	for i := 1; i < DefaultEtcdRetryCount+1; i++ {
+		ctx, cancel := e.Context()
+		result, err = e.Put(ctx, key, val, opts...)
+		cancel()
+		retry = e.isRetryNeeded(err, "put", key, i)
+		if retry {
+			time.Sleep(DefaultEtcdtIntervalBetweenRetries)
+			continue
+		}
+		break
+	}
 	if err != nil {
 		e.ErrCh <- err
 	}
@@ -92,9 +130,22 @@ func (e *Etcd) DoPut(key, val string, opts ...etcdv3.OpOption) (*etcdv3.PutRespo
 // DoDelete deletes a key, or optionally using WithRange(end), [key, end).
 // More details please refer to etcd clientv3.KV interface.
 func (e *Etcd) DoDelete(key string, opts ...etcdv3.OpOption) (*etcdv3.DeleteResponse, error) {
-	ctx, cancel := e.Context()
-	defer cancel()
-	result, err := e.Delete(ctx, key, opts...)
+	var (
+		result *etcdv3.DeleteResponse
+		err    error
+		retry  bool
+	)
+	for i := 1; i < DefaultEtcdRetryCount+1; i++ {
+		ctx, cancel := e.Context()
+		result, err = e.Delete(ctx, key, opts...)
+		cancel()
+		retry = e.isRetryNeeded(err, "delete", key, i)
+		if retry {
+			time.Sleep(DefaultEtcdtIntervalBetweenRetries)
+			continue
+		}
+		break
+	}
 	if err != nil {
 		e.ErrCh <- err
 	}
@@ -103,9 +154,22 @@ func (e *Etcd) DoDelete(key string, opts ...etcdv3.OpOption) (*etcdv3.DeleteResp
 
 // DoGrant creates a new lease.
 func (e *Etcd) DoGrant(ttl int64) (*etcdv3.LeaseGrantResponse, error) {
-	ctx, cancel := e.LeaseContext()
-	defer cancel()
-	result, err := e.Grant(ctx, ttl)
+	var (
+		result *etcdv3.LeaseGrantResponse
+		err    error
+		retry  bool
+	)
+	for i := 1; i < DefaultEtcdRetryCount+1; i++ {
+		ctx, cancel := e.LeaseContext()
+		result, err = e.Grant(ctx, ttl)
+		cancel()
+		retry = e.isRetryNeeded(err, "grant", strconv.FormatInt(ttl, 10), i)
+		if retry {
+			time.Sleep(DefaultEtcdtIntervalBetweenRetries)
+			continue
+		}
+		break
+	}
 	if err != nil {
 		e.ErrCh <- err
 	}
@@ -116,10 +180,23 @@ func (e *Etcd) DoGrant(ttl int64) (*etcdv3.LeaseGrantResponse, error) {
 // first message from calling KeepAlive. If the response has a recoverable
 // error, KeepAliveOnce will retry the RPC with a new keep alive message.
 func (e *Etcd) DoKeepAliveOnce(id etcdv3.LeaseID) (*etcdv3.LeaseKeepAliveResponse, error) {
-	ctx, cancel := e.LeaseContext()
-	defer cancel()
-	result, err := e.KeepAliveOnce(ctx, id)
-	if err != nil {
+	var (
+		result *etcdv3.LeaseKeepAliveResponse
+		err    error
+		retry  bool
+	)
+	for i := 1; i < DefaultEtcdRetryCount+1; i++ {
+		ctx, cancel := e.LeaseContext()
+		result, err = e.KeepAliveOnce(ctx, id)
+		cancel()
+		retry = e.isRetryNeeded(err, "keep-alive-once", strconv.FormatInt(int64(id), 10), i)
+		if retry {
+			time.Sleep(DefaultEtcdtIntervalBetweenRetries)
+			continue
+		}
+		break
+	}
+	if err != nil && !IsNotFound(err) {
 		e.ErrCh <- err
 	}
 	return result, err
@@ -127,9 +204,22 @@ func (e *Etcd) DoKeepAliveOnce(id etcdv3.LeaseID) (*etcdv3.LeaseKeepAliveRespons
 
 // DoRevoke revokes the given lease.
 func (e *Etcd) DoRevoke(id etcdv3.LeaseID) (*etcdv3.LeaseRevokeResponse, error) {
-	ctx, cancel := e.LeaseContext()
-	defer cancel()
-	result, err := e.Revoke(ctx, id)
+	var (
+		result *etcdv3.LeaseRevokeResponse
+		err    error
+		retry  bool
+	)
+	for i := 1; i < DefaultEtcdRetryCount+1; i++ {
+		ctx, cancel := e.LeaseContext()
+		result, err = e.Revoke(ctx, id)
+		cancel()
+		retry = e.isRetryNeeded(err, "keep-alive-once", string(id), i)
+		if retry {
+			time.Sleep(DefaultEtcdtIntervalBetweenRetries)
+			continue
+		}
+		break
+	}
 	if err != nil {
 		e.ErrCh <- err
 	}
@@ -140,10 +230,8 @@ func (e *Etcd) DoRevoke(id etcdv3.LeaseID) (*etcdv3.LeaseRevokeResponse, error) 
 func (e *Etcd) Run(stopc chan struct{}) {
 	for {
 		select {
-		case err := <-e.ErrCh:
-			if err == context.Canceled || err == context.DeadlineExceeded {
-				stopc <- struct{}{}
-			}
+		case <-e.ErrCh:
+			stopc <- struct{}{}
 		}
 	}
 }
@@ -158,6 +246,93 @@ func (e *Etcd) CheckKey(key string) bool {
 	}
 	if resp.Count == 1 {
 		return true
+	}
+	return false
+}
+
+// isRetryNeeded checks if for the given error does a retry needed.
+func (e *Etcd) isRetryNeeded(err error, fn string, key string, retryCount int) bool {
+	if isClientTimeout(err) || isServerCtxTimeout(err) ||
+		err == rpctypes.ErrTimeout || err == rpctypes.ErrTimeoutDueToLeaderFail {
+		level.Debug(e.logger).Log("msg", "retry execute", "action", fn,
+			"err", err, "key", key, "count", retryCount)
+		return true
+	}
+	// NOTE(kiennt): Check isUnavailable or isCanceled?
+	return false
+}
+
+// Stolen from the integration test:
+// https://github.com/etcd-io/etcd/blob/master/clientv3/integration/server_shutdown_test.go#L367
+// e.g. due to clock drifts in server-side,
+// client context times out first in server-side
+// while original client-side context is not timed out yet
+func isServerCtxTimeout(err error) bool {
+	if err == nil {
+		return false
+	}
+	ev, ok := status.FromError(err)
+	if !ok {
+		return false
+	}
+	code := ev.Code()
+	return code == codes.DeadlineExceeded && strings.Contains(err.Error(), "context deadline exceeded")
+}
+
+// In grpc v1.11.3+ dial timeouts can error out with transport.ErrConnClosing. Previously dial timeouts
+// would always error out with context.DeadlineExceeded.
+func isClientTimeout(err error) bool {
+	if err == nil {
+		return false
+	}
+	if err == context.DeadlineExceeded {
+		return true
+	}
+	ev, ok := status.FromError(err)
+	if !ok {
+		return false
+	}
+	code := ev.Code()
+	return code == codes.DeadlineExceeded
+}
+
+func isCanceled(err error) bool {
+	if err == nil {
+		return false
+	}
+	if err == context.Canceled {
+		return true
+	}
+	ev, ok := status.FromError(err)
+	if !ok {
+		return false
+	}
+	code := ev.Code()
+	return code == codes.Canceled
+}
+
+func isUnavailable(err error) bool {
+	if err == nil {
+		return false
+	}
+	if err == context.Canceled {
+		return true
+	}
+	ev, ok := status.FromError(err)
+	if !ok {
+		return false
+	}
+	code := ev.Code()
+	return code == codes.Unavailable
+}
+
+// IsNotFound verifies the type of given error is NotFound or not.
+func IsNotFound(err error) bool {
+	if err == nil || err == context.Canceled {
+		return false
+	}
+	if eerr, ok := err.(rpctypes.EtcdError); ok {
+		return eerr.Code() == codes.NotFound
 	}
 	return false
 }

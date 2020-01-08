@@ -111,7 +111,7 @@ func main() {
 
 	// Init Etcdv3 client
 	copier.Copy(&etcdcfg, config.Get().EtcdConfig)
-	etcdcli, err = common.NewEtcd(etcdcfg)
+	etcdcli, err = common.NewEtcd(log.With(logger, "component", "etcd wrapper"), etcdcfg)
 
 	if err != nil {
 		level.Error(logger).Log("msg", errors.Wrapf(err, "Error instantiating Etcd V3 client."))
@@ -119,7 +119,6 @@ func main() {
 	}
 
 	// Init cluster
-	watchCtx, watchCancel := etcdcli.WatchContext()
 	cls, err = cluster.New(cfg.clusterID, cfg.listenAddress,
 		log.With(logger, "component", "cluster"), etcdcli)
 	if err != nil {
@@ -127,7 +126,7 @@ func main() {
 		os.Exit(2)
 	}
 	reloadc := make(chan struct{})
-	go cls.Run(watchCtx, reloadc)
+	go cls.Run(reloadc)
 
 	fmw = middleware.New(log.With(logger, "component", "transport middleware"))
 
@@ -137,17 +136,16 @@ func main() {
 	fapi.Register(router)
 
 	// Init autoscale manager
-	fas = autoscaler.NewManager(log.With(logger, "component", "autoscale manager"), etcdcli, cls)
-	go fas.Run(watchCtx)
+	fas = autoscaler.NewManager(log.With(logger, "component", "autoscaler manager"), etcdcli, cls)
+	go fas.Run()
 
 	// Init autoheal manager
-	fah := autohealer.NewManager(log.With(logger, "component", "healer manager"), etcdcli, cls)
-	go fah.Run(watchCtx)
+	fah := autohealer.NewManager(log.With(logger, "component", "autohealer manager"), etcdcli, cls)
+	go fah.Run()
 
 	stopc := make(chan struct{})
 	go etcdcli.Run(stopc)
 	stopFunc := func() {
-		watchCancel()
 		fas.Stop()
 		fah.Stop()
 		cls.Stop()

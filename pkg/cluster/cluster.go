@@ -30,6 +30,7 @@ import (
 	etcdv3 "go.etcd.io/etcd/clientv3"
 	"go.etcd.io/etcd/clientv3/concurrency"
 	"go.etcd.io/etcd/clientv3/namespace"
+	"go.etcd.io/etcd/etcdserver/api/v3rpc/rpctypes"
 	"stathat.com/c/consistent"
 
 	"github.com/vCloud-DFTBA/faythe/pkg/common"
@@ -177,9 +178,13 @@ func (c *Cluster) State() ClusterState {
 }
 
 // Run watches the cluster state's changes and does its job
-func (c *Cluster) Run(ctx context.Context, rc chan struct{}) {
+func (c *Cluster) Run(rc chan struct{}) {
+	retryCount := 1
+	ctx, cancel := c.etcdcli.WatchContext()
 	watch := c.etcdcli.Watch(ctx, model.DefaultClusterPrefix, etcdv3.WithPrefix())
 	ticker := time.NewTicker(time.Duration(DefaultLeaseTTL) * time.Second / 2)
+	defer cancel()
+
 	for {
 		select {
 		case <-c.stopCh:
@@ -188,14 +193,50 @@ func (c *Cluster) Run(ctx context.Context, rc chan struct{}) {
 		case <-ticker.C:
 			_, err := c.etcdcli.DoKeepAliveOnce(c.lease)
 			if err != nil {
-				level.Error(c.logger).Log("msg", "Error refreshing lease for cluster member",
-					"err", err)
-				continue
+				if common.IsNotFound(err) {
+					// Grant lease
+					level.Debug(c.logger).Log("msg", "Lease expired and attached cluster member key was deleted", "id", c.lease)
+					level.Debug(c.logger).Log("msg", "Recreating cluster member with new lease", "node", c.local.Name)
+					leaseResp, leaseErr := c.etcdcli.DoGrant(DefaultLeaseTTL)
+					c.lease = leaseResp.ID
+					if leaseErr != nil {
+						level.Error(c.logger).Log("msg", "Error recreating a cluster member",
+							"node", c.local.Name, "err", leaseErr)
+						continue
+					}
+
+					// Force create cluster member key
+					v, _ := json.Marshal(&c.local)
+					_, putErr := c.etcdcli.DoPut(common.Path(model.DefaultClusterPrefix, c.local.ID),
+						string(v), etcdv3.WithLease(c.lease))
+					if putErr != nil {
+						level.Error(c.logger).Log("msg", "Error recreating a cluster member",
+							"node", c.local.Name, "err", putErr)
+						continue
+					}
+					level.Debug(c.logger).Log("msg", "Recreated cluster member with new lease", "node", c.local.Name)
+				} else {
+					level.Error(c.logger).Log("msg", "Error refreshing lease for cluster member",
+						"err", err)
+					continue
+				}
 			}
 		case watchResp := <-watch:
 			reload := false
-			if watchResp.Err() != nil {
-				level.Error(c.logger).Log("msg", "Error watching cluster state", "err", watchResp.Err())
+			if err := watchResp.Err(); err != nil {
+				level.Error(c.logger).Log("msg", "Error watching cluster state", "err", err)
+				if err == rpctypes.ErrNoLeader && retryCount <= common.DefaultEtcdRetryCount {
+					level.Debug(c.logger).Log("msg", "retry execute", "action", "watch",
+						"err", err, "key", model.DefaultClusterPrefix, "count", retryCount)
+					// Re-init watch channel
+					ctx, cancel = c.etcdcli.WatchContext()
+					watch = c.etcdcli.Watch(ctx, model.DefaultClusterPrefix, etcdv3.WithPrefix())
+					// Increase retry count
+					retryCount++
+					time.Sleep(common.DefaultEtcdtIntervalBetweenRetries)
+					continue
+				}
+				c.etcdcli.ErrCh <- err
 				break
 			}
 			for _, event := range watchResp.Events {
