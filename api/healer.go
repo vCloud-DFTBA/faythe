@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	cmap "github.com/orcaman/concurrent-map"
 	etcdv3 "go.etcd.io/etcd/clientv3"
 
 	"github.com/vCloud-DFTBA/faythe/pkg/common"
@@ -116,13 +117,13 @@ func (a *API) listHealers(rw http.ResponseWriter, req *http.Request) {
 		})
 		return
 	}
-	healers := make(map[string]model.Healer, len(resp.Kvs))
+	healers := cmap.New()
 	for _, e := range resp.Kvs {
 		h := model.Healer{}
 		_ = json.Unmarshal(e.Value, &h)
-		healers[string(e.Key)] = h
+		healers.Set(string(e.Key), h)
 	}
-	a.respondSuccess(rw, http.StatusOK, healers)
+	a.respondSuccess(rw, http.StatusOK, healers.Items())
 	return
 }
 

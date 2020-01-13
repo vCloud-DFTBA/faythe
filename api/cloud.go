@@ -22,6 +22,7 @@ import (
 	"sync"
 
 	"github.com/gorilla/mux"
+	cmap "github.com/orcaman/concurrent-map"
 	etcdv3 "go.etcd.io/etcd/clientv3"
 
 	"github.com/vCloud-DFTBA/faythe/pkg/common"
@@ -99,7 +100,7 @@ func (a *API) registerCloud(w http.ResponseWriter, req *http.Request) {
 // Get all current clouds information from etcdv3
 func (a *API) listClouds(w http.ResponseWriter, req *http.Request) {
 	var (
-		clouds map[string]interface{}
+		clouds cmap.ConcurrentMap
 		wg     sync.WaitGroup
 	)
 	resp, err := a.etcdcli.DoGet(model.DefaultCloudPrefix, etcdv3.WithPrefix(),
@@ -112,7 +113,7 @@ func (a *API) listClouds(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	clouds = make(map[string]interface{}, len(resp.Kvs))
+	clouds = cmap.New()
 	for _, ev := range resp.Kvs {
 		wg.Add(1)
 		go func(evv []byte, evk string) {
@@ -140,17 +141,17 @@ func (a *API) listClouds(w http.ResponseWriter, req *http.Request) {
 					return
 				}
 			}
-			clouds[evk] = cloud
+			clouds.Set(evk, cloud)
 			switch cloud.Provider {
 			case "openstack":
 				var ops model.OpenStack
 				_ = json.Unmarshal(evv, &ops)
-				clouds[evk] = ops
+				clouds.Set(evk, ops)
 			}
 		}(ev.Value, string(ev.Key))
 	}
 	wg.Wait()
-	a.respondSuccess(w, http.StatusOK, clouds)
+	a.respondSuccess(w, http.StatusOK, clouds.Items())
 	return
 }
 

@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	cmap "github.com/orcaman/concurrent-map"
 	etcdv3 "go.etcd.io/etcd/clientv3"
 
 	"github.com/vCloud-DFTBA/faythe/pkg/common"
@@ -110,13 +111,13 @@ func (a *API) listSilences(rw http.ResponseWriter, req *http.Request) {
 		})
 		return
 	}
-	silences := make(map[string]model.Silence, len(resp.Kvs))
+	silences := cmap.New()
 	for _, e := range resp.Kvs {
 		s := model.Silence{}
 		_ = json.Unmarshal(e.Value, &s)
-		silences[string(e.Key)] = s
+		silences.Set(string(e.Key), s)
 	}
-	a.respondSuccess(rw, http.StatusOK, silences)
+	a.respondSuccess(rw, http.StatusOK, silences.Items())
 	return
 }
 
