@@ -20,6 +20,7 @@ import (
 	"net/http"
 
 	"github.com/go-kit/kit/log/level"
+	cmap "github.com/orcaman/concurrent-map"
 	etcdv3 "go.etcd.io/etcd/clientv3"
 
 	"github.com/vCloud-DFTBA/faythe/pkg/model"
@@ -36,7 +37,7 @@ func (a *API) listNResolvers(rw http.ResponseWriter, req *http.Request) {
 		})
 		return
 	}
-	nresolvers := make(map[string]model.NResolver, len(resp.Kvs))
+	nresolvers := cmap.New()
 	for _, e := range resp.Kvs {
 		nrt := model.NResolver{}
 		err = json.Unmarshal(e.Value, &nrt)
@@ -45,8 +46,8 @@ func (a *API) listNResolvers(rw http.ResponseWriter, req *http.Request) {
 				"nrsolvere", e.Key, "err", err.Error())
 			continue
 		}
-		nresolvers[string(e.Key)] = nrt
+		nresolvers.Set(string(e.Key), nrt)
 	}
-	a.respondSuccess(rw, http.StatusOK, nresolvers)
+	a.respondSuccess(rw, http.StatusOK, nresolvers.Items())
 	return
 }

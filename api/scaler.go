@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	cmap "github.com/orcaman/concurrent-map"
 	etcdv3 "go.etcd.io/etcd/clientv3"
 
 	"github.com/vCloud-DFTBA/faythe/pkg/common"
@@ -112,7 +113,7 @@ func (a *API) listScalers(w http.ResponseWriter, req *http.Request) {
 		vars    map[string]string
 		pid     string
 		path    string
-		scalers map[string]model.Scaler
+		scalers cmap.ConcurrentMap
 		wg      sync.WaitGroup
 	)
 	vars = mux.Vars(req)
@@ -128,7 +129,7 @@ func (a *API) listScalers(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	scalers = make(map[string]model.Scaler, len(resp.Kvs))
+	scalers = cmap.New()
 	for _, ev := range resp.Kvs {
 		wg.Add(1)
 		go func(evv []byte, evk string) {
@@ -150,11 +151,11 @@ func (a *API) listScalers(w http.ResponseWriter, req *http.Request) {
 					return
 				}
 			}
-			scalers[evk] = s
+			scalers.Set(evk, s)
 		}(ev.Value, string(ev.Key))
 	}
 	wg.Wait()
-	a.respondSuccess(w, http.StatusOK, scalers)
+	a.respondSuccess(w, http.StatusOK, scalers.Items())
 	return
 }
 
