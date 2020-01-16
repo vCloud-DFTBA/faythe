@@ -136,13 +136,13 @@ func (a *API) respondError(w http.ResponseWriter, e apiError) {
 
 	if err != nil {
 		level.Error(a.logger).Log("msg", "Error marshalling JSON", "err", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	} else {
 		if _, err := w.Write(b); err != nil {
-			level.Error(a.logger).Log("msg", "failed to write data to connection", "err", err)
+			level.Error(a.logger).Log("msg", "Failed to write data to connection", "err", err)
 		}
 	}
-
-	http.Error(w, e.Error(), e.code)
 }
 
 type response struct {
