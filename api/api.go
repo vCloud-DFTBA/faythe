@@ -142,7 +142,7 @@ func (a *API) respondError(w http.ResponseWriter, e apiError) {
 		}
 	}
 
-	http.Error(w, e.Error(), e.code)
+	http.Error(w, "", e.code)
 }
 
 type response struct {
