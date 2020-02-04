@@ -57,5 +57,7 @@ func (a *API) getToken(rw http.ResponseWriter, req *http.Request) {
 		Expires:  expTime,
 		HttpOnly: true,
 	})
+
+	a.respondSuccess(rw, http.StatusOK, "")
 	return
 }
