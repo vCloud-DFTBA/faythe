@@ -99,8 +99,7 @@ func (m *Middleware) Authenticate(next http.Handler) http.Handler {
 		c, err := req.Cookie("api-token")
 		if err != nil {
 			if err == http.ErrNoCookie {
-				level.Error(m.logger).Log("msg", "Unauthorized request",
-					"endpoint", req.RequestURI, "addr", req.RemoteAddr)
+				level.Error(m.logger).Log("msg", "Unauthorized request")
 				http.Error(w, "Login Required!", http.StatusUnauthorized)
 				return
 			}
@@ -119,8 +118,7 @@ func (m *Middleware) Authenticate(next http.Handler) http.Handler {
 
 		if err != nil {
 			if err == jwt.ErrSignatureInvalid {
-				level.Error(m.logger).Log("msg", "Unauthorized request",
-					"endpoint", req.RequestURI, "addr", req.RemoteAddr)
+				level.Error(m.logger).Log("msg", "Unauthorized request")
 				http.Error(w, "Login Required!", http.StatusUnauthorized)
 				return
 			}
@@ -132,8 +130,7 @@ func (m *Middleware) Authenticate(next http.Handler) http.Handler {
 		}
 
 		if !token.Valid {
-			level.Error(m.logger).Log("msg", "Unauthorized request",
-				"endpoint", req.RequestURI, "addr", req.RemoteAddr)
+			level.Error(m.logger).Log("msg", "Unauthorized request")
 			http.Error(w, "Login Required!", http.StatusUnauthorized)
 			return
 		}
