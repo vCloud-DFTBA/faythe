@@ -66,15 +66,23 @@ func New(l log.Logger, e *common.Etcd) *API {
 	}
 }
 
+var wrap = func(f http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		setCORS(w)
+		f(w, r)
+	}
+}
+
+// RegisterAuthRouter registers the Authentication API which has no
+// Authentication middleware
+
+func (a *API) RegisterAuthRouter(r *mux.Router) {
+	r.Handle("/", wrap(a.getToken))
+}
+
 // Register registers the API handlers under their correct routes
 // in the given router.
 func (a *API) Register(r *mux.Router) {
-	wrap := func(f http.HandlerFunc) http.HandlerFunc {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			setCORS(w)
-			f(w, r)
-		})
-	}
 	// Prometheus golang metrics
 	r.Handle("/metrics", promhttp.Handler()).Methods("GET")
 	r.Handle("/", wrap(a.index)).Methods("GET")

@@ -55,8 +55,9 @@ type GlobalConfig struct {
 // BasicAuthentication - HTTP Basic authentication.
 type BasicAuthentication struct {
 	// Usename, Password to implement HTTP basic authentication
-	Username string `yaml:"username"`
-	Password string `yaml:"password"`
+	Username  string `yaml:"username"`
+	Password  string `yaml:"password"`
+	SecretKey string `yaml:"secret_key"`
 }
 
 // EtcdConfig stores Etcd related configurations.

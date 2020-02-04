@@ -20,6 +20,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/dgrijalva/jwt-go"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/prometheus/client_golang/prometheus"
@@ -92,14 +93,48 @@ func (m *Middleware) Logging(next http.Handler) http.Handler {
 }
 
 // Authenticate verifies authentication provided in the request's Authorization
-// header if the request uses HTTP Basic Authentication.
+// header if the request uses JSON web tokens.
 func (m *Middleware) Authenticate(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		user, pass, _ := req.BasicAuth()
-		if m.auth.Username != user || string(m.auth.Password) != pass {
-			level.Error(m.logger).Log("msg", "Unauthorized request")
-			w.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
-			http.Error(w, "Unauthorized.", http.StatusUnauthorized)
+		c, err := req.Cookie("api-token")
+		if err != nil {
+			if err == http.ErrNoCookie {
+				level.Error(m.logger).Log("msg", "Unauthorized request",
+					"endpoint", req.RequestURI, "addr", req.RemoteAddr)
+				http.Error(w, "Login Required!", http.StatusUnauthorized)
+				return
+			}
+
+			level.Error(m.logger).Log("msg", "Error while getting request cookie",
+				"err", err.Error())
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		tokenString := c.Value
+		claims := &jwt.StandardClaims{}
+		token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (i interface{}, err error) {
+			return []byte(m.auth.SecretKey), nil
+		})
+
+		if err != nil {
+			if err == jwt.ErrSignatureInvalid {
+				level.Error(m.logger).Log("msg", "Unauthorized request",
+					"endpoint", req.RequestURI, "addr", req.RemoteAddr)
+				http.Error(w, "Login Required!", http.StatusUnauthorized)
+				return
+			}
+
+			level.Error(m.logger).Log("msg", "Error while verifying token",
+				"err", err.Error())
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		if !token.Valid {
+			level.Error(m.logger).Log("msg", "Unauthorized request",
+				"endpoint", req.RequestURI, "addr", req.RemoteAddr)
+			http.Error(w, "Login Required!", http.StatusUnauthorized)
 			return
 		}
 

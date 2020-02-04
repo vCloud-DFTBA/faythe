@@ -132,8 +132,12 @@ func main() {
 
 	fapi = api.New(log.With(logger, "component", "api"), etcdcli)
 	router.StrictSlash(true)
-	router.Use(fmw.Instrument, fmw.Logging, fmw.RestrictDomain, fmw.Authenticate)
-	fapi.Register(router)
+	router.Use(fmw.Instrument, fmw.Logging, fmw.RestrictDomain)
+	authRouter := router.PathPrefix("/login").Subrouter()
+	fapi.RegisterAuthRouter(authRouter)
+	homeRouter := router.PathPrefix("/").Subrouter()
+	homeRouter.Use(fmw.Authenticate)
+	fapi.Register(homeRouter)
 
 	// Init autoscale manager
 	fas = autoscaler.NewManager(log.With(logger, "component", "autoscaler manager"), etcdcli, cls)
