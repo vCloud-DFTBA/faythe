@@ -132,9 +132,9 @@ func main() {
 
 	fapi = api.New(log.With(logger, "component", "api"), etcdcli)
 	router.StrictSlash(true)
-	router.Use(fmw.Instrument, fmw.Logging, fmw.RestrictDomain)
-	authRouter := router.PathPrefix("/login").Subrouter()
-	fapi.RegisterAuthRouter(authRouter)
+	router.Use(fmw.Instrument, fmw.Logging, fmw.RestrictDomain, fmw.HandleCors)
+	publicRouter := router.PathPrefix("/public").Subrouter()
+	fapi.RegisterPublicRouter(publicRouter)
 	homeRouter := router.PathPrefix("/").Subrouter()
 	homeRouter.Use(fmw.Authenticate)
 	fapi.Register(homeRouter)

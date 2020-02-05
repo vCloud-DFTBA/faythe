@@ -96,50 +96,52 @@ func (m *Middleware) Logging(next http.Handler) http.Handler {
 // header if the request uses JSON web tokens.
 func (m *Middleware) Authenticate(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		c, err := req.Cookie("api-token")
-		if err != nil {
-			if err == http.ErrNoCookie {
+		if req.Method != "OPTIONS" {
+			c, err := req.Cookie("api-token")
+			if err != nil {
+				if err == http.ErrNoCookie {
+					level.Error(m.logger).Log("msg", "Unauthorized request")
+					http.Error(w, "Login Required!", http.StatusUnauthorized)
+					return
+				}
+
+				level.Error(m.logger).Log("msg", "Error while getting request cookie",
+					"err", err.Error())
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+
+			tokenString := c.Value
+			claims := &jwt.StandardClaims{}
+			token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (i interface{}, err error) {
+				return []byte(m.auth.SecretKey), nil
+			})
+
+			if err != nil {
+				if err == jwt.ErrSignatureInvalid {
+					level.Error(m.logger).Log("msg", "Unauthorized request")
+					http.Error(w, "Login Required!", http.StatusUnauthorized)
+					return
+				}
+
+				level.Error(m.logger).Log("msg", "Error while verifying token",
+					"err", err.Error())
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+
+			if !token.Valid {
 				level.Error(m.logger).Log("msg", "Unauthorized request")
 				http.Error(w, "Login Required!", http.StatusUnauthorized)
 				return
 			}
-
-			level.Error(m.logger).Log("msg", "Error while getting request cookie",
-				"err", err.Error())
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		tokenString := c.Value
-		claims := &jwt.StandardClaims{}
-		token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (i interface{}, err error) {
-			return []byte(m.auth.SecretKey), nil
-		})
-
-		if err != nil {
-			if err == jwt.ErrSignatureInvalid {
-				level.Error(m.logger).Log("msg", "Unauthorized request")
-				http.Error(w, "Login Required!", http.StatusUnauthorized)
-				return
-			}
-
-			level.Error(m.logger).Log("msg", "Error while verifying token",
-				"err", err.Error())
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		if !token.Valid {
-			level.Error(m.logger).Log("msg", "Unauthorized request")
-			http.Error(w, "Login Required!", http.StatusUnauthorized)
-			return
 		}
 
 		next.ServeHTTP(w, req)
 	})
 }
 
-// RestrictDomain checks whehter request's remote address was matched
+// RestrictDomain checks whether request's remote address was matched
 // a defined host pattern or not.
 func (m *Middleware) RestrictDomain(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
@@ -150,6 +152,24 @@ func (m *Middleware) RestrictDomain(next http.Handler) http.Handler {
 			return
 		}
 
+		next.ServeHTTP(w, req)
+	})
+}
+
+// HandleCors handles cors policy
+func (m *Middleware) HandleCors(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		var corsHeaders = map[string]string{
+			"Access-Control-Allow-Headers":     "Accept, Authorization, Content-Type, Origin, X-Request-With",
+			"Access-Control-Allow-Methods":     "GET, POST",
+			"Access-Control-Allow-Origin":      req.Header.Get("origin"),
+			"Access-Control-Allow-Credentials": "true",
+			"Access-Control-Expose-Headers":    "Date",
+			"Cache-Control":                    "no-cache, no-store, must-revalidate",
+		}
+		for h, v := range corsHeaders {
+			w.Header().Set(h, v)
+		}
 		next.ServeHTTP(w, req)
 	})
 }

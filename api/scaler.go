@@ -32,6 +32,9 @@ import (
 )
 
 func (a *API) createScaler(w http.ResponseWriter, req *http.Request) {
+	if req.Method == "OPTIONS" {
+		return
+	}
 	// Save a Scaler object in etcd3
 	var (
 		s     *model.Scaler
@@ -109,6 +112,9 @@ func (a *API) createScaler(w http.ResponseWriter, req *http.Request) {
 
 // List all current Scalers from etcd3
 func (a *API) listScalers(w http.ResponseWriter, req *http.Request) {
+	if req.Method == "OPTIONS" {
+		return
+	}
 	var (
 		vars    map[string]string
 		pid     string
@@ -161,6 +167,9 @@ func (a *API) listScalers(w http.ResponseWriter, req *http.Request) {
 
 // Delete a Scaler from etcd3
 func (a *API) deleteScaler(w http.ResponseWriter, req *http.Request) {
+	if req.Method == "OPTIONS" {
+		return
+	}
 	var (
 		vars map[string]string
 		pid  string
@@ -186,5 +195,8 @@ func (a *API) deleteScaler(w http.ResponseWriter, req *http.Request) {
 }
 
 func (a *API) updateScaler(w http.ResponseWriter, req *http.Request) {
+	if req.Method == "OPTIONS" {
+		return
+	}
 	// Update a existed Scaler information
 }

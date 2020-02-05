@@ -27,6 +27,9 @@ import (
 )
 
 func (a *API) listNResolvers(rw http.ResponseWriter, req *http.Request) {
+	if req.Method == "OPTIONS" {
+		return
+	}
 	resp, err := a.etcdcli.DoGet(model.DefaultNResolverPrefix, etcdv3.WithPrefix(),
 		etcdv3.WithSort(etcdv3.SortByKey, etcdv3.SortAscend))
 	if err != nil {

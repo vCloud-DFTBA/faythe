@@ -20,10 +20,6 @@ import (
 )
 
 func (a *API) index(w http.ResponseWriter, req *http.Request) {
-	if req.URL.Path != "/" {
-		http.NotFound(w, req)
-		return
-	}
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	fmt.Fprintf(w, "Hello stranger! Welcome to Faythe!")

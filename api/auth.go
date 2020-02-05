@@ -25,6 +25,9 @@ import (
 )
 
 func (a *API) getToken(rw http.ResponseWriter, req *http.Request) {
+	if req.Method == "OPTIONS" {
+		return
+	}
 	user, pass, _ := req.BasicAuth()
 	creds := config.Get().GlobalConfig.BasicAuthentication
 

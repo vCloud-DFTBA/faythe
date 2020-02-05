@@ -30,21 +30,6 @@ import (
 	"github.com/vCloud-DFTBA/faythe/pkg/common"
 )
 
-var corsHeaders = map[string]string{
-	"Access-Control-Allow-Headers":  "Accept, Authorization, Content-Type, Origin",
-	"Access-Control-Allow-Methods":  "GET, POST",
-	"Access-Control-Allow-Origin":   "*",
-	"Access-Control-Expose-Headers": "Date",
-	"Cache-Control":                 "no-cache, no-store, must-revalidate",
-}
-
-// Enables cross-site script calls.
-func setCORS(w http.ResponseWriter) {
-	for h, v := range corsHeaders {
-		w.Header().Set(h, v)
-	}
-}
-
 // API provides registration of handlers for API routes
 type API struct {
 	logger  log.Logger
@@ -66,61 +51,55 @@ func New(l log.Logger, e *common.Etcd) *API {
 	}
 }
 
-var wrap = func(f http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		setCORS(w)
-		f(w, r)
-	}
-}
-
-// RegisterAuthRouter registers the Authentication API which has no
+// RegisterPublicRouter registers the Authentication API which has no
 // Authentication middleware
+func (a *API) RegisterPublicRouter(r *mux.Router) {
+	r.HandleFunc("/login", a.getToken).Methods("OPTIONS", "GET")
 
-func (a *API) RegisterAuthRouter(r *mux.Router) {
-	r.Handle("/", wrap(a.getToken))
+	// Prometheus golang metrics
+	r.Handle("/metrics", promhttp.Handler()).Methods("GET")
+
+	r.HandleFunc("/", a.index).Methods("GET")
+	r.HandleFunc("/status", a.status).Methods("GET")
+
+	// Profiling endpoints
+	cfg := config.Get().GlobalConfig
+	if cfg.EnableProfiling {
+		r.HandleFunc("/debug/pprof/", pprof.Index)
+		r.Handle("/debug/pprof/{profile}", http.DefaultServeMux)
+	}
 }
 
 // Register registers the API handlers under their correct routes
 // in the given router.
 func (a *API) Register(r *mux.Router) {
-	// Prometheus golang metrics
-	r.Handle("/metrics", promhttp.Handler()).Methods("GET")
-	r.Handle("/", wrap(a.index)).Methods("GET")
-	r.Handle("/status", wrap(a.status)).Methods("GET")
 	// Cloud endpoints
-	r.Handle("/clouds/{provider}", wrap(a.registerCloud)).Methods("POST")
-	r.Handle("/clouds", wrap(a.listClouds)).Methods("GET")
-	r.Handle("/clouds/{id:[a-z 0-9]+}", wrap(a.unregisterCloud)).Methods("DELETE")
-	r.Handle("/clouds/{id:[a-z 0-9]+}", wrap(a.updateCloud)).Methods("PUT")
+	r.HandleFunc("/clouds/{provider}", a.registerCloud).Methods("OPTIONS", "POST")
+	r.HandleFunc("/clouds", a.listClouds).Methods("OPTIONS", "GET")
+	r.HandleFunc("/clouds/{id:[a-z 0-9]+}", a.unregisterCloud).Methods("OPTIONS", "DELETE")
+	r.HandleFunc("/clouds/{id:[a-z 0-9]+}", a.updateCloud).Methods("OPTIONS", "PUT")
 
 	// Scaler endpoints
-	r.Handle("/scalers/{provider_id:[a-z 0-9]+}", wrap(a.createScaler)).Methods("POST")
-	r.Handle("/scalers/{provider_id:[a-z 0-9]+}", wrap(a.listScalers)).Methods("GET")
-	r.Handle("/scalers/{provider_id:[a-z 0-9]+}/{id:[a-z 0-9]+}",
-		wrap(a.deleteScaler)).Methods("DELETE")
-	r.Handle("/scalers/{provider_id:[a-z 0-9]+}/{id:[a-z 0-9]+}",
-		wrap(a.updateScaler)).Methods("PUT")
+	r.HandleFunc("/scalers/{provider_id:[a-z 0-9]+}", a.createScaler).Methods("OPTIONS", "POST")
+	r.HandleFunc("/scalers/{provider_id:[a-z 0-9]+}", a.listScalers).Methods("OPTIONS", "GET")
+	r.HandleFunc("/scalers/{provider_id:[a-z 0-9]+}/{id:[a-z 0-9]+}",
+		a.deleteScaler).Methods("OPTIONS", "DELETE")
+	r.HandleFunc("/scalers/{provider_id:[a-z 0-9]+}/{id:[a-z 0-9]+}",
+		a.updateScaler).Methods("OPTIONS", "PUT")
 
 	// Name Resolver endpoints
-	r.Handle("/nresolvers", wrap(a.listNResolvers)).Methods("GET")
+	r.HandleFunc("/nresolvers", a.listNResolvers).Methods("OPTIONS", "GET")
 
 	// Healer endpoints
-	r.Handle("/healers/{provider_id:[a-z 0-9]+}", wrap(a.createHealer)).Methods("POST")
-	r.Handle("/healers/{provider_id:[a-z 0-9]+}", wrap(a.listHealers)).Methods("GET")
-	r.Handle("/healers/{provider_id:[a-z 0-9]+}/{id:[a-z 0-9]+}",
-		wrap(a.deleteHealer)).Methods("DELETE")
+	r.HandleFunc("/healers/{provider_id:[a-z 0-9]+}", a.createHealer).Methods("OPTIONS", "POST")
+	r.HandleFunc("/healers/{provider_id:[a-z 0-9]+}", a.listHealers).Methods("OPTIONS", "GET")
+	r.HandleFunc("/healers/{provider_id:[a-z 0-9]+}/{id:[a-z 0-9]+}",
+		a.deleteHealer).Methods("OPTIONS", "DELETE")
 
 	// Silences endpoints
-	r.Handle("/silences/{provider_id:[a-z 0-9]+}", wrap(a.createSilence)).Methods("POST")
-	r.Handle("/silences/{provider_id:[a-z 0-9]+}", wrap(a.listSilences)).Methods("GET")
-	r.Handle("/silences/{provider_id:[a-z 0-9]+}/{id:[a-z 0-9]+}", wrap(a.expireSilence)).Methods("DELETE")
-
-	// Profiling endpoints
-	cfg := config.Get().GlobalConfig
-	if cfg.EnableProfiling {
-		r.Handle("/debug/pprof/", http.HandlerFunc(pprof.Index))
-		r.Handle("/debug/pprof/{profile}", http.DefaultServeMux)
-	}
+	r.HandleFunc("/silences/{provider_id:[a-z 0-9]+}", a.createSilence).Methods("OPTIONS", "POST")
+	r.HandleFunc("/silences/{provider_id:[a-z 0-9]+}", a.listSilences).Methods("OPTIONS", "GET")
+	r.HandleFunc("/silences/{provider_id:[a-z 0-9]+}/{id:[a-z 0-9]+}", a.expireSilence).Methods("OPTIONS", "DELETE")
 }
 
 func (a *API) receive(req *http.Request, v interface{}) error {
