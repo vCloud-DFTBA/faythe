@@ -161,7 +161,7 @@ func (m *Middleware) HandleCors(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		var corsHeaders = map[string]string{
 			"Access-Control-Allow-Headers":     "Accept, Authorization, Content-Type, Origin, X-Request-With",
-			"Access-Control-Allow-Methods":     "GET, POST",
+			"Access-Control-Allow-Methods":     "GET, POST, DELETE, PUT",
 			"Access-Control-Allow-Origin":      req.Header.Get("origin"),
 			"Access-Control-Allow-Credentials": "true",
 			"Access-Control-Expose-Headers":    "Date",
