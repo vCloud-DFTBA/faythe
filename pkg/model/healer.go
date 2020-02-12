@@ -25,17 +25,17 @@ import (
 type Healer struct {
 	Actions         map[string]ActionInterface `json:"ractions"`
 	ActionsRaw      map[string]json.RawMessage `json:"actions"`
-	Active          bool                       `json:"active,omitempty"`
+	Active          bool                       `json:"active"`
 	Alert           Alert                      `json:"alert,omitempty"`
 	CloudID         string                     `json:"cloudid"`
-	Description     string                     `json:"description,omitempty"`
+	Description     string                     `json:"description"`
 	Duration        string                     `json:"duration"`
 	EvaluationLevel int                        `json:"evaluation_level"`
 	ID              string                     `json:"id,omitempty"`
 	Interval        string                     `json:"interval"`
 	Receivers       Receivers                  `json:"receivers"`
 	Query           string                     `json:"query"`
-	Tags            []string                   `json:"tags,omitempty"`
+	Tags            []string                   `json:"tags"`
 }
 
 // Validate healher model
