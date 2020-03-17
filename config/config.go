@@ -130,7 +130,11 @@ var (
 	// DefaultGlobalConfig is the default global configuration.
 	DefaultGlobalConfig = GlobalConfig{
 		RemoteHostPattern:   ".*",
-		BasicAuthentication: BasicAuthentication{},
+		BasicAuthentication: BasicAuthentication{
+			Username: "admin",
+			Password: "admin@123",
+			SecretKey: "YourSecretKey",
+		},
 		EnableProfiling:     false,
 	}
 
