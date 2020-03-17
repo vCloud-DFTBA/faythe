@@ -107,7 +107,7 @@ func (m *Middleware) Authenticate(next http.Handler) http.Handler {
 
 				level.Error(m.logger).Log("msg", "Error while getting request cookie",
 					"err", err.Error())
-				http.Error(w, err.Error(), http.StatusInternalServerError)
+				http.Error(w, err.Error(), http.StatusBadRequest)
 				return
 			}
 
