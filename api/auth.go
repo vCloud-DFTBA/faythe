@@ -24,6 +24,8 @@ import (
 	"github.com/vCloud-DFTBA/faythe/config"
 )
 
+const TokenExpirationTime = 60
+
 func (a *API) getToken(rw http.ResponseWriter, req *http.Request) {
 	if req.Method == "OPTIONS" {
 		return
@@ -39,7 +41,7 @@ func (a *API) getToken(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	expTime := time.Now().Add(60 * time.Minute)
+	expTime := time.Now().Add(TokenExpirationTime * time.Minute)
 
 	claims := jwt.StandardClaims{ExpiresAt: expTime.Unix()}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
