@@ -27,7 +27,7 @@ import (
 type Scaler struct {
 	Query       string                 `json:"query"`
 	Duration    string                 `json:"duration"`
-	Description string                 `json:"description,omitempty"`
+	Description string                 `json:"description"`
 	Interval    string                 `json:"interval"`
 	Actions     map[string]*ActionHTTP `json:"actions"`
 	Tags        []string               `json:"tags"`
