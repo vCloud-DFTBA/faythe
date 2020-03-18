@@ -170,6 +170,9 @@ func (m *Middleware) HandleCors(next http.Handler) http.Handler {
 		for h, v := range corsHeaders {
 			w.Header().Set(h, v)
 		}
+		if req.Method == "OPTIONS" {
+			return
+		}
 		next.ServeHTTP(w, req)
 	})
 }

@@ -31,9 +31,6 @@ import (
 )
 
 func (a *API) registerCloud(w http.ResponseWriter, req *http.Request) {
-	if req.Method == "OPTIONS" {
-		return
-	}
 	var (
 		vars  map[string]string
 		p     string
@@ -102,9 +99,6 @@ func (a *API) registerCloud(w http.ResponseWriter, req *http.Request) {
 
 // Get all current clouds information from etcdv3
 func (a *API) listClouds(w http.ResponseWriter, req *http.Request) {
-	if req.Method == "OPTIONS" {
-		return
-	}
 	var (
 		clouds cmap.ConcurrentMap
 		wg     sync.WaitGroup
@@ -163,9 +157,6 @@ func (a *API) listClouds(w http.ResponseWriter, req *http.Request) {
 
 // Remove the cloud information from etcd3
 func (a *API) unregisterCloud(w http.ResponseWriter, req *http.Request) {
-	if req.Method == "OPTIONS" {
-		return
-	}
 	var (
 		vars map[string]string
 		pid  string
@@ -196,8 +187,5 @@ func (a *API) unregisterCloud(w http.ResponseWriter, req *http.Request) {
 }
 
 func (a *API) updateCloud(w http.ResponseWriter, req *http.Request) {
-	if req.Method == "OPTIONS" {
-		return
-	}
 	// Update the existing cloud information
 }

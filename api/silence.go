@@ -30,9 +30,6 @@ import (
 )
 
 func (a *API) createSilence(rw http.ResponseWriter, req *http.Request) {
-	if req.Method == "OPTIONS" {
-		return
-	}
 	vars := mux.Vars(req)
 	pid := strings.ToLower(vars["provider_id"])
 
@@ -101,9 +98,6 @@ func (a *API) createSilence(rw http.ResponseWriter, req *http.Request) {
 }
 
 func (a *API) listSilences(rw http.ResponseWriter, req *http.Request) {
-	if req.Method == "OPTIONS" {
-		return
-	}
 	vars := mux.Vars(req)
 	pid := strings.ToLower(vars["provider_id"])
 	path := common.Path(model.DefaultSilencePrefix, pid)
@@ -128,9 +122,6 @@ func (a *API) listSilences(rw http.ResponseWriter, req *http.Request) {
 }
 
 func (a *API) expireSilence(w http.ResponseWriter, req *http.Request) {
-	if req.Method == "OPTIONS" {
-		return
-	}
 	vars := mux.Vars(req)
 	pid := strings.ToLower(vars["provider_id"])
 	id := strings.ToLower(vars["id"])

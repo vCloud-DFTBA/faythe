@@ -32,9 +32,6 @@ import (
 )
 
 func (a *API) createHealer(rw http.ResponseWriter, req *http.Request) {
-	if req.Method == "OPTIONS" {
-		return
-	}
 	h := &model.Healer{}
 	vars := mux.Vars(req)
 	path := common.Path(model.DefaultCloudPrefix, vars["provider_id"])
@@ -107,9 +104,6 @@ func (a *API) createHealer(rw http.ResponseWriter, req *http.Request) {
 }
 
 func (a *API) listHealers(rw http.ResponseWriter, req *http.Request) {
-	if req.Method == "OPTIONS" {
-		return
-	}
 	vars := mux.Vars(req)
 	pid := strings.ToLower(vars["provider_id"])
 	path := common.Path(model.DefaultHealerPrefix, pid)
@@ -134,9 +128,6 @@ func (a *API) listHealers(rw http.ResponseWriter, req *http.Request) {
 }
 
 func (a *API) deleteHealer(w http.ResponseWriter, req *http.Request) {
-	if req.Method == "OPTIONS" {
-		return
-	}
 	vars := mux.Vars(req)
 	pid := strings.ToLower(vars["provider_id"])
 	sid := strings.ToLower(vars["id"])
