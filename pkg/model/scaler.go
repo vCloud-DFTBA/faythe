@@ -16,7 +16,6 @@ package model
 
 import (
 	"crypto"
-	"time"
 
 	"github.com/pkg/errors"
 
@@ -49,18 +48,18 @@ func (s *Scaler) Validate() error {
 		return errors.Errorf("required field %+v is missing or invalid", s.Query)
 	}
 
-	if _, err := time.ParseDuration(s.Duration); err != nil {
+	if _, err := common.ParseDuration(s.Duration); err != nil {
 		return err
 	}
 
-	if _, err := time.ParseDuration(s.Interval); err != nil {
+	if _, err := common.ParseDuration(s.Interval); err != nil {
 		return err
 	}
 
 	if s.Cooldown == "" {
-		s.Cooldown = "600s"
+		s.Cooldown = "10m"
 	}
-	if _, err := time.ParseDuration(s.Cooldown); err != nil {
+	if _, err := common.ParseDuration(s.Cooldown); err != nil {
 		return err
 	}
 

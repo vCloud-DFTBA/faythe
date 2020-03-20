@@ -24,6 +24,7 @@ import (
 	"github.com/go-kit/kit/log/level"
 
 	"github.com/vCloud-DFTBA/faythe/pkg/cluster"
+	"github.com/vCloud-DFTBA/faythe/pkg/common"
 	"github.com/vCloud-DFTBA/faythe/pkg/exporter"
 	"github.com/vCloud-DFTBA/faythe/pkg/metrics"
 	"github.com/vCloud-DFTBA/faythe/pkg/model"
@@ -50,7 +51,7 @@ func newNResolver(l log.Logger, data []byte, b metrics.Backend) *NResolver {
 }
 
 func (nr *NResolver) run(ctx context.Context, wg *sync.WaitGroup, nc *chan NodeMetric) {
-	interval, _ := time.ParseDuration(nr.Interval)
+	interval, _ := common.ParseDuration(nr.Interval)
 	ticker := time.NewTicker(interval)
 	defer func() {
 		wg.Done()

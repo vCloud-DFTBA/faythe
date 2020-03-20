@@ -35,6 +35,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	prommodel "github.com/prometheus/common/model"
 )
 
 // BasicAuthTransport is an http.RoundTripper that authenticates all requests
@@ -232,4 +233,11 @@ func ReachableTCP(addr string) error {
 	u, _ := url.Parse(addr)
 	_, err := net.DialTimeout("tcp", u.Host, 3*time.Second)
 	return err
+}
+
+// ParseDuration parses a string into a time.Duration, assuming that a year
+// always has 365d, a week always has 7d, and a day always has 24h.
+func ParseDuration(durationStr string) (time.Duration, error) {
+	duration, err := prommodel.ParseDuration(durationStr)
+	return time.Duration(duration), err
 }

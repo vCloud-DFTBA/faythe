@@ -54,7 +54,7 @@ func (s *Silence) Validate() error {
 	}
 	s.RegexPattern = regex
 
-	t, err := time.ParseDuration(s.TTL)
+	t, err := common.ParseDuration(s.TTL)
 	if err != nil {
 		return err
 	}

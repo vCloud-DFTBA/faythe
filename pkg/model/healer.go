@@ -18,7 +18,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-	"time"
+
+	"github.com/vCloud-DFTBA/faythe/pkg/common"
 )
 
 // Healer represents a Healer instance
@@ -57,11 +58,11 @@ func (h *Healer) Validate() error {
 		return fmt.Errorf("receivers cannot be empty")
 	}
 
-	if _, err := time.ParseDuration(h.Duration); err != nil {
+	if _, err := common.ParseDuration(h.Duration); err != nil {
 		return err
 	}
 
-	if _, err := time.ParseDuration(h.Interval); err != nil {
+	if _, err := common.ParseDuration(h.Interval); err != nil {
 		return err
 	}
 

@@ -82,9 +82,9 @@ func (s *Scaler) Stop() {
 }
 
 func (s *Scaler) run(ctx context.Context, wg *sync.WaitGroup) {
-	interval, _ := time.ParseDuration(s.Interval)
-	duration, _ := time.ParseDuration(s.Duration)
-	cooldown, _ := time.ParseDuration(s.Cooldown)
+	interval, _ := common.ParseDuration(s.Interval)
+	duration, _ := common.ParseDuration(s.Duration)
+	cooldown, _ := common.ParseDuration(s.Cooldown)
 	ticker := time.NewTicker(interval)
 	// Report number of scalers
 	exporter.ReportNumScalers(cluster.ClusterID, 1)
@@ -151,7 +151,7 @@ func (s *Scaler) do() {
 	for _, a := range s.Actions {
 		go func(a *model.ActionHTTP) {
 			wg.Add(1)
-			delay, _ := time.ParseDuration(a.Delay)
+			delay, _ := common.ParseDuration(a.Delay)
 			url := a.URL.String()
 			err := retry.Do(
 				func() error {

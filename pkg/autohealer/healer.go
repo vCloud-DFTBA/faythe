@@ -69,9 +69,9 @@ func newHealer(l log.Logger, data []byte, b metrics.Backend, ate model.ATEngine)
 }
 
 func (h *Healer) run(ctx context.Context, e *common.Etcd, wg *sync.WaitGroup, nc chan map[string]string) {
-	interval, _ := time.ParseDuration(h.Interval)
-	sinterval, _ := time.ParseDuration(model.DefaultSilenceValidationInterval)
-	duration, _ := time.ParseDuration(h.Duration)
+	interval, _ := common.ParseDuration(h.Interval)
+	sinterval, _ := common.ParseDuration(model.DefaultSilenceValidationInterval)
+	duration, _ := common.ParseDuration(h.Duration)
 	ticker := time.NewTicker(interval)
 	sticker := time.NewTicker(sinterval)
 	chans := make(map[string]*chan struct{})
@@ -289,7 +289,7 @@ func (h *Healer) do(compute string) {
 					defer wg.Done()
 					m := &model.ActionMail{
 						Receivers: h.Receivers,
-						Subject: fmt.Sprintf("[autohealing] Node %s down, failed to trigger http request", compute),
+						Subject:   fmt.Sprintf("[autohealing] Node %s down, failed to trigger http request", compute),
 						Body: fmt.Sprintf("Node %s is down for more than %s.\nBut failed to trigger autohealing, due to %s",
 							compute, h.Duration, err.Error()),
 					}

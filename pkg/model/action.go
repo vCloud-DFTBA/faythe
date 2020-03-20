@@ -16,9 +16,9 @@ package model
 
 import (
 	"strings"
-	"time"
 
 	"github.com/pkg/errors"
+	"github.com/vCloud-DFTBA/faythe/pkg/common"
 )
 
 // Action represents an scale action
@@ -38,7 +38,7 @@ func (a Action) validate() error {
 		return errors.Errorf("Missing action type")
 	}
 
-	if _, err := time.ParseDuration(a.Delay); err != nil {
+	if _, err := common.ParseDuration(a.Delay); err != nil {
 		return err
 	}
 

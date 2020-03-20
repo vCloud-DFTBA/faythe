@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/gorilla/mux"
 	cmap "github.com/orcaman/concurrent-map"
@@ -73,7 +72,7 @@ func (a *API) createSilence(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	t, _ := time.ParseDuration(s.TTL)
+	t, _ := common.ParseDuration(s.TTL)
 
 	r, err := a.etcdcli.DoGrant(int64(t.Seconds()))
 	if err != nil {

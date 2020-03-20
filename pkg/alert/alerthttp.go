@@ -29,7 +29,7 @@ import (
 )
 
 func SendHTTP(l log.Logger, cli *http.Client, a *model.ActionHTTP, add ...map[string]map[string]string) error {
-	delay, _ := time.ParseDuration(a.Delay)
+	delay, _ := common.ParseDuration(a.Delay)
 	err := retry.Do(
 		func() error {
 			req, err := http.NewRequest(a.Method, string(a.URL), nil)

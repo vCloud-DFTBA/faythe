@@ -20,9 +20,9 @@ Faythe autohealing basically does the job that automatically migrate VMs on host
 
 Faythe autohealing contains 3 major components:
 
-* Name Resolver
-* Silencer
-* Healer
+- Name Resolver
+- Silencer
+- Healer
 
 ## Name Resolver
 
@@ -83,13 +83,13 @@ Parameter explains:
 
 **PATH**: POST `/silences/{provider_id}`
 
-| Parameter   | In   | Type   | Required | Default | Description                                              |
-| ----------- | ---- | ------ | -------- | ------- | -------------------------------------------------------- |
-| name        | body | string | true     |         | Name of silencer                                         |
-| pattern     | body | string | true     |         | Regex pattern of silencer                                |
-| ttl         | body | string | true     |         | Time to live, this can be in form `1s`, `2m`, `3h`, `4d` |
-| tags        | body | list   | false    |         | Silencer tags                                            |
-| description | body | string | false    |         | Silencer description                                     |
+| Parameter   | In   | Type   | Required | Default | Description                                                                |
+| ----------- | ---- | ------ | -------- | ------- | -------------------------------------------------------------------------- |
+| name        | body | string | true     |         | Name of silencer                                                           |
+| pattern     | body | string | true     |         | Regex pattern of silencer                                                  |
+| ttl         | body | string | true     |         | Time to live, re.the format please refer [note](./note.md#time-durations). |
+| tags        | body | list   | false    |         | Silencer tags                                                              |
+| description | body | string | false    |         | Silencer description                                                       |
 
 For example:
 
@@ -151,18 +151,18 @@ Currently, we only support one healer per cloud provider.
 
 | Parameter          | In   | Type    | Required | Default                                                 | Description                                                                                                                                                                                      |
 | ------------------ | ---- | ------- | -------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| query              | body | string  | true     | up{job=~\".*compute-cadvisor.*\|.*compute-node.*\"} < 1 | Query that will be executed against the Prometheus API. See [the official documentation](https://prometheus.io/docs/prometheus/latest/querying/basics/) for more details.                        | Query that will be executed against the Prometheus API. See [the official documentation](https://prometheus.io/docs/prometheus/latest/querying/basics/) for more details. |
+| query              | body | string  | true     | up{job=~\"._compute-cadvisor._\|._compute-node._\"} < 1 | Query that will be executed against the Prometheus API. See [the official documentation](https://prometheus.io/docs/prometheus/latest/querying/basics/) for more details.                        | Query that will be executed against the Prometheus API. See [the official documentation](https://prometheus.io/docs/prometheus/latest/querying/basics/) for more details. |
 | action             | body | object  | true     |                                                         | List of actions when healing is triggered                                                                                                                                                        |
 | action.receivers   | body | list    | false    |                                                         | List of receivers in mail action                                                                                                                                                                 |
 | action.url         | body | string  | false    |                                                         | The url that the action will call to                                                                                                                                                             |
 | actions.type       | body | string  | false    | http                                                    | The type of action.                                                                                                                                                                              |
 | actions.method     | body | string  | false    | POST                                                    | The HTTP method                                                                                                                                                                                  |
 | actions.attempts   | body | integer | false    | 10                                                      | The count of retry.                                                                                                                                                                              |
-| actions.delay      | body | string  | false    | 100ms                                                   | The delay between retries.                                                                                                                                                                       |
+| actions.delay      | body | string  | false    | 100ms                                                   | The delay between retries, re.the format please refer [note](./note.md#time-durations).                                                                                                          |
 | actions.delay_type | body | string  | false    | fixed                                                   | The delay type: `fixed` or `backoff`. BackOffDelay is a DelayType which increases delay between consecutive retries. FixedDelay is a DelayType which keeps delay the same through all iterations |
-| interval           | body | string  | true     | 18s                                                     | The time between two continuous evaluate                                                                                                                                                         |
+| interval           | body | string  | true     | 18s                                                     | The time between two continuous evaluate, re.the format please refer [note](./note.md#time-durations).                                                                                           |
 | receivers          | body | list    | true     |                                                         | List of email receiving healing notifications                                                                                                                                                    |
-| duration           | body | string  | true     | 3m                                                      | The total evaluation time                                                                                                                                                                        |
+| duration           | body | string  | true     | 3m                                                      | The total evaluation time, re.the format please refer [note](./note.md#time-durations).                                                                                                          |
 | description        | body | string  | false    |                                                         |                                                                                                                                                                                                  |
 | tags               | body | list    | false    |                                                         |                                                                                                                                                                                                  |
 | active             | body | boolean | true     | false                                                   | Enable the healer or not.                                                                                                                                                                        |
