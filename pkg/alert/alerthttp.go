@@ -17,6 +17,7 @@ package alert
 import (
 	"bytes"
 	"encoding/json"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"time"
@@ -56,7 +57,17 @@ func SendHTTP(l log.Logger, cli *http.Client, a *model.ActionHTTP, add ...map[st
 					req.ContentLength = int64(len(b))
 				}
 			}
-			_, err = cli.Do(req)
+			resp, err := cli.Do(req)
+			// Close the response body
+			if resp != nil {
+				defer resp.Body.Close()
+			}
+			if err != nil {
+				return err
+			}
+			// Read the body even the data is not important
+			// this must to do
+			_, err = io.Copy(ioutil.Discard, resp.Body)
 			if err != nil {
 				return err
 			}

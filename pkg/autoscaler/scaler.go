@@ -21,7 +21,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/avast/retry-go"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"go.etcd.io/etcd/clientv3/concurrency"
@@ -47,6 +46,7 @@ type Scaler struct {
 	backend    metrics.Backend
 	dlock      concurrency.Mutex
 	state      model.State
+	httpCli    *http.Client
 }
 
 func newScaler(l log.Logger, data []byte, b metrics.Backend) *Scaler {
@@ -55,6 +55,7 @@ func newScaler(l log.Logger, data []byte, b metrics.Backend) *Scaler {
 		done:       make(chan struct{}),
 		terminated: make(chan struct{}),
 		backend:    b,
+		httpCli:    common.NewHTTPClient(),
 	}
 	_ = json.Unmarshal(data, s)
 	if s.Alert == nil {
@@ -137,62 +138,26 @@ func (s *Scaler) run(ctx context.Context, wg *sync.WaitGroup) {
 
 // do simply creates and executes a POST request
 func (s *Scaler) do() {
-	var (
-		wg  sync.WaitGroup
-		tr  *http.Transport
-		cli *http.Client
-	)
-	tr = &http.Transport{}
-	cli = &http.Client{
-		Transport: tr,
-		Timeout:   httpTimeout,
-	}
+	var wg sync.WaitGroup
 
 	for _, a := range s.Actions {
 		go func(a *model.ActionHTTP) {
 			wg.Add(1)
-			delay, _ := common.ParseDuration(a.Delay)
+			defer wg.Done()
 			url := a.URL.String()
-			err := retry.Do(
-				func() error {
-					// TODO(kiennt): Check kind of action url -> Authen or not?
-					req, err := http.NewRequest(a.Method, url, nil)
-					if err != nil {
-						return err
-					}
-					resp, err := cli.Do(req)
-					if err != nil {
-						return err
-					}
-					defer resp.Body.Close()
-					return nil
-				},
-				retry.DelayType(func(n uint, config *retry.Config) time.Duration {
-					var f retry.DelayTypeFunc
-					switch a.DelayType {
-					case "fixed":
-						f = retry.FixedDelay
-					case "backoff":
-						f = retry.BackOffDelay
-					}
-					return f(n, config)
-				}),
-				retry.Attempts(a.Attempts),
-				retry.Delay(delay),
-				retry.RetryIf(func(err error) bool {
-					return common.RetryableError(err)
-				}),
-			)
-			if err != nil {
-				level.Error(s.logger).Log("msg", "Error doing scale action", "url", url, "err", err)
+			// TODO(kiennt): Check kind of action url -> Authen or not?
+			if err := alert.SendHTTP(s.logger, s.httpCli, a, nil); err != nil {
+				level.Error(s.logger).Log("msg", "Error doing HTTP action",
+					"url", url, "err", err)
 				exporter.ReportFailureScalerActionCounter(cluster.ClusterID, "http")
 				return
 			}
+
 			exporter.ReportSuccessScalerActionCounter(cluster.ClusterID, "http")
 			level.Info(s.logger).Log("msg", "Sending request",
 				"url", url, "method", a.Method)
 			s.alert.Fire(time.Now())
-			defer wg.Done()
+			return
 		}(a)
 	}
 	// Wait until all actions were performed

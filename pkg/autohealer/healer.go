@@ -16,7 +16,6 @@ package autohealer
 
 import (
 	"context"
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -51,6 +50,7 @@ type Healer struct {
 	state      model.State
 	terminated chan struct{}
 	silences   map[string]*model.Silence
+	httpCli    *http.Client
 }
 
 func newHealer(l log.Logger, data []byte, b metrics.Backend, ate model.ATEngine) *Healer {
@@ -61,6 +61,7 @@ func newHealer(l log.Logger, data []byte, b metrics.Backend, ate model.ATEngine)
 		logger:     l,
 		terminated: make(chan struct{}),
 		silences:   make(map[string]*model.Silence),
+		httpCli:    common.NewHTTPClient(),
 	}
 	json.Unmarshal(data, h)
 	h.Validate()
@@ -249,17 +250,7 @@ func (h *Healer) run(ctx context.Context, e *common.Etcd, wg *sync.WaitGroup, nc
 }
 
 func (h *Healer) do(compute string) {
-	var (
-		wg  sync.WaitGroup
-		tr  *http.Transport
-		cli *http.Client
-	)
-
-	tr = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
-	cli = &http.Client{
-		Transport: tr,
-		Timeout:   httpTimeout,
-	}
+	var wg sync.WaitGroup
 
 	for _, a := range h.Actions {
 		switch at := a.(type) {
@@ -280,13 +271,11 @@ func (h *Healer) do(compute string) {
 					}
 					params["body"]["compute"] = compute
 				}
-				if err := alert.SendHTTP(h.logger, cli, at, params); err != nil {
+				if err := alert.SendHTTP(h.logger, h.httpCli, at, params); err != nil {
 					level.Error(h.logger).Log("msg", "Error doing HTTP action",
 						"url", at.URL.String(), "err", err)
 					exporter.ReportFailureHealerActionCounter(cluster.ClusterID, "http")
 					exporter.ReportATRequestFailureCounter(cluster.ClusterID, at.URL.String())
-					wg.Add(1)
-					defer wg.Done()
 					m := &model.ActionMail{
 						Receivers: h.Receivers,
 						Subject:   fmt.Sprintf("[autohealing] Node %s down, failed to trigger http request", compute),
