@@ -10,10 +10,8 @@
     - [3.1. The overall architecture](#31-the-overall-architecture)
     - [3.2. The workflow](#32-the-workflow)
   - [4. API](#4-api)
-    - [4.1. Register Cloud provider](#41-register-cloud-provider)
-    - [4.2. List all clouds](#42-list-all-clouds)
-    - [4.3. Create a scaler](#43-create-a-scaler)
-    - [4.4. List scalers](#44-list-scalers)
+    - [4.1. Create a scaler](#41-create-a-scaler)
+    - [4.2. List scalers](#42-list-scalers)
 
 This guide describes how to automatically scale out/scale in your Compute instances in response to heavy system usage. By combining with Prometheus pre-defined rules that consider factors such as CPU or memory usage, you can configure OpenStack Orchestration (Heat) to add & remove additional instances automatically, when they are needed.
 
@@ -81,7 +79,7 @@ Gnocchi + Aodh + Ceilometer --> Faythe + Prometheus
 
 ### 3.2. The workflow
 
-> NOTE: When send a request to Faythe, you might need a basic auth.
+> NOTE: When send a request to Faythe, you might need to authenticate with JWT.
 
 - Create Heat stack with AutoscalingGroup & ScalingPolicy.
 - Register your cloud with Faythe - a POST request with the following body. If you already register the cloud, skip this step
@@ -116,9 +114,9 @@ Resp
 {
     "Status": "OK",
     "Data": {
-        "/clouds/7f7bac1277f4c0a83a022a80060dd6cce5bcbf28666da6505c09b4c4e70e3a93": {
+        "/clouds/eb31219d766fde6d8f2d8bcad6269175": {
             "provider": "openstack",
-            "id": "7f7bac1277f4c0a83a022a80060dd6cce5bcbf28666da6505c09b4c4e70e3a93",
+            "id": "eb31219d766fde6d8f2d8bcad6269175",
             "endpoints": null,
             "monitor": {
                 "backend": "prometheus",
@@ -146,10 +144,10 @@ Resp
 }
 ```
 
-- Create a scaler to watch & handle Stack scale, `7f7bac1277f4c0a83a022a80060dd6cce5bcbf28666da6505c09b4c4e70e3a93` is the cloud provider id which is created by hash its auth-url. Not that, there is a sample query, you can put any Prometheus query there.
+- Create a scaler to watch & handle Stack scale, `eb31219d766fde6d8f2d8bcad6269175` is the cloud provider id which is created by hash its auth-url. Not that, there is a sample query, you can put any Prometheus query there.
 
 ```json
-POST /scalers/7f7bac1277f4c0a83a022a80060dd6cce5bcbf28666da6505c09b4c4e70e3a93
+POST /scalers/eb31219d766fde6d8f2d8bcad6269175/dfd8327e456413db7b3b493ef262cf20
 Req
 {
 	"query": "avg by(stack_asg_id) ((node_memory_MemTotal_bytes{stack_asg_id=\"cb13f760-8130-4aa4-8821-309e5eec8136\"} - (node_memory_MemFree_bytes{stack_asg_id=\"cb13f760-8130-4aa4-8821-309e5eec8136\"} + node_memory_Buffers_bytes{stack_asg_id=\"cb13f760-8130-4aa4-8821-309e5eec8136\"} + node_memory_Cached_bytes{stack_asg_id=\"cb13f760-8130-4aa4-8821-309e5eec8136\"})) / node_memory_MemTotal_bytes{stack_asg_id=\"cb13f760-8130-4aa4-8821-309e5eec8136\"} * 100) < 20",
@@ -196,45 +194,15 @@ Req
 
 ## 4. API
 
-### 4.1. Register Cloud provider
-
-**PATH**: `/clouds/{provider}`
-
-| Parameter             | In   | Type   | Required | Default | Description                                                                                           |
-| --------------------- | ---- | ------ | -------- | ------- | ----------------------------------------------------------------------------------------------------- |
-| provider              | body | string | true     |         | The cloud provider type. OpenStack is the only provider supported by now.                             |
-| endpoints             | body | dict   | false    |         | The map of Cloud provider endpoints.                                                                  |
-| monitor               | body | object | true     |         | The Cloud monitor.                                                                                    |
-| monitor.backend       | body | string | true     |         | The name of monitor service. Prometheus is the only supported by now.                                 |
-| monitor.address       | body | string | true     |         | The monitor service's endpoint used to query metrics. Should be in the format: `scheme://host:<port>` |
-| auth (openstack only) | body | object | true     |         | Auth stores information needed to authenticate to an OpenStack Cloud.                                 |
-| auth.auth_url         | body | string | true     |         | The HTTP endpoint that is required to work with the Identity API of the appropriate version.          |
-| auth.region_name      | body | string | false    |         | The OpenStack region.                                                                                 |
-| auth.username         | body | string | false    |         | The OpenStack Keystone username.                                                                      |
-| auth.password         | body | string | false    |         | The OpenStack Keystone username's password.                                                           |
-| auth.domain_name      | body | string | false    |         | The OpenStack Keystone domain name.                                                                   |
-| auth.domain_id        | body | string | false    |         | The OpenStack Keystone domain id.                                                                     |
-| auth.project_name     | body | string | false    |         | The OpenStack Keystone project name.                                                                  |
-| auth.project_id       | body | string | false    |         | The OpenStack Keystone domain id.                                                                     |
-
-### 4.2. List all clouds
-
-**PATH**: `/clouds`
-
-| Parameter | In    | Type   | Required | Default | Description                                                                                           |
-| --------- | ----- | ------ | -------- | :------ | ----------------------------------------------------------------------------------------------------- |
-| provider  | query | string | false    |         | Filter cloud list result by provider.                                                                 |
-| id        | query | string | false    |         | Filter cloud list result by id.                                                                       |
-| tags      | query | string | false    |         | A list of tags to filter the cloud list by. Clouds that match all tags in this list will be returned. |
-| tags-any  | query | string | false    |         | A list of tags to filter the cloud list by. Clouds that match any tags in this list will be returned. |
-|           |       |        |          |         |                                                                                                       |
-
-### 4.3. Create a scaler
+### 4.1. Create a scaler
 
 **PATH**: `/scalers/{provider-id}`
 
+**METHOD**: `POST`
+
 | Parameter          | In   | Type    | Required | Default | Description                                                                                                                                                                                      |
 | ------------------ | ---- | ------- | -------- | :------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| id                 | path | string  | true     |         | The cloud provider id.                                                                                                                                                                           |
 | query              | body | string  | true     |         | Query that will be executed against the Prometheus API. See [the official documentation](https://prometheus.io/docs/prometheus/latest/querying/basics/) for more details.                        |
 | duration           | body | string  | true     |         | The time that the `AutoscalingPolicy` must alert the threshold before the policy triggers a scale up or scale down action                                                                        |
 | interval           | body | string  | true     |         | The time between two continuous evaluate, re.the format please refer [note](./note.md#time-durations).                                                                                           |
@@ -243,7 +211,7 @@ Req
 | actions.type       | body | string  | false    | http    | The type of action.                                                                                                                                                                              |
 | actions.method     | body | string  | false    | POST    | The HTTP method                                                                                                                                                                                  |
 | actions.attempts   | body | integer | false    | 10      | The count of retry.                                                                                                                                                                              |
-| actions.delay      | body | string  | false    | 100ms   | The delay between retriesre.the format please refer [note](./note.md#time-durations).                                                                                                            |
+| actions.delay      | body | string  | false    | 100ms   | The delay between retries. Please refer [note](./note.md#time-durations) for formats.                                                                                                         |
 | actions.delay_type | body | string  | false    | fixed   | The delay type: `fixed` or `backoff`. BackOffDelay is a DelayType which increases delay between consecutive retries. FixedDelay is a DelayType which keeps delay the same through all iterations |
 | description        | body | string  | false    |         |                                                                                                                                                                                                  |
 | metadata           | body | string  | false    |         |                                                                                                                                                                                                  |
@@ -251,12 +219,15 @@ Req
 | cooldown           | body | string  | false    | 10m     | The period to disable scaling events after a scaling action takes place, re.the format please refer [note](./note.md#time-durations).                                                            |
 |                    |      |         |          |         |                                                                                                                                                                                                  |
 
-### 4.4. List scalers
+### 4.2. List scalers
 
 **PATH**: `/scalers/{provider-id}`
 
+**METHOD**: `GET`
+
 | Parameter | In    | Type   | Required | Default | Description                                                                                             |
 | --------- | ----- | ------ | -------- | :------ | ------------------------------------------------------------------------------------------------------- |
+| id        | path  | string | true     |         | The cloud provider id.                                                                                  |
 | tags      | query | string | false    |         | A list of tags to filter the scaler list by. Scalers that match all tags in this list will be returned. |
 | tags-any  | query | string | false    |         | A list of tags to filter the scaler list by. Scalers that match any tags in this list will be returned. |
 |           |       |        |          |         |                                                                                                         |

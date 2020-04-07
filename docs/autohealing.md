@@ -81,7 +81,9 @@ Silencers come in handy if you want to add a set of ignored hosts in case of mai
 
 Parameter explains:
 
-**PATH**: POST `/silences/{provider_id}`
+**PATH**: `/silences/{provider-id}`
+
+**METHOD**: `POST`
 
 | Parameter   | In   | Type   | Required | Default | Description                                                                |
 | ----------- | ---- | ------ | -------- | ------- | -------------------------------------------------------------------------- |
@@ -113,13 +115,17 @@ Resp
 
 Silencers of a cloud provider can be listed in:
 
-**PATH**: GET `/silences/{provider_id}`
+**PATH**: `/silences/{provider-id}`
+
+**METHOD**: `GET`
 
 #### Delete Silencer/Expire Silencer
 
 Silencer is automatically deleted and expired after reaching TTL duration. However, you can manually delete it by:
 
-**PATH**: DELETE `/silences/{provider_id}/{silencer_id}`
+**PATH**: `/silences/{provider-id}/{silencer-id}`
+
+**METHOD**: `DELETE`
 
 For example:
 
@@ -147,7 +153,9 @@ Healer has 3 APIs as usual: create, list, delete
 
 Currently, we only support one healer per cloud provider.
 
-**PATH**: POST `/healers/{provider_id}`
+**PATH**: `/healers/{provider-id}`
+
+**METHOD**: `POST`
 
 | Parameter          | In   | Type    | Required | Default                                                 | Description                                                                                                                                                                                      |
 | ------------------ | ---- | ------- | -------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -206,8 +214,12 @@ Resp
 
 #### List healer
 
-**PATH**: GET `/healers/{provider_id}`
+**PATH**: `/healers/{provider-id}`
+
+**METHOD**: `GET`
 
 #### Delete healer
 
-**PATH**: DELETE `/healers/{provider_id}/{healer_id}`
+**PATH**: `/healers/{provider-id}/{healer-id}`
+
+**METHOD**: `DELETE`
