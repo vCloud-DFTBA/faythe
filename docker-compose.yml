@@ -37,7 +37,7 @@ services:
       - 2379:2379
       - 2380:2380
     volumes:
-      - etcd_data:/binami
+      - etcd_data:/bitnami/etcd
 
 volumes:
   etcd_data:
