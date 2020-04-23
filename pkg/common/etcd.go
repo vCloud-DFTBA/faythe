@@ -202,6 +202,30 @@ func (e *Etcd) DoKeepAliveOnce(id etcdv3.LeaseID) (*etcdv3.LeaseKeepAliveRespons
 	return result, err
 }
 
+// DoKeepAlive attempts to keep the given lease alive forever. If the keepalive responses posted
+// to the channel are not consumed promptly the channel may become full. When full, the lease
+// client will continue sending keep alive requests to the etcd server, but will drop responses
+// until there is capacity on the channel to send more responses.
+//
+// If client keep alive loop halts with an unexpected error (e.g. "etcdserver: no leader") or
+// canceled by the caller (e.g. context.Canceled), KeepAlive returns a ErrKeepAliveHalted error
+// containing the error reason.
+//
+// The returned "LeaseKeepAliveResponse" channel closes if underlying keep
+// alive stream is interrupted in some way the client cannot handle itself;
+// given context "ctx" is canceled or timed out.
+func (e *Etcd) DoKeepAlive(id etcdv3.LeaseID) (<-chan *etcdv3.LeaseKeepAliveResponse, error) {
+	var (
+		result <-chan *etcdv3.LeaseKeepAliveResponse
+		err    error
+	)
+	result, err = e.KeepAlive(context.Background(), id)
+	if err != nil {
+		e.ErrCh <- err
+	}
+	return result, err
+}
+
 // DoRevoke revokes the given lease.
 func (e *Etcd) DoRevoke(id etcdv3.LeaseID) (*etcdv3.LeaseRevokeResponse, error) {
 	var (

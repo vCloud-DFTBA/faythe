@@ -165,14 +165,16 @@ func main() {
 	srvc := make(chan struct{})
 
 	go func() {
-		select {
-		case <-reloadc:
-			fas.Reload()
-			fah.Reload()
-		case <-stopc:
-			stopFunc()
-			level.Info(logger).Log("msg", "Faythe is stopping, bye bye!")
-			syscall.Kill(syscall.Getpid(), syscall.SIGTERM)
+		for {
+			select {
+			case <-reloadc:
+				fas.Reload()
+				fah.Reload()
+			case <-stopc:
+				stopFunc()
+				level.Info(logger).Log("msg", "Faythe is stopping, bye bye!")
+				syscall.Kill(syscall.Getpid(), syscall.SIGTERM)
+			}
 		}
 	}()
 

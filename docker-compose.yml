@@ -29,6 +29,22 @@ services:
       - --cluster-id=averycomplexclusterid
       - --log.level=debug
 
+  faythe3:
+    build: .
+    ports:
+      - 8602:8600
+    volumes:
+      - ./examples/faythe.yml:/etc/faythe/config.yml
+    restart: always
+    depends_on:
+      - faythe1
+      - faythe2
+      - etcd
+    command:
+      - --config.file=/etc/faythe/config.yml
+      - --cluster-id=averycomplexclusterid
+      - --log.level=debug
+
   etcd:
     image: bitnami/etcd:3
     environment:
