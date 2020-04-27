@@ -27,14 +27,5 @@ func (a *ActionMail) Validate() error {
 	if err := a.validate(); err != nil {
 		return err
 	}
-	if a.Delay == "" {
-		a.Delay = "100ms"
-	}
-	if a.DelayType == "" {
-		a.DelayType = "fixed"
-	}
-	if a.Attempts == 0 {
-		a.Attempts = 10
-	}
 	return nil
 }

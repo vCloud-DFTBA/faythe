@@ -37,12 +37,6 @@ The naming of metrics follows the suggested [Prometheus best practices](https://
 | ------------------------------------------ | -------------------------------------------------------- | ------- |
 | faythe_metric_backend_query_failures_total | The total number of metric backend query failures total. | counter |
 
-### 2.4. Automation Engine backend
-
-| Name                           | Description                                                                       | Type    |
-| ------------------------------ | --------------------------------------------------------------------------------- | ------- |
-| faythe_at_query_failures_total | The total number of automation system (Stackstorm for ex) request failures total. | counter |
-
 ### 2.5. Autoscaler
 
 | Name                                     | Description                                                               | Type    |

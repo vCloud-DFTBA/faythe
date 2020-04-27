@@ -41,7 +41,6 @@ type Manager struct {
 	rgt     *common.Registry
 	stop    chan struct{}
 	etcdcli *common.Etcd
-	watch   etcdv3.WatchChan
 	wg      *sync.WaitGroup
 	cluster *cluster.Cluster
 	state   model.State
@@ -106,7 +105,7 @@ func (m *Manager) Run() {
 					level.Debug(m.logger).Log("msg", "retry execute", "action", "watch",
 						"err", err, "key", model.DefaultScalerPrefix, "count", retryCount)
 					// Re-init watch channel
-					ctx, cancel = m.etcdcli.WatchContext()
+					ctx, _ = m.etcdcli.WatchContext()
 					watch = m.etcdcli.Watch(ctx, model.DefaultScalerPrefix, etcdv3.WithPrefix())
 					// Increase retry count
 					retryCount++
@@ -165,8 +164,8 @@ func (m *Manager) startScaler(name string, data []byte) {
 	}
 	s := newScaler(log.With(m.logger, "scaler", name), data, backend)
 	m.rgt.Set(name, s)
+	m.wg.Add(1)
 	go func() {
-		m.wg.Add(1)
 		s.run(context.Background(), m.wg)
 	}()
 }

@@ -230,7 +230,7 @@ func (c *Cluster) Run(rc chan struct{}) {
 					level.Debug(c.logger).Log("msg", "retry execute", "action", "watch",
 						"err", err, "key", model.DefaultClusterPrefix, "count", retryCount)
 					// Re-init watch channel
-					ctx, cancel = c.etcdcli.WatchContext()
+					ctx, _ = c.etcdcli.WatchContext()
 					watch = c.etcdcli.Watch(ctx, model.DefaultClusterPrefix, etcdv3.WithPrefix())
 					// Increase retry count
 					retryCount++
@@ -291,7 +291,7 @@ func (c *Cluster) Stop() {
 // responsibility for the given string key.
 func (c *Cluster) LocalIsWorker(key string) (string, string, bool) {
 	workerID, _ := c.ring.Get(key)
-	worker, _ := c.members[workerID]
+	worker := c.members[workerID]
 	// Return the node name, it will be easier for user.
 	return c.local.Name, worker.Name, workerID == c.local.ID
 }

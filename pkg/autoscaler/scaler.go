@@ -23,8 +23,6 @@ import (
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
-	"go.etcd.io/etcd/clientv3/concurrency"
-
 	"github.com/vCloud-DFTBA/faythe/pkg/alert"
 	"github.com/vCloud-DFTBA/faythe/pkg/cluster"
 	"github.com/vCloud-DFTBA/faythe/pkg/common"
@@ -32,8 +30,6 @@ import (
 	"github.com/vCloud-DFTBA/faythe/pkg/metrics"
 	"github.com/vCloud-DFTBA/faythe/pkg/model"
 )
-
-const httpTimeout = time.Second * 15
 
 // Scaler does metric polling and executes scale actions.
 type Scaler struct {
@@ -44,7 +40,6 @@ type Scaler struct {
 	done       chan struct{}
 	terminated chan struct{}
 	backend    metrics.Backend
-	dlock      concurrency.Mutex
 	state      model.State
 	httpCli    *http.Client
 }
@@ -141,8 +136,8 @@ func (s *Scaler) do() {
 	var wg sync.WaitGroup
 
 	for _, a := range s.Actions {
+		wg.Add(1)
 		go func(a *model.ActionHTTP) {
-			wg.Add(1)
 			defer wg.Done()
 			url := a.URL.String()
 			// TODO(kiennt): Check kind of action url -> Authen or not?
@@ -157,7 +152,6 @@ func (s *Scaler) do() {
 			level.Info(s.logger).Log("msg", "Sending request",
 				"url", url, "method", a.Method)
 			s.alert.Fire(time.Now())
-			return
 		}(a)
 	}
 	// Wait until all actions were performed

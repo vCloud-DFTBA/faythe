@@ -26,11 +26,11 @@ type Alert struct {
 }
 
 func (a *Alert) ShouldFire(duration time.Duration) bool {
-	return a.State.Active && time.Now().Sub(a.State.StartedAt) >= duration
+	return a.State.Active && time.Since(a.State.StartedAt) >= duration
 }
 
 func (a *Alert) IsCoolingDown(cooldown time.Duration) bool {
-	a.cooling = time.Now().Sub(a.State.FiredAt) <= cooldown
+	a.cooling = time.Since(a.State.FiredAt) <= cooldown
 	return a.cooling
 }
 

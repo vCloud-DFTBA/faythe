@@ -104,7 +104,6 @@ func (a *API) createScaler(w http.ResponseWriter, req *http.Request) {
 	}
 
 	a.respondSuccess(w, http.StatusOK, nil)
-	return
 }
 
 // List all current Scalers from etcd3
@@ -156,7 +155,6 @@ func (a *API) listScalers(w http.ResponseWriter, req *http.Request) {
 	}
 	wg.Wait()
 	a.respondSuccess(w, http.StatusOK, scalers.Items())
-	return
 }
 
 // Delete a Scaler from etcd3
@@ -182,7 +180,6 @@ func (a *API) deleteScaler(w http.ResponseWriter, req *http.Request) {
 	}
 	fmt.Printf("%+v", resp)
 	a.respondSuccess(w, http.StatusOK, nil)
-	return
 }
 
 func (a *API) updateScaler(w http.ResponseWriter, req *http.Request) {

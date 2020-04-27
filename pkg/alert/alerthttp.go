@@ -40,11 +40,7 @@ func SendHTTP(l log.Logger, cli *http.Client, a *model.ActionHTTP, add ...map[st
 			if add != nil {
 				req.Header.Set("Content-Type", "application/json")
 				if header, ok := add[0]["header"]; ok {
-					if apikey, ok := header["apikey"]; ok {
-						req.Header.Add("St2-Api-Key", apikey)
-					} else {
-						req.SetBasicAuth(header["username"], header["password"])
-					}
+					req.SetBasicAuth(header["username"], header["password"])
 				}
 
 				if body, ok := add[0]["body"]; ok {

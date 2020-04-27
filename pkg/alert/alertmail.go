@@ -38,7 +38,7 @@ func SendMail(a *model.ActionMail) error {
 	})
 	m.SetBody("text/html", a.Body)
 
-	d := mail.NewDialer(mc.Host, mc.Port, mc.Username, string(mc.Password))
+	d := mail.NewDialer(mc.Host, mc.Port, mc.Username, mc.Password)
 	d.TLSConfig = &tls.Config{InsecureSkipVerify: true}
 
 	if err := d.DialAndSend(m); err != nil {

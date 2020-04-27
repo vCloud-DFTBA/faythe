@@ -43,11 +43,10 @@ func (a *API) listNResolvers(rw http.ResponseWriter, req *http.Request) {
 		err = json.Unmarshal(e.Value, &nrt)
 		if err != nil {
 			level.Error(a.logger).Log("msg", "Error getting nresolver from etcd",
-				"nrsolvere", e.Key, "err", err.Error())
+				"nresolver", e.Key, "err", err.Error())
 			continue
 		}
 		nresolvers.Set(string(e.Key), nrt)
 	}
 	a.respondSuccess(rw, http.StatusOK, nresolvers.Items())
-	return
 }

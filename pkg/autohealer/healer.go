@@ -28,7 +28,9 @@ import (
 	"github.com/go-kit/kit/log/level"
 	etcdv3 "go.etcd.io/etcd/clientv3"
 
+	"github.com/vCloud-DFTBA/faythe/config"
 	"github.com/vCloud-DFTBA/faythe/pkg/alert"
+	"github.com/vCloud-DFTBA/faythe/pkg/cloud/store/openstack"
 	"github.com/vCloud-DFTBA/faythe/pkg/cluster"
 	"github.com/vCloud-DFTBA/faythe/pkg/common"
 	"github.com/vCloud-DFTBA/faythe/pkg/exporter"
@@ -36,13 +38,10 @@ import (
 	"github.com/vCloud-DFTBA/faythe/pkg/model"
 )
 
-const httpTimeout = time.Second * 15
-
 // Healer scrape metric from metrics backend periodically
 // and evaluate whether it is necessary to do healing action
 type Healer struct {
 	model.Healer
-	at         model.ATEngine
 	backend    metrics.Backend
 	done       chan struct{}
 	logger     log.Logger
@@ -53,9 +52,8 @@ type Healer struct {
 	httpCli    *http.Client
 }
 
-func newHealer(l log.Logger, data []byte, b metrics.Backend, ate model.ATEngine) *Healer {
+func newHealer(l log.Logger, data []byte, b metrics.Backend) *Healer {
 	h := &Healer{
-		at:         ate,
 		backend:    b,
 		done:       make(chan struct{}),
 		logger:     l,
@@ -79,6 +77,7 @@ func (h *Healer) run(ctx context.Context, e *common.Etcd, wg *sync.WaitGroup, nc
 	whitelist := make(map[string]struct{})
 	swatch := e.Watch(ctx, common.Path(model.DefaultSilencePrefix, h.CloudID), etcdv3.WithPrefix())
 	h.updateSilence(e)
+
 	// Record the number of healers
 	exporter.ReportNumberOfHealers(cluster.ClusterID, 1)
 	defer func() {
@@ -251,31 +250,17 @@ func (h *Healer) run(ctx context.Context, e *common.Etcd, wg *sync.WaitGroup, nc
 
 func (h *Healer) do(compute string) {
 	var wg sync.WaitGroup
-
 	for _, a := range h.Actions {
 		switch at := a.(type) {
 		case *model.ActionHTTP:
+			wg.Add(1)
 			go func(url string, compute string) {
-				wg.Add(1)
 				defer wg.Done()
 				params := make(map[string]map[string]string)
-				switch h.at.Backend {
-				case "stackstorm":
-					params["header"] = make(map[string]string)
-					params["body"] = make(map[string]string)
-					if apikey := h.at.APIKey; apikey != "" {
-						params["header"]["apikey"] = string(apikey)
-					} else if username := h.at.Username; username != "" {
-						params["header"]["username"] = h.at.Username
-						params["header"]["password"] = string(h.at.Password)
-					}
-					params["body"]["compute"] = compute
-				}
 				if err := alert.SendHTTP(h.logger, h.httpCli, at, params); err != nil {
 					level.Error(h.logger).Log("msg", "Error doing HTTP action",
 						"url", at.URL.String(), "err", err)
 					exporter.ReportFailureHealerActionCounter(cluster.ClusterID, "http")
-					exporter.ReportATRequestFailureCounter(cluster.ClusterID, at.URL.String())
 					m := &model.ActionMail{
 						Receivers: h.Receivers,
 						Subject:   fmt.Sprintf("[autohealing] Node %s down, failed to trigger http request", compute),
@@ -295,8 +280,8 @@ func (h *Healer) do(compute string) {
 					"url", url, "method", at.Method)
 			}(string(at.URL), compute)
 		case *model.ActionMail:
+			wg.Add(1)
 			go func(compute string) {
-				wg.Add(1)
 				defer wg.Done()
 				at.Receivers = h.Receivers
 				at.Subject = fmt.Sprintf("[autohealing] Node %s down, trigger autohealing", compute)
@@ -309,6 +294,34 @@ func (h *Healer) do(compute string) {
 				}
 				exporter.ReportSuccessHealerActionCounter(cluster.ClusterID, "mail")
 				level.Info(h.logger).Log("msg", "Sending mail to", "receivers", strings.Join(at.Receivers, ","))
+			}(compute)
+		case *model.ActionMistral:
+			wg.Add(1)
+			go func(compute string) {
+				defer wg.Done()
+				mc := config.Get().MailConfig
+				at.Input = map[string]interface{}{
+					"compute":       compute,
+					"smtp_server":   fmt.Sprintf("%s:%d", mc.Host, mc.Port),
+					"smtp_username": mc.Username,
+					"smtp_password": mc.Password,
+					"to_addrs":      h.Receivers,
+				}
+				store := openstack.Get()
+				os, ok := store.Get(h.CloudID)
+				if !ok {
+					level.Error(h.logger).Log("msg",
+						fmt.Sprintf("cannot find cloud key %s in store", h.CloudID))
+					exporter.ReportFailureHealerActionCounter(cluster.ClusterID, "mistral")
+					return
+				}
+				if err := alert.ExecuteWorkflow(os, at); err != nil {
+					level.Error(h.logger).Log("msg", "error doing Mistral action", "err", err)
+					exporter.ReportFailureHealerActionCounter(cluster.ClusterID, "mistral")
+					return
+				}
+				exporter.ReportSuccessHealerActionCounter(cluster.ClusterID, "mistral")
+				level.Info(h.logger).Log("msg", fmt.Sprintf("Triggering workflow %s", at.WorkflowID))
 			}(compute)
 		}
 	}

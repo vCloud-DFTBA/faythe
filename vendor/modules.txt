@@ -38,6 +38,17 @@ github.com/golang/protobuf/ptypes/duration
 github.com/golang/protobuf/ptypes/timestamp
 # github.com/google/uuid v1.1.1
 github.com/google/uuid
+# github.com/gophercloud/gophercloud v0.10.0
+github.com/gophercloud/gophercloud/openstack/workflow/v2/workflows
+github.com/gophercloud/gophercloud/openstack/workflow/v2/executions
+github.com/gophercloud/gophercloud
+github.com/gophercloud/gophercloud/openstack
+github.com/gophercloud/gophercloud/pagination
+github.com/gophercloud/gophercloud/openstack/identity/v2/tokens
+github.com/gophercloud/gophercloud/openstack/identity/v3/extensions/ec2tokens
+github.com/gophercloud/gophercloud/openstack/identity/v3/tokens
+github.com/gophercloud/gophercloud/openstack/utils
+github.com/gophercloud/gophercloud/openstack/identity/v2/tenants
 # github.com/gorilla/mux v1.7.3
 github.com/gorilla/mux
 # github.com/jinzhu/copier v0.0.0-20190625015134-976e0346caa8
@@ -186,7 +197,7 @@ gopkg.in/alecthomas/kingpin.v2
 gopkg.in/alexcesaro/quotedprintable.v3
 # gopkg.in/mail.v2 v2.3.1
 gopkg.in/mail.v2
-# gopkg.in/yaml.v2 v2.2.4
+# gopkg.in/yaml.v2 v2.2.7
 gopkg.in/yaml.v2
 # honnef.co/go/tools v0.0.1-2019.2.3
 honnef.co/go/tools/arg
