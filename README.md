@@ -32,6 +32,7 @@ Follow the documentation [here](./docs/getting-started.md).
 
 * Cloud autoscaler with pluggable metric backends & cloud providers.
 * Cloud compute self-healing: Automatically migrate VMs on hosts if predicted problems occur.
+* We have an UI [here](https://github.com/vCloud-DFTBA/faythe-ui).
 
 **NOTE**:
 * Supported metric backend: [Prometheus](prometheus.io/).

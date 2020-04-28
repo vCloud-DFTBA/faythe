@@ -12,6 +12,7 @@
   - [4. API](#4-api)
     - [4.1. Create a scaler](#41-create-a-scaler)
     - [4.2. List scalers](#42-list-scalers)
+    - [4.3. Delete scaler](#43-delete-scaler)
 
 This guide describes how to automatically scale out/scale in your Compute instances in response to heavy system usage. By combining with Prometheus pre-defined rules that consider factors such as CPU or memory usage, you can configure OpenStack Orchestration (Heat) to add & remove additional instances automatically, when they are needed.
 
@@ -201,8 +202,8 @@ Req
 **METHOD**: `POST`
 
 | Parameter          | In   | Type    | Required | Default | Description                                                                                                                                                                                      |
-| ------------------ | ---- | ------- | -------- | :------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| id                 | path | string  | true     |         | The cloud provider id.                                                                                                                                                                           |
+|--------------------|------|---------|----------|---------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| provider-id        | path | string  | true     |         | The cloud provider id.                                                                                                                                                                           |
 | query              | body | string  | true     |         | Query that will be executed against the Prometheus API. See [the official documentation](https://prometheus.io/docs/prometheus/latest/querying/basics/) for more details.                        |
 | duration           | body | string  | true     |         | The time that the `AutoscalingPolicy` must alert the threshold before the policy triggers a scale up or scale down action                                                                        |
 | interval           | body | string  | true     |         | The time between two continuous evaluate, re.the format please refer [note](./note.md#time-durations).                                                                                           |
@@ -211,7 +212,7 @@ Req
 | actions.type       | body | string  | false    | http    | The type of action.                                                                                                                                                                              |
 | actions.method     | body | string  | false    | POST    | The HTTP method                                                                                                                                                                                  |
 | actions.attempts   | body | integer | false    | 10      | The count of retry.                                                                                                                                                                              |
-| actions.delay      | body | string  | false    | 100ms   | The delay between retries. Please refer [note](./note.md#time-durations) for formats.                                                                                                         |
+| actions.delay      | body | string  | false    | 100ms   | The delay between retries. Please refer [note](./note.md#time-durations) for formats.                                                                                                            |
 | actions.delay_type | body | string  | false    | fixed   | The delay type: `fixed` or `backoff`. BackOffDelay is a DelayType which increases delay between consecutive retries. FixedDelay is a DelayType which keeps delay the same through all iterations |
 | description        | body | string  | false    |         |                                                                                                                                                                                                  |
 | metadata           | body | string  | false    |         |                                                                                                                                                                                                  |
@@ -225,9 +226,21 @@ Req
 
 **METHOD**: `GET`
 
-| Parameter | In    | Type   | Required | Default | Description                                                                                             |
-| --------- | ----- | ------ | -------- | :------ | ------------------------------------------------------------------------------------------------------- |
-| id        | path  | string | true     |         | The cloud provider id.                                                                                  |
-| tags      | query | string | false    |         | A list of tags to filter the scaler list by. Scalers that match all tags in this list will be returned. |
-| tags-any  | query | string | false    |         | A list of tags to filter the scaler list by. Scalers that match any tags in this list will be returned. |
-|           |       |        |          |         |                                                                                                         |
+| Parameter   | In    | Type   | Required | Default | Description                                                                                             |
+|-------------|-------|--------|----------|---------|---------------------------------------------------------------------------------------------------------|
+| provider-id | path  | string | true     |         | The cloud provider id.                                                                                  |
+| tags        | query | string | false    |         | A list of tags to filter the scaler list by. Scalers that match all tags in this list will be returned. |
+| tags-any    | query | string | false    |         | A list of tags to filter the scaler list by. Scalers that match any tags in this list will be returned. |
+|             |       |        |          |         |                                                                                                         |
+
+### 4.3. Delete scaler
+
+**PATH**: `/scalers/{provider-id}/{scaler-id}`
+
+**METHOD**: `DELETE`
+
+| Parameter   | In   | Type   | Required | Default | Description            |
+|-------------|------|--------|----------|---------|------------------------|
+| provider-id | path | string | true     |         | The cloud provider id. |
+| scaler-id   | path | string | true     |         | The scaler id.         |
+|             |      |        |          |         |                        |
