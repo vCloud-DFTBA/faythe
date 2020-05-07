@@ -1,6 +1,11 @@
 # Faythe
 
-[![license](https://img.shields.io/badge/license-Apache%20v2.0-blue.svg)](LICENSE) [![Go Report Card](https://goreportcard.com/badge/github.com/vCloud-DFTBA/faythe)](https://goreportcard.com/report/github.com/vCloud-DFTBA/faythe)
+[![license](https://img.shields.io/badge/license-Apache%20v2.0-blue.svg)](LICENSE)
+[![Go Report Card](https://goreportcard.com/badge/github.com/vCloud-DFTBA/faythe)](https://goreportcard.com/report/github.com/vCloud-DFTBA/faythe)
+[![GitHub tag](https://img.shields.io/github/tag/vCloud-DFTBA/faythe.svg)](https://github.com/vCloud-DFTBA/faythe/tags)
+![Docker pulls](https://img.shields.io/docker/pulls/kiennt26/faythe?logo=docker)
+![Docker image size](https://img.shields.io/microbadger/image-size/kiennt26/faythe?logo=docker)
+
 
 <p align="center">
   <img width="350px" height="350px" src="./logo/logo_transparent.png">
