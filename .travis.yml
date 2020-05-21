@@ -3,8 +3,7 @@ language: go
 go: 1.14.3
 go_import_path: github.com/vCloud-DFTBA/faythe
 env:
-  matrix:
-    - GO111MODULE=on
+  - GO111MODULE=on
 
 jobs:
   allow_failures:
