@@ -1,4 +1,4 @@
-FROM golang:1.12-alpine as builder
+FROM golang:1.14.3-alpine as builder
 LABEL maintainer="Kien Nguyen-Tuan <kiennt2609@gmail.com>"
 
 ENV GO111MODULE=on
