@@ -51,8 +51,7 @@ jobs:
           packages:
             - docker-ce
       env:
-        # DOCKER_PASSWORD
-        - secure: z2foKeuqhXNNg7qxJSNz6OykTxyQ62ut3wsSGxAMac18NYHchYM4L8CdcRrlI1MThXbBjjBmzdD8AQs0GM1A1IhIde/0WYWtvoRc1Goge8cyfjDrKAVIug63trvKOYfvvZLIH+s5/fo0Ffx/5I8jkzydwBNuMOl9G1cPaXsveJmzGi7HodX0cJRpuE+EUdhUEF0yAWkxwrCjMQqQx7bGk3RHth11Ru//l8U0qQuUu8b1blTZApYXuL5HAc2R1u+pBR3Kt0D31m3LS/wUwQeqaN4Z8dW6x8pNBqH0iqva8ePkFnxDhMo6h8Rvf3Qd2U68A5LfoIBiaYRXswMscekSgt5g6XJ2+e9xW04b4KKigfmlxJQIP00pwy9y7dkZujeW4c3QDr1MEl2byxlvN8piUpwuATygW1vufX6fz2bjiBOpRSt52b1Vn+WA9bp334qb9cB+lGZjEPKFHofxXyU0MZMgSVQj5rLgQQDlY855sTNhzQqbrM0ZPGBwuDCJZ6C89pU69Mbu1bNo0TQKAEjYayMn99EkWB2M1e5pCUpLMDNgI97dfT+M/ljnGiPmdyJLcbmdnFSP2ZoZ3CiURD/1kPe9sNPGOZHAew/CEu+uks91+FIhQkCh59jnFRTKR0+gE0RApuYa/39rmACmF7DToiXcfOZI8y2VSeBgRgktH8s=
+        - secure: wsDFqxZJExFbeaezYy1HQpCs9mwyAk/RrQNKe6nx2QcdgLll7MohBsuE+R9OaOWIx5TjJkRSxm+qrLE/rW843JJKGjiu9CtqOTFr/VREvbwYWtcIUJwdsPPl8OT2aguLEfMT7zhQIasMhc21nEM7Evrdq8kqgH9VaCt2gmECBlOxFJs6mhbkchbMXuCHfRTT9oMy2nrhKDOBINeDaBlmY+W4eahrHJ8a/NApxrEarhTR5Ln7TNNluXmws0EzuzzAlAZvzzHTmQbWaNUB+Qm/TNSm3QH44o9LvCSiRwXYK64DunXC1eEXpYkw6rDSmTeSaTws0jhHrkRMaVpBnNLQ6Z6ZYte7KmlaUPwf/VUEnQnoS2Npn6vsW4Dy0XsY31s3IpJKYcMGOPPd+F/5hCkNkghPzHBQTaqKCsZD99olU08F8UdDpCCGto+Eb3iP+uCUy1z40gBnCGpcpa8aW3XQU8au3AH24Wtddhk5Wf3Ua0KxuyvtcfRqOQdAFv2xkVJejKsJfGUbimdekoQiF/gFzlidaYd2IvzZCUyI+puSubDzplDffk9agDWaR3lLxAfhsaHYAHdIh65927za/+/OQGLEvwPCVlC/er6qachA1dD9avAW60hkHysbDzhYt3PFwAF0sksrCQ6IdsBhOe815hTQkAcxltNc4qHPE6BRTNw=
       script:
         # Build
         - export VERSION=$(git describe --tags --always --abbrev=0 --dirty='-dev')
@@ -60,7 +59,6 @@ jobs:
         - export DOCKER_IMAGE=faythe
         - export LOCAL_IMAGE="${DOCKER_IMAGE}:${VERSION}"
         - travis_retry docker build -t "${LOCAL_IMAGE}" .
-        # Tag:latest
         - export IMAGE_NAME="${DOCKER_USERNAME}/${DOCKER_IMAGE}"
         - docker tag "${LOCAL_IMAGE}" "${IMAGE_NAME}:latest"
         # Tag :version on new release
