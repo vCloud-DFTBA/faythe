@@ -1,0 +1,70 @@
+os: linux
+language: go
+go: 1.14.3
+go_import_path: github.com/vCloud-DFTBA/faythe
+env:
+  matrix:
+    - GO111MODULE=on
+
+jobs:
+  allow_failures:
+    - stage: Test
+      name: Lint code
+      script:
+        - go install github.com/golangci/golangci-lint/cmd/golangci-lint
+        - golangci-lint run
+  include:
+    - stage: Test
+      name: Build the binary
+      script:
+        - go build ./...
+    - stage: Test
+      name: Verify go.sum
+      script:
+        - travis_retry go get -d -v ./...
+        - travis_retry go mod tidy
+        - git diff --exit-code
+    - stage: Test
+      name: Build Docker image
+      if: "(type = push AND branch = master) OR tag IS NOT present"
+      language: shell
+      addons:
+        apt:
+          packages:
+            - docker-ce
+      script:
+        - export VERSION=$(git describe --tags --always --abbrev=0 --dirty='-dev')
+        - export DOCKER_USERNAME=kiennt26
+        - export DOCKER_IMAGE=faythe
+        - export LOCAL_IMAGE="${DOCKER_IMAGE}:${VERSION}"
+        - travis_retry docker build -t "${LOCAL_IMAGE}" .
+        - export IMAGE_NAME="${DOCKER_USERNAME}/${DOCKER_IMAGE}"
+        - docker tag "${LOCAL_IMAGE}" "${IMAGE_NAME}:latest"
+    - stage: Build and Deploy
+      name: Build and push docker image
+      if:
+        repo = vCloud-DFTBA/faythe AND ((type = push AND branch = master) OR tag IS
+        present)
+      language: shell
+      addons:
+        apt:
+          packages:
+            - docker-ce
+      env:
+        # DOCKER_PASSWORD
+        - secure: z2foKeuqhXNNg7qxJSNz6OykTxyQ62ut3wsSGxAMac18NYHchYM4L8CdcRrlI1MThXbBjjBmzdD8AQs0GM1A1IhIde/0WYWtvoRc1Goge8cyfjDrKAVIug63trvKOYfvvZLIH+s5/fo0Ffx/5I8jkzydwBNuMOl9G1cPaXsveJmzGi7HodX0cJRpuE+EUdhUEF0yAWkxwrCjMQqQx7bGk3RHth11Ru//l8U0qQuUu8b1blTZApYXuL5HAc2R1u+pBR3Kt0D31m3LS/wUwQeqaN4Z8dW6x8pNBqH0iqva8ePkFnxDhMo6h8Rvf3Qd2U68A5LfoIBiaYRXswMscekSgt5g6XJ2+e9xW04b4KKigfmlxJQIP00pwy9y7dkZujeW4c3QDr1MEl2byxlvN8piUpwuATygW1vufX6fz2bjiBOpRSt52b1Vn+WA9bp334qb9cB+lGZjEPKFHofxXyU0MZMgSVQj5rLgQQDlY855sTNhzQqbrM0ZPGBwuDCJZ6C89pU69Mbu1bNo0TQKAEjYayMn99EkWB2M1e5pCUpLMDNgI97dfT+M/ljnGiPmdyJLcbmdnFSP2ZoZ3CiURD/1kPe9sNPGOZHAew/CEu+uks91+FIhQkCh59jnFRTKR0+gE0RApuYa/39rmACmF7DToiXcfOZI8y2VSeBgRgktH8s=
+      script:
+        # Build
+        - export VERSION=$(git describe --tags --always --abbrev=0 --dirty='-dev')
+        - export DOCKER_USERNAME=kiennt26
+        - export DOCKER_IMAGE=faythe
+        - export LOCAL_IMAGE="${DOCKER_IMAGE}:${VERSION}"
+        - travis_retry docker build -t "${LOCAL_IMAGE}" .
+        # Tag:latest
+        - export IMAGE_NAME="${DOCKER_USERNAME}/${DOCKER_IMAGE}"
+        - docker tag "${LOCAL_IMAGE}" "${IMAGE_NAME}:latest"
+        # Tag :version on new release
+        - if [ -n "$TRAVIS_TAG" ]; then docker tag "${LOCAL_IMAGE}" "${IMAGE_NAME}:${VERSION}" ; fi
+        # Push
+        - travis_retry docker login -u "${DOCKER_USERNAME}" -p "${DOCKER_PASSWORD}"
+        - travis_retry docker push "${IMAGE_NAME}"
