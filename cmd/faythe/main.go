@@ -71,7 +71,8 @@ func main() {
 	a.Flag("external-url",
 		"The URL under which Faythe is externally reachable.").
 		PlaceHolder("<URL>").StringVar(&cfg.url)
-	a.Flag("cluster-id", "The unique ID of the cluster, leave it empty to initialize a new cluster.").
+	a.Flag("cluster-id",
+		"The unique ID of the cluster, leave it empty to initialize a new cluster. This will be the root prefix for all Faythe keys stored in Etcd.").
 		StringVar(&cfg.clusterID)
 
 	logflag.AddFlags(a, &cfg.logConfig)
