@@ -51,7 +51,7 @@ jobs:
           packages:
             - docker-ce
       env:
-        - secure: wsDFqxZJExFbeaezYy1HQpCs9mwyAk/RrQNKe6nx2QcdgLll7MohBsuE+R9OaOWIx5TjJkRSxm+qrLE/rW843JJKGjiu9CtqOTFr/VREvbwYWtcIUJwdsPPl8OT2aguLEfMT7zhQIasMhc21nEM7Evrdq8kqgH9VaCt2gmECBlOxFJs6mhbkchbMXuCHfRTT9oMy2nrhKDOBINeDaBlmY+W4eahrHJ8a/NApxrEarhTR5Ln7TNNluXmws0EzuzzAlAZvzzHTmQbWaNUB+Qm/TNSm3QH44o9LvCSiRwXYK64DunXC1eEXpYkw6rDSmTeSaTws0jhHrkRMaVpBnNLQ6Z6ZYte7KmlaUPwf/VUEnQnoS2Npn6vsW4Dy0XsY31s3IpJKYcMGOPPd+F/5hCkNkghPzHBQTaqKCsZD99olU08F8UdDpCCGto+Eb3iP+uCUy1z40gBnCGpcpa8aW3XQU8au3AH24Wtddhk5Wf3Ua0KxuyvtcfRqOQdAFv2xkVJejKsJfGUbimdekoQiF/gFzlidaYd2IvzZCUyI+puSubDzplDffk9agDWaR3lLxAfhsaHYAHdIh65927za/+/OQGLEvwPCVlC/er6qachA1dD9avAW60hkHysbDzhYt3PFwAF0sksrCQ6IdsBhOe815hTQkAcxltNc4qHPE6BRTNw=
+        - secure: "GcAxmYXfQ4DiEfY0dqyaNveMLgmUxbeqwX7Kjqzhoj9nLha60egwxH8ssSvHG12ZppaYh530GC0hzXAcaBzVDV2M7bFcYatWynuVILfnnbZEi25y9ki8KGhQsAsMeKKlad76IL1rwQA+GbBAu2FutOeXAqz7UDyYXfFLFCjzeOOBxVP1Qimm/ysyyqHiiS2Zd+aOHuUA0S2RMjFXY9GSS0mrxqc3P9oyTrtsOzr/aIVwz8h1yQBV2tuZC5UpzWn5FE7O5GIxNxZe2z5ml0HZtnNtgIXHIBKTXlVz4iMvXDuRySPRHXwJsrd5VjOqRIxf8dWpyhv9F3fSlZMHGhBoIygk0pAz2sUsRAGJ5JmvNWyPLebVu4OHfDhihtsbK4AM+0KnzCi8254QQ2WTyDOJkzRTHKNzpsXf83ueIznN5tiVzQczABoi0oyRClWk5WEBf1wbXb+oES6Pl4WIeNGLYV7+6izJZO/uT3fLyYKOkIzvG0ue09gNR3aytvqS/rr9dNE/tZJSMM7rXT5p48qvFv9BI5fJhrPXdgj4ySoWRobLIMmd511+/ghWS8UD+0LcY+iRsBDzdCYL/19vFom5MnqKAi6MkRffD3wf/B1Te4R+h0nXC6HXiBrSzTJ7m+OEPE9kwhkB/MEdr817WomMwcijtdCipgmtAUxb9Rwr+Ug="
       script:
         # Build
         - export VERSION=$(git describe --tags --always --abbrev=0 --dirty='-dev')
