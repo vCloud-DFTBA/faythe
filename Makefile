@@ -1,10 +1,10 @@
 # Use git tag/git branch to tag Docker image.
 CURRENT_DIR             ?= $(shell pwd)
-DOCKER_IMAGE_TAG        ?= $(subst /,-,$(shell git describe --tags --abbrev=0 || git rev-parse --abbrev-ref HEAD))
-DOCKER_REPO             ?= kiennt26
+VERSION                 ?= $(subst /,-,$(shell git describe --tags --always --abbrev=0 --dirty='-dev' || git rev-parse --abbrev-ref HEAD))
+DOCKER_USERNAME         ?= kiennt26
 DOCKER_IMAGE_NAME       ?= faythe
-DOCKER_IMAGE_FULL       ?= $(DOCKER_REPO)/$(DOCKER_IMAGE_NAME):$(DOCKER_IMAGE_TAG)
-DOCKER_IMAGE_LATEST     ?= $(DOCKER_REPO)/$(DOCKER_IMAGE_NAME):latest
+DOCKER_IMAGE_FULL       ?= $(DOCKER_USERNAME)/$(DOCKER_IMAGE_NAME):$(VERSION)
+DOCKER_IMAGE_LATEST     ?= $(DOCKER_USERNAME)/$(DOCKER_IMAGE_NAME):latest
 DOCKER_CONTAINER_NAME   ?= faythe
 FAYTHE_PORT             ?= 8600
 FAYTHE_CONF_PATH        ?= $(CURRENT_DIR)/examples/faythe.yml
