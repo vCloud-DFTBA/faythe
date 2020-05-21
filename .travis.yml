@@ -6,10 +6,9 @@ env:
   - GO111MODULE=on
 
 jobs:
+  fast_finish: true
   allow_failures:
-    - stage: Test
-      name: Lint code
-      script:
+    - script:
         - go install github.com/golangci/golangci-lint/cmd/golangci-lint
         - golangci-lint run
   include:
