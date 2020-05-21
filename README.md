@@ -5,6 +5,7 @@
 [![GitHub tag](https://img.shields.io/github/tag/vCloud-DFTBA/faythe.svg)](https://github.com/vCloud-DFTBA/faythe/tags)
 ![Docker pulls](https://img.shields.io/docker/pulls/kiennt26/faythe?logo=docker)
 ![Docker image size](https://img.shields.io/microbadger/image-size/kiennt26/faythe?logo=docker)
+[![Build Status](https://travis-ci.org/vCloud-DFTBA/faythe.svg?branch=master)](https://travis-ci.org/vCloud-DFTBA/faythe)
 
 
 <p align="center">
