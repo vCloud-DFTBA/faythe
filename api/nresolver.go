@@ -49,4 +49,5 @@ func (a *API) listNResolvers(rw http.ResponseWriter, req *http.Request) {
 		nresolvers.Set(string(e.Key), nrt)
 	}
 	a.respondSuccess(rw, http.StatusOK, nresolvers.Items())
+	return
 }

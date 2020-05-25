@@ -61,4 +61,5 @@ func (a *API) getToken(rw http.ResponseWriter, req *http.Request) {
 	})
 
 	a.respondSuccess(rw, http.StatusOK, "")
+	return
 }
