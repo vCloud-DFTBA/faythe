@@ -97,7 +97,7 @@ func (a *API) createHealer(rw http.ResponseWriter, req *http.Request) {
 			if err != nil {
 				a.respondError(rw, apiError{
 					code: http.StatusBadRequest,
-					err:  err,
+					err:  fmt.Errorf("error while getting workflow: %s", err.Error()),
 				})
 				return
 			}

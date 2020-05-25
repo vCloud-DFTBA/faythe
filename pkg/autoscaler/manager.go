@@ -105,7 +105,7 @@ func (m *Manager) Run() {
 					level.Debug(m.logger).Log("msg", "retry execute", "action", "watch",
 						"err", err, "key", model.DefaultScalerPrefix, "count", retryCount)
 					// Re-init watch channel
-					ctx, _ = m.etcdcli.WatchContext()
+					ctx, cancel = m.etcdcli.WatchContext()
 					watch = m.etcdcli.Watch(ctx, model.DefaultScalerPrefix, etcdv3.WithPrefix())
 					// Increase retry count
 					retryCount++

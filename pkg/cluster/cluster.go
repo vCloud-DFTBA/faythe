@@ -230,7 +230,7 @@ func (c *Cluster) Run(rc chan struct{}) {
 					level.Debug(c.logger).Log("msg", "retry execute", "action", "watch",
 						"err", err, "key", model.DefaultClusterPrefix, "count", retryCount)
 					// Re-init watch channel
-					ctx, _ = c.etcdcli.WatchContext()
+					ctx, cancel = c.etcdcli.WatchContext()
 					watch = c.etcdcli.Watch(ctx, model.DefaultClusterPrefix, etcdv3.WithPrefix())
 					// Increase retry count
 					retryCount++
