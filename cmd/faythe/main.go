@@ -41,8 +41,10 @@ import (
 	"github.com/vCloud-DFTBA/faythe/middleware"
 	"github.com/vCloud-DFTBA/faythe/pkg/autohealer"
 	"github.com/vCloud-DFTBA/faythe/pkg/autoscaler"
+	"github.com/vCloud-DFTBA/faythe/pkg/cloud/store/openstack"
 	"github.com/vCloud-DFTBA/faythe/pkg/cluster"
 	"github.com/vCloud-DFTBA/faythe/pkg/common"
+
 )
 
 func main() {
@@ -84,7 +86,7 @@ func main() {
 	}
 
 	logger := promlog.New(&cfg.logConfig)
-	cfg.externalURL, err = computeExternalURL(cfg.url, cfg.listenAddress)
+	cfg.externalURL, _ = computeExternalURL(cfg.url, cfg.listenAddress)
 	level.Info(logger).Log("msg", "Staring Faythe...")
 	rtStats := common.RuntimeStats()
 	level.Debug(logger).Log("msg", "Golang runtime stats")
@@ -140,13 +142,19 @@ func main() {
 	homeRouter.Use(fmw.Authenticate)
 	fapi.Register(homeRouter)
 
-	// Init autoscale manager
+	// Init autoscaler manager
 	fas = autoscaler.NewManager(log.With(logger, "component", "autoscaler manager"), etcdcli, cls)
 	go fas.Run()
 
-	// Init autoheal manager
+	// Init autohealer manager
 	fah := autohealer.NewManager(log.With(logger, "component", "autohealer manager"), etcdcli, cls)
 	go fah.Run()
+
+	// Init Cloud store
+	openstack.InitStore()
+	if err := openstack.Load(etcdcli); err != nil {
+		level.Error(logger).Log("msg", "error while loading cloud information", "err", err)
+	}
 
 	stopc := make(chan struct{})
 	go etcdcli.Run(stopc)

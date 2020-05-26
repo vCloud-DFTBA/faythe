@@ -14,23 +14,25 @@
 
 package model
 
+import (
+	"strings"
+
+	"github.com/pkg/errors"
+
+	"github.com/vCloud-DFTBA/faythe/pkg/common"
+)
+
 type ActionHTTP struct {
 	Action
-	URL    URL    `json:"url"`
-	Method string `json:"method,omitempty"`
+	URL       URL    `json:"url"`
+	Method    string `json:"method,omitempty"`
+	Attempts  uint   `json:"attempts,omitempty"`
+	Delay     string `json:"delay,omitempty"`
+	DelayType string `json:"delay_type,omitempty"`
 }
 
 // Validate returns nil if all fields of the Action have valid values.
 func (a *ActionHTTP) Validate() error {
-
-	if err := a.validate(); err != nil {
-		return err
-	}
-
-	if err := a.URL.Validate(); err != nil {
-		return err
-	}
-
 	if a.Delay == "" {
 		a.Delay = "100ms"
 	}
@@ -43,6 +45,22 @@ func (a *ActionHTTP) Validate() error {
 	if a.Attempts == 0 {
 		a.Attempts = 10
 	}
-
+	if _, err := common.ParseDuration(a.Delay); err != nil {
+		return err
+	}
+	switch strings.ToLower(a.DelayType) {
+	case BackoffDelay:
+		// BackOffDelay is a DelayType which increases delay between consecutive retries
+	case FixedDelay:
+		// FixedDelay is a DelayType which keeps delay the same through all iterations
+	default:
+		return errors.Errorf("unsupported delay type: %s", a.DelayType)
+	}
+	if err := a.validate(); err != nil {
+		return err
+	}
+	if err := a.URL.Validate(); err != nil {
+		return err
+	}
 	return nil
 }

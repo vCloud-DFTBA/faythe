@@ -115,20 +115,15 @@ func (hm *Manager) startWorker(p string, name string, data []byte) {
 	if p == model.DefaultNResolverPrefix {
 		nr := newNResolver(log.With(hm.logger, "nresolver", name), data, backend)
 		hm.rqt.Set(name, nr)
+		hm.wg.Add(1)
 		go func() {
-			hm.wg.Add(1)
 			nr.run(context.Background(), hm.wg, &hm.ncin)
 		}()
 	} else {
-		atengine, err := hm.getATEngine(name)
-		if err != nil {
-			level.Error(hm.logger).Log("msg", "Error getting automation engine for worker",
-				"name", name, "err", err)
-		}
-		h := newHealer(log.With(hm.logger, "healer", name), data, backend, atengine)
+		h := newHealer(log.With(hm.logger, "healer", name), data, backend)
 		hm.rqt.Set(name, h)
+		hm.wg.Add(1)
 		go func() {
-			hm.wg.Add(1)
 			h.run(context.Background(), hm.etcdcli, hm.wg, hm.ncout)
 		}()
 	}
@@ -344,36 +339,4 @@ func (hm *Manager) rebalance() {
 		}(ev)
 	}
 	wg.Wait()
-}
-
-func (hm *Manager) getATEngine(key string) (model.ATEngine, error) {
-	providerID := strings.Split(key, "/")[2]
-	resp, err := hm.etcdcli.DoGet(common.Path(model.DefaultCloudPrefix, providerID))
-	if err != nil {
-		return model.ATEngine{}, err
-	}
-	value := resp.Kvs[0]
-	var (
-		cloud    model.Cloud
-		atengine model.ATEngine
-	)
-	err = json.Unmarshal(value.Value, &cloud)
-	if err != nil {
-		return atengine, err
-	}
-	switch cloud.Provider {
-	case model.OpenStackType:
-		var ops model.OpenStack
-		err = json.Unmarshal(value.Value, &ops)
-		if err != nil {
-			return atengine, err
-		}
-
-		// Check connection
-		if err := common.ReachableTCP(ops.ATEngine.Address.String()); err != nil {
-			return atengine, err
-		}
-		atengine = ops.ATEngine
-	}
-	return atengine, nil
 }

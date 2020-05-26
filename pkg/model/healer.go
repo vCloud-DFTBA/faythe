@@ -39,7 +39,7 @@ type Healer struct {
 	Tags            []string                   `json:"tags"`
 }
 
-// Validate healher model
+// Validate healer model
 func (h *Healer) Validate() error {
 
 	if h.EvaluationLevel == 0 {
@@ -90,8 +90,14 @@ func (h *Healer) Validate() error {
 					return err
 				}
 				h.Actions[k] = ah
+			case "mistral":
+				aw := &ActionMistral{}
+				if err := json.Unmarshal(v, aw); err != nil {
+					return err
+				}
+				h.Actions[k] = aw
 			default:
-				return fmt.Errorf("Type %s is not supported", a.Type)
+				return fmt.Errorf("type %s is not supported", a.Type)
 			}
 			if err := h.Actions[k].Validate(); err != nil {
 				return err

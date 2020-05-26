@@ -25,6 +25,7 @@ import (
 	cmap "github.com/orcaman/concurrent-map"
 	etcdv3 "go.etcd.io/etcd/clientv3"
 
+	"github.com/vCloud-DFTBA/faythe/pkg/cloud/store/openstack"
 	"github.com/vCloud-DFTBA/faythe/pkg/common"
 	"github.com/vCloud-DFTBA/faythe/pkg/metrics"
 	"github.com/vCloud-DFTBA/faythe/pkg/model"
@@ -93,7 +94,12 @@ func (a *API) registerCloud(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 
+		// Set cloud to Store
+		store := openstack.Get()
+		store.Set(ops.ID, *ops)
+
 		a.respondSuccess(w, http.StatusOK, nil)
+		return
 	}
 }
 
@@ -174,6 +180,10 @@ func (a *API) unregisterCloud(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	// Remove cloud from store
+	store := openstack.Get()
+	store.Delete(pid)
+
 	scalerPath := common.Path(model.DefaultScalerPrefix, pid)
 	_, err = a.etcdcli.DoDelete(scalerPath, etcdv3.WithPrefix())
 	if err != nil {
@@ -184,6 +194,7 @@ func (a *API) unregisterCloud(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	a.respondSuccess(w, http.StatusOK, nil)
+	return
 }
 
 func (a *API) updateCloud(w http.ResponseWriter, req *http.Request) {

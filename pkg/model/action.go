@@ -18,15 +18,11 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
-	"github.com/vCloud-DFTBA/faythe/pkg/common"
 )
 
-// Action represents an scale action
+// Action represents an action
 type Action struct {
-	Type      string `json:"type"`
-	Attempts  uint   `json:"attempts,omitempty"`
-	Delay     string `json:"delay,omitempty"`
-	DelayType string `json:"delay_type,omitempty"`
+	Type string `json:"type"`
 }
 
 type ActionInterface interface {
@@ -38,23 +34,10 @@ func (a Action) validate() error {
 		return errors.Errorf("Missing action type")
 	}
 
-	if _, err := common.ParseDuration(a.Delay); err != nil {
-		return err
-	}
-
 	switch strings.ToLower(a.Type) {
-	case "http", "mail":
+	case "http", "mail", "mistral":
 	default:
 		return errors.Errorf("unsupported action type: %s", a.Type)
-	}
-
-	switch strings.ToLower(a.DelayType) {
-	case BackoffDelay:
-		// BackOffDelay is a DelayType which increases delay between consecutive retries
-	case FixedDelay:
-		// FixedDelay is a DelayType which keeps delay the same through all iterations
-	default:
-		return errors.Errorf("unsupported delay type: %s", a.DelayType)
 	}
 
 	return nil

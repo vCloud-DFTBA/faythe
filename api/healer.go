@@ -22,10 +22,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gophercloud/gophercloud/openstack/workflow/v2/workflows"
 	"github.com/gorilla/mux"
 	cmap "github.com/orcaman/concurrent-map"
 	etcdv3 "go.etcd.io/etcd/clientv3"
 
+	"github.com/vCloud-DFTBA/faythe/pkg/cloud/store/openstack"
 	"github.com/vCloud-DFTBA/faythe/pkg/common"
 	"github.com/vCloud-DFTBA/faythe/pkg/metrics"
 	"github.com/vCloud-DFTBA/faythe/pkg/model"
@@ -53,6 +55,54 @@ func (a *API) createHealer(rw http.ResponseWriter, req *http.Request) {
 			err:  err,
 		})
 		return
+	}
+
+	for _, v := range h.ActionsRaw {
+		action := model.Action{}
+		if err := json.Unmarshal(v, &action); err != nil {
+			a.respondError(rw, apiError{
+				code: http.StatusInternalServerError,
+				err:  err,
+			})
+			return
+		}
+		switch strings.ToLower(action.Type) {
+		case "mistral":
+			aw := &model.ActionMistral{}
+			if err := json.Unmarshal(v, aw); err != nil {
+				a.respondError(rw, apiError{
+					code: http.StatusInternalServerError,
+					err:  err,
+				})
+				return
+			}
+			store := openstack.Get()
+			os, ok := store.Get(c.ID)
+			if !ok {
+				a.respondError(rw, apiError{
+					code: http.StatusBadRequest,
+					err:  fmt.Errorf("action of Mistral type are supported for OpenStack cloud only" +
+						"or unknown Cloud ID"),
+				})
+				return
+			}
+			wc, err := os.NewWorkflowClient()
+			if err != nil {
+				a.respondError(rw, apiError{
+					code: http.StatusInternalServerError,
+					err:  err,
+				})
+				return
+			}
+			_, err = workflows.Get(wc, aw.WorkflowID).Extract()
+			if err != nil {
+				a.respondError(rw, apiError{
+					code: http.StatusBadRequest,
+					err:  fmt.Errorf("error while getting workflow: %s", err.Error()),
+				})
+				return
+			}
+		}
 	}
 
 	if err := h.Validate(); err != nil {

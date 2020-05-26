@@ -291,7 +291,7 @@ func (c *Cluster) Stop() {
 // responsibility for the given string key.
 func (c *Cluster) LocalIsWorker(key string) (string, string, bool) {
 	workerID, _ := c.ring.Get(key)
-	worker, _ := c.members[workerID]
+	worker := c.members[workerID]
 	// Return the node name, it will be easier for user.
 	return c.local.Name, worker.Name, workerID == c.local.ID
 }

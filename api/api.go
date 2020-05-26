@@ -18,7 +18,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/pprof"
-	"sync"
 	"time"
 
 	"github.com/go-kit/kit/log"
@@ -35,7 +34,6 @@ type API struct {
 	logger  log.Logger
 	uptime  time.Time
 	etcdcli *common.Etcd
-	mtx     sync.RWMutex
 }
 
 // New returns a new API.

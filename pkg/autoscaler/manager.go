@@ -41,7 +41,6 @@ type Manager struct {
 	rgt     *common.Registry
 	stop    chan struct{}
 	etcdcli *common.Etcd
-	watch   etcdv3.WatchChan
 	wg      *sync.WaitGroup
 	cluster *cluster.Cluster
 	state   model.State
@@ -165,8 +164,8 @@ func (m *Manager) startScaler(name string, data []byte) {
 	}
 	s := newScaler(log.With(m.logger, "scaler", name), data, backend)
 	m.rgt.Set(name, s)
+	m.wg.Add(1)
 	go func() {
-		m.wg.Add(1)
 		s.run(context.Background(), m.wg)
 	}()
 }
