@@ -23,6 +23,7 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/gorilla/mux"
+	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/vCloud-DFTBA/faythe/config"
@@ -112,6 +113,7 @@ func (a *API) receive(req *http.Request, v interface{}) error {
 
 func (a *API) respondError(w http.ResponseWriter, e apiError) {
 	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(e.code)
 	level.Error(a.logger).Log("msg", "API error", "err", e.Error())
 
 	b, err := json.Marshal(&response{
@@ -153,4 +155,14 @@ func (a *API) respondSuccess(w http.ResponseWriter, code int, data interface{}) 
 	if _, err := w.Write(b); err != nil {
 		level.Error(a.logger).Log("msg", "failed to write data to connection", "err", err)
 	}
+}
+
+func (a *API) unauthorizedHandler() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		a.respondError(w, apiError{
+			code: http.StatusUnauthorized,
+			err:  errors.New("Invalid credentials"),
+		})
+		return
+	})
 }
