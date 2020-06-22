@@ -1,0 +1,20 @@
+language: go
+
+sudo: required
+
+go:
+  - tip
+
+service:
+  - docker
+
+before_install:
+  - echo $TRAVIS_GO_VERSION
+  - docker pull quay.io/coreos/etcd:v3.3.10
+  - docker run -d -p 6379:2379 quay.io/coreos/etcd:v3.3.10 etcd --name test-etcd --listen-client-urls http://0.0.0.0:2379 --advertise-client-urls http://0.0.0.0:2380
+
+install:
+  - dep ensure
+
+script:
+  - $HOME/gopath/bin/goveralls -service=travis-ci

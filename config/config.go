@@ -19,17 +19,37 @@ import (
 	"fmt"
 	"time"
 
+	"golang.org/x/crypto/bcrypt"
 	"google.golang.org/grpc"
 	"gopkg.in/yaml.v2"
 )
 
 // Config is the top-level configuration for Faythe's config file.
 type Config struct {
-	GlobalConfig GlobalConfig `yaml:"global"`
-	EtcdConfig   EtcdConfig   `yaml:"etcd"`
-	MailConfig   MailConfig   `yaml:"mail,omitempty"`
+	EtcdConfig EtcdConfig `yaml:"etcd"`
+	JWTConfig  JWTConfig  `yaml:"jwt"`
+	MailConfig MailConfig `yaml:"mail,omitempty"`
+	// RemoteHostPattern can define an optional regexp pattern to be matched:
+	//
+	// - {name} matches anything until the next dot.
+	//
+	// - {name:pattern} matches the given regexp pattern.
+	RemoteHostPattern string `yaml:"remote_host_pattern,omitempty"`
+	// PasswordHashingCost is the cost to hash the user password.
+	// Check bcrypt for details: https://godoc.org/golang.org/x/crypto/bcrypt#pkg-constants
+	PasswordHashingCost int `yaml:"password_hashing_cost"`
+	// EnableProfiling enables profiling via web interface host:port/debug/pprof/
+	EnableProfiling     bool                `yaml:"enable_profiling"`
+	AdminAuthentication AdminAuthentication `yaml:"admin_authentication"`
 }
 
+// AdminAuthentication represents the `root/admin` user authentication
+type AdminAuthentication struct {
+	Username string `yaml:"username"`
+	Password string `yaml:"password"`
+}
+
+// MailConfig stores configs to setup a SNMP client.
 type MailConfig struct {
 	Host     string `yaml:"host"`
 	Protocol string `yaml:"protocol"`
@@ -38,26 +58,31 @@ type MailConfig struct {
 	Password string `yaml:"password"`
 }
 
-// GlobalConfig configures values that are used to config Faythe HTTP server
-type GlobalConfig struct {
-	// RemoteHostPattern can define an optional regexp pattern to be matched:
-	//
-	// - {name} matches anything until the next dot.
-	//
-	// - {name:pattern} matches the given regexp pattern.
-	RemoteHostPattern string `yaml:"remote_host_pattern,omitempty"`
-	// BasicAuthentication - HTTP Basic authentication.
-	BasicAuthentication BasicAuthentication `yaml:"basic_auth,omitempty"`
-	// EnableProfiling enables profiling via web interface host:port/debug/pprof/
-	EnableProfiling bool `yaml:"enable_profiling"`
-}
-
-// BasicAuthentication - HTTP Basic authentication.
-type BasicAuthentication struct {
-	// Usename, Password to implement HTTP basic authentication
-	Username  string `yaml:"username"`
-	Password  string `yaml:"password"`
-	SecretKey string `yaml:"secret_key"`
+// JWTConfig is a struct for specifying JWT configuration options
+// A clone of Options struct: https://github.com/adam-hanna/jwt-auth/blob/develop/jwt/auth.go#L31
+type JWTConfig struct {
+	// SigningMethodString is a string to define the signing method
+	// Valid signing methods:
+	// - "RS256","RS384","RS512" (RSA signing method)
+	// - "ES256","ES384","ES512" (ECDSA signing method)
+	// More details here: https://github.com/dgrijalva/jwt-go#signing-methods-and-key-types
+	SigningMethod string `yaml:"signing_method"`
+	// PrivateKeyLocation is the private key path
+	// $ openssl genrsa -out faythe.rsa 2048
+	PrivateKeyLocation string `yaml:"private_key_location"`
+	// PublicKeyLocation is the public key path
+	// $ openssl rsa -in faythe.rsa -pubout > faythe.rsa.pub
+	PublicKeyLocation string `yaml:"public_key_location"`
+	// TTL - Token time to live
+	TTL           time.Duration `yaml:"ttl"`
+	IsBearerToken bool          `yaml:"is_bearer_token"`
+	// Header is a name of the custom request header.
+	// If IsBearerToken is set, the header name will be `Authorization`
+	// with value format `Bearer <token-string>`.
+	Header string `yaml:"header"`
+	// The name of the property in the request where the user information
+	// from the JWT will be stored.
+	UserProperty string `yaml:"user_property"`
 }
 
 // EtcdConfig stores Etcd related configurations.
@@ -115,27 +140,25 @@ type EtcdConfig struct {
 }
 
 const (
-	etcdDefaultDialTimeout      = 5 * time.Second
-	etcdDefaultKeepAliveTime    = 5 * time.Second
-	etcdDefaultKeepAliveTimeOut = 6 * time.Second
+	etcdDefaultDialTimeout       = 5 * time.Second
+	etcdDefaultKeepAliveTime     = 5 * time.Second
+	etcdDefaultKeepAliveTimeOut  = 6 * time.Second
+	jwtDefaultSigningMethod      = "RS256"
+	jwtDefaultTTL                = 60 * time.Minute
+	jwtDefaultIsBearerToken      = true
+	jwtDefaultUserProperty       = "user"
+	jwtDefaultPrivateKeyLocation = "/etc/faythe/keys/faythe.rsa"
+	jwtDefaultPublicKeyLocation  = "/etc/faythe/keys/faythe.rsa.pub"
 )
 
 var (
 	// DefaultConfig is the default top-level configuration.
 	DefaultConfig = Config{
-		GlobalConfig: DefaultGlobalConfig,
-		EtcdConfig:   DefaultEtcdConfig,
-	}
-
-	// DefaultGlobalConfig is the default global configuration.
-	DefaultGlobalConfig = GlobalConfig{
+		EtcdConfig:          DefaultEtcdConfig,
+		JWTConfig:           DefaultJWTConfig,
 		RemoteHostPattern:   ".*",
-		BasicAuthentication: BasicAuthentication{
-			Username: "admin",
-			Password: "admin@123",
-			SecretKey: "YourSecretKey",
-		},
 		EnableProfiling:     false,
+		PasswordHashingCost: bcrypt.DefaultCost,
 	}
 
 	// DefaultEtcdConfig is the default Etcd configuration.
@@ -145,6 +168,16 @@ var (
 		DialKeepAliveTime:    etcdDefaultKeepAliveTime,
 		DialKeepAliveTimeout: etcdDefaultKeepAliveTimeOut,
 		DialOptions:          []grpc.DialOption{grpc.WithBlock()},
+	}
+
+	// DefaultJWTConfig is the default JWT configuration.
+	DefaultJWTConfig = JWTConfig{
+		SigningMethod:      jwtDefaultSigningMethod,
+		TTL:                jwtDefaultTTL,
+		IsBearerToken:      jwtDefaultIsBearerToken,
+		UserProperty:       jwtDefaultUserProperty,
+		PrivateKeyLocation: jwtDefaultPrivateKeyLocation,
+		PublicKeyLocation:  jwtDefaultPublicKeyLocation,
 	}
 )
 
@@ -171,19 +204,6 @@ func (c *Config) String() string {
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface
-func (c *GlobalConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
-	*c = DefaultGlobalConfig
-	// We want to set c to the defaults and then overwrite it with the input.
-	// To make unmarshal fill the plain data struct rather than calling UnmarshalYAML
-	// again, we have to hide it using a type indirection.
-	type plain GlobalConfig
-	if err := unmarshal((*plain)(c)); err != nil {
-		return err
-	}
-	return nil
-}
-
-// UnmarshalYAML implements the yaml.Unmarshaler interface
 func (c *EtcdConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	*c = DefaultEtcdConfig
 	// We want to set c to the defaults and then overwrite it with the input.
@@ -199,6 +219,19 @@ func (c *EtcdConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
 // UnmarshalYAML implements the yaml.Unmarshaler interface
 func (c *MailConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	type plain MailConfig
+	if err := unmarshal((*plain)(c)); err != nil {
+		return err
+	}
+	return nil
+}
+
+// UnmarshalYAML implements the yaml.Unmarshaler interface
+func (c *JWTConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	*c = DefaultJWTConfig
+	// We want to set c to the defaults and then overwrite it with the input.
+	// To make unmarshal fill the plain data struct rather than calling UnmarshalYAML
+	// again, we have to hide it using a type indirection.
+	type plain JWTConfig
 	if err := unmarshal((*plain)(c)); err != nil {
 		return err
 	}

@@ -94,7 +94,7 @@ func New(cid, bindAddr string, l log.Logger, e *common.Etcd) (*Cluster, error) {
 		ClusterID = common.RandToken()
 		level.Info(c.logger).Log("msg", "A new cluster is starting...")
 	} else {
-		ClusterID = cid
+		ClusterID = strings.Trim(cid, "/")
 		level.Info(c.logger).Log("msg", "A node is joining to existing cluster...")
 	}
 	level.Info(c.logger).Log("msg", "Use the cluster id to join", "id", cid)

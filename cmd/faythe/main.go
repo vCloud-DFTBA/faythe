@@ -38,13 +38,11 @@ import (
 
 	"github.com/vCloud-DFTBA/faythe/api"
 	"github.com/vCloud-DFTBA/faythe/config"
-	"github.com/vCloud-DFTBA/faythe/middleware"
 	"github.com/vCloud-DFTBA/faythe/pkg/autohealer"
 	"github.com/vCloud-DFTBA/faythe/pkg/autoscaler"
 	"github.com/vCloud-DFTBA/faythe/pkg/cloud/store/openstack"
 	"github.com/vCloud-DFTBA/faythe/pkg/cluster"
 	"github.com/vCloud-DFTBA/faythe/pkg/common"
-
 )
 
 func main() {
@@ -98,7 +96,6 @@ func main() {
 		etcdcfg = etcdv3.Config{}
 		etcdcli = &common.Etcd{}
 		router  = mux.NewRouter()
-		fmw     = &middleware.Middleware{}
 		fapi    = &api.API{}
 		fas     = &autoscaler.Manager{}
 		cls     = &cluster.Cluster{}
@@ -131,16 +128,13 @@ func main() {
 	reloadc := make(chan struct{})
 	go cls.Run(reloadc)
 
-	fmw = middleware.New(log.With(logger, "component", "transport middleware"))
-
-	fapi = api.New(log.With(logger, "component", "api"), etcdcli)
+	fapi, err = api.New(log.With(logger, "component", "api"), etcdcli)
+	if err != nil {
+		level.Error(logger).Log("msg", errors.Wrap(err, "Error initializing API"))
+		os.Exit(2)
+	}
 	router.StrictSlash(true)
-	router.Use(fmw.Instrument, fmw.Logging, fmw.RestrictDomain, fmw.HandleCors)
-	publicRouter := router.PathPrefix("/public").Subrouter()
-	fapi.RegisterPublicRouter(publicRouter)
-	homeRouter := router.PathPrefix("/").Subrouter()
-	homeRouter.Use(fmw.Authenticate)
-	fapi.Register(homeRouter)
+	fapi.Register(router)
 
 	// Init autoscaler manager
 	fas = autoscaler.NewManager(log.With(logger, "component", "autoscaler manager"), etcdcli, cls)

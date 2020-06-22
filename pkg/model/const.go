@@ -34,6 +34,13 @@ const (
 	// DefaultSilencePrefix is default etcd prefix for Silences
 	DefaultSilencePrefix             = "/silences"
 	DefaultSilenceValidationInterval = "30s"
+
+	// DefaultUserPrefix is default etcd prefix for Users
+	DefaultUsersPrefix = "/users"
+
+	// DefaultPoliciesPrefix is default etcd prefix for policies
+	// This prefix is a bit different than others, it doesn't start with a slash '/'
+	DefaultPoliciesPrefix = "policies"
 )
 
 const DefaultMaxNumberOfInstances int = 3

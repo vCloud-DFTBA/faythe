@@ -1,14 +1,31 @@
-# Global configuration
-global:
-  # Example:
-  # "www.example.com"
-  # "([a-z]+).domain.com"
-  # The regex has to follow Golang regex convention
-  # remote_host_pattern: "192.168.(128|129).*"
-  # basic_auth:
-  #   username: "admin"
-  #   password: "notverysecurepassword"
-
-# Etcd configuration
+# Example:
+# "www.example.com"
+# "([a-z]+).domain.com"
+# The regex has to follow Golang regex convention
+remote_host_pattern: "192.168.(128|129).*"
+# Enable the Go process profiler
+enable_profiling: true
+admin_authentication:
+  username: admin
+  password: adminpassword
+# Etcd configurations
 etcd:
-  endpoints: ["etcd:2379"]
+  endpoints: ["192.168.1.2:2379", "192.168.1.3:2379", "192.168.1.4:2379"]
+  username: etcduser
+  password: etcdpassword
+  auto_sync_interval: 30s
+  dial_timeout: 2s
+  dial_keep_alive_time: 2s
+  dial_keep_alive_timeout: 6s
+# JWT configurations
+jwt:
+  signing_method: RS256
+  is_bearer_token: true
+  private_key_location: /etc/faythe/keys/faythe.rsa
+  public_key_location: /etc/faythe/keys/faythe.rsa.pub
+# Mail configurations
+mail:
+  host: smtp.gmail.com
+  port: 465
+  username: emailuser
+  password: emailpassword

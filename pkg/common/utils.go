@@ -36,6 +36,7 @@ import (
 
 	"github.com/pkg/errors"
 	prommodel "github.com/prometheus/common/model"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // BasicAuthTransport is an http.RoundTripper that authenticates all requests
@@ -74,6 +75,18 @@ func (t *BasicAuthTransport) transport() http.RoundTripper {
 	return t.Transport
 }
 
+// GenerateBcryptHash return the hash password
+func GenerateBcryptHash(password string, cost int) (string, error) {
+	bytes, err := bcrypt.GenerateFromPassword([]byte(password), cost)
+	return string(bytes), err
+}
+
+// CheckPasswordAgainstHash compares the password with the hashed password
+func CheckPasswordAgainstHash(password, hash string) bool {
+	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
+	return err == nil
+}
+
 // HashFNV generates a new 64-bit number from a given string
 // using 64-bit FNV-1a hash function.
 func HashFNV(s string) string {
@@ -109,6 +122,9 @@ func RandToken() string {
 
 // Path returns a etcd key path.
 func Path(keys ...string) string {
+	for index, key := range keys {
+		keys[index] = key
+	}
 	return strings.Join(append([]string{}, keys...), "/")
 }
 

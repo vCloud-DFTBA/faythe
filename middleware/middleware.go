@@ -15,12 +15,13 @@
 package middleware
 
 import (
+	"fmt"
 	"net/http"
 	"regexp"
 	"strings"
 	"time"
 
-	"github.com/dgrijalva/jwt-go"
+	"github.com/casbin/casbin/v2"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/prometheus/client_golang/prometheus"
@@ -33,7 +34,6 @@ import (
 // Middleware represents middleware handlers.
 type Middleware struct {
 	logger log.Logger
-	auth   config.BasicAuthentication
 	regexp *regexp.Regexp
 }
 
@@ -43,13 +43,11 @@ func New(l log.Logger) *Middleware {
 		l = log.NewNopLogger()
 	}
 
-	cfg := config.Get().GlobalConfig
-	a := cfg.BasicAuthentication
+	cfg := config.Get()
 	r, _ := regexp.Compile(cfg.RemoteHostPattern)
 
 	return &Middleware{
 		logger: l,
-		auth:   a,
 		regexp: r,
 	}
 }
@@ -72,6 +70,30 @@ func (h instrumentHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	h.handler.ServeHTTP(w, req)
 }
 
+// Authorizer is a middleware checks whether the user is allowed to perform
+// the request.
+func Authorizer(e *casbin.Enforcer) func(next http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		fn := func(w http.ResponseWriter, req *http.Request) {
+			data := req.Context().Value("user").(map[string]interface{})
+			// Force re-load the policy
+			_ = e.LoadPolicy()
+			res, err := e.Enforce(data["name"], req.URL.Path, req.Method)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			if !res {
+				w.WriteHeader(http.StatusForbidden)
+				fmt.Fprint(w, "you don't have permission to perform this action")
+				return
+			}
+			next.ServeHTTP(w, req)
+		}
+		return http.HandlerFunc(fn)
+	}
+}
+
 // Instrument is a middleware that wraps the provided http.Handler
 // to observe the request result.
 func (m *Middleware) Instrument(next http.Handler) http.Handler {
@@ -88,55 +110,6 @@ func (m *Middleware) Logging(next http.Handler) http.Handler {
 				"user-agent", req.UserAgent(),
 				"time", time.Since(start))
 		}()
-		next.ServeHTTP(w, req)
-	})
-}
-
-// Authenticate verifies authentication provided in the request's Authorization
-// header if the request uses JSON web tokens.
-func (m *Middleware) Authenticate(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		if req.Method != "OPTIONS" {
-			c, err := req.Cookie("api-token")
-			if err != nil {
-				if err == http.ErrNoCookie {
-					level.Error(m.logger).Log("msg", "Unauthorized request")
-					http.Error(w, "Login Required!", http.StatusUnauthorized)
-					return
-				}
-
-				level.Error(m.logger).Log("msg", "Error while getting request cookie",
-					"err", err.Error())
-				http.Error(w, err.Error(), http.StatusBadRequest)
-				return
-			}
-
-			tokenString := c.Value
-			claims := &jwt.StandardClaims{}
-			token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (i interface{}, err error) {
-				return []byte(m.auth.SecretKey), nil
-			})
-
-			if err != nil {
-				if err == jwt.ErrSignatureInvalid {
-					level.Error(m.logger).Log("msg", "Unauthorized request")
-					http.Error(w, "Login Required!", http.StatusUnauthorized)
-					return
-				}
-
-				level.Error(m.logger).Log("msg", "Error while verifying token",
-					"err", err.Error())
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
-
-			if !token.Valid {
-				level.Error(m.logger).Log("msg", "Unauthorized request")
-				http.Error(w, "Login Required!", http.StatusUnauthorized)
-				return
-			}
-		}
-
 		next.ServeHTTP(w, req)
 	})
 }
