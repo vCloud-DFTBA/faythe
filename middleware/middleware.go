@@ -137,7 +137,7 @@ func (m *Middleware) HandleCors(next http.Handler) http.Handler {
 			"Access-Control-Allow-Methods":     "GET, POST, DELETE, PUT",
 			"Access-Control-Allow-Origin":      req.Header.Get("origin"),
 			"Access-Control-Allow-Credentials": "true",
-			"Access-Control-Expose-Headers":    "Date",
+			"Access-Control-Expose-Headers":    "Date, Authorization",
 			"Cache-Control":                    "no-cache, no-store, must-revalidate",
 		}
 		for h, v := range corsHeaders {
