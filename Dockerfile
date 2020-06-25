@@ -11,7 +11,7 @@ WORKDIR $APPLOC
 RUN go build -mod vendor -o /bin/faythe cmd/faythe/main.go && \
     chmod +x /bin/faythe
 
-FROM alpine:3.9
+FROM alpine:3.12
 LABEL maintainer="Kien Nguyen <kiennt2609@gmail.com>"
 COPY --from=builder /bin/faythe /bin/faythe
 RUN mkdir -p etc/faythe
