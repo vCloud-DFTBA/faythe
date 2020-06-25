@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/casbin/casbin/v2"
+	casbinmodel "github.com/casbin/casbin/v2/model"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/gorilla/mux"
@@ -71,9 +72,12 @@ func New(l log.Logger, e *common.Etcd) (*API, error) {
 	var etcdCfg etcdv3.Config
 	copier.Copy(&etcdCfg, config.Get().EtcdConfig)
 	adapter := etcdadapter.NewAdapter(etcdCfg, cluster.ClusterID, model.DefaultPoliciesPrefix)
-	// NOTE(kiennt): Hardcode here, don't allow users to configure
-	// the Casbin model themselves. Cannot handle at this time.
-	policyEngine, err := casbin.NewEnforcer("api/author_model.conf", adapter)
+	policyModel := casbinmodel.NewModel()
+	policyModel.AddDef("r", "r", "sub, obj, act")
+	policyModel.AddDef("p", "p", "sub, obj, act")
+	policyModel.AddDef("e", "e", "some(where (p.eft == allow))")
+	policyModel.AddDef("m", "m", "r.sub == p.sub && keyMatch(r.obj, p.obj) && regexMatch(r.act, p.act)")
+	policyEngine, err := casbin.NewEnforcer(policyModel, adapter)
 
 	a := &API{
 		logger:       l,
