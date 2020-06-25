@@ -144,6 +144,14 @@ func (a *API) addUser(w http.ResponseWriter, req *http.Request) {
 func (a *API) removeUser(w http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
 	username := vars["user"]
+	// Prevent mistakenly deleting administrator
+	if username == config.Get().AdminAuthentication.Username {
+		a.respondError(w, apiError{
+			code: http.StatusForbidden,
+			err:  errors.New("Cannot remove administrator"),
+		})
+		return
+	}
 	// Check an user is existing.
 	path := common.Path(model.DefaultUsersPrefix, common.Hash(username, crypto.MD5))
 	resp, err := a.etcdcli.DoGet(path)
