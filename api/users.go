@@ -235,3 +235,74 @@ func (a *API) listUsers(w http.ResponseWriter, req *http.Request) {
 	a.respondSuccess(w, http.StatusOK, users)
 	return
 }
+
+// changePassword updates the new password for a given user
+func (a *API) changePassword(w http.ResponseWriter, req *http.Request) {
+	vars := mux.Vars(req)
+	username := vars["user"]
+	if username == config.Get().AdminAuthentication.Username {
+		a.respondError(w, apiError{
+			code: http.StatusForbidden,
+			err:  errors.New("Cannot change administrator's password"),
+		})
+		return
+	}
+	if err := req.ParseForm(); err != nil {
+		a.respondError(w, apiError{
+			code: http.StatusBadRequest,
+			err:  err,
+		})
+		return
+	}
+	password := req.Form.Get("password")
+	if password == "" {
+		a.respondError(w, apiError{
+			code: http.StatusBadRequest,
+			err:  errors.New("Incorrect change password form"),
+		})
+		return
+	}
+	// Check an user is existing
+	path := common.Path(model.DefaultUsersPrefix, common.Hash(username, crypto.MD5))
+	resp, err := a.etcdcli.DoGet(path)
+	if err != nil {
+		a.respondError(w, apiError{
+			code: http.StatusInternalServerError,
+			err:  err,
+		})
+		return
+	}
+	if len(resp.Kvs) == 0 {
+		a.respondError(w, apiError{
+			code: http.StatusBadRequest,
+			err:  errors.New("Unknown user"),
+		})
+		return
+	}
+	// Hash for new password
+	hashedpw, err := common.GenerateBcryptHash(password, config.Get().PasswordHashingCost)
+	if err != nil {
+		a.respondError(w, apiError{
+			code: http.StatusInternalServerError,
+			err:  errors.Wrap(err, "Something went wrong"),
+		})
+		return
+	}
+
+	user := &model.User{
+		Username: username,
+		Password: hashedpw,
+	}
+	_ = user.Validate()
+	r, _ := json.Marshal(&user)
+	_, err = a.etcdcli.DoPut(path, string(r))
+	if err != nil {
+		a.respondError(w, apiError{
+			code: http.StatusInternalServerError,
+			err:  errors.Wrap(err, "Unable to put a key-value pair into etcd"),
+		})
+		return
+	}
+	a.respondSuccess(w, http.StatusOK, nil)
+	return
+}

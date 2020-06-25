@@ -119,6 +119,7 @@ func (a *API) Register(r *mux.Router) {
 	resr.HandleFunc("/users", a.addUser).Methods("OPTIONS", "POST")
 	resr.HandleFunc("/users/{user:[a-z 0-9]+}", a.removeUser).Methods("OPTIONS", "DELETE")
 	resr.HandleFunc("/users", a.listUsers).Methods("OPTIONS", "GET")
+	resr.HandleFunc("/users/{user:[a-z 0-9]+}/change_password", a.changePassword).Methods("OPTIONS", "PUT")
 
 	// Policy endpoints
 	resr.HandleFunc("/policies/{user:[a-z 0-9]+}", a.addPolicies).Methods("OPTIONS", "POST")

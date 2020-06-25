@@ -9,6 +9,7 @@
     - [2.2. Create user](#22-create-user)
     - [2.3. Delete user](#23-delete-user)
     - [2.4. List users with policies](#24-list-users-with-policies)
+    - [2.5. Change user password](#25-change-user-password)
     - [2.5. Add policies](#25-add-policies)
     - [2.6. Remove policies](#26-remove-policies)
 
@@ -88,6 +89,16 @@ Authorization: Bearer <token>
 | Parameter | In    | Type   | Required | Default | Description |
 | --------- | ----- | ------ | -------- | ------- | ----------- |
 | name      | query | string | true     |         | User's name |
+
+### 2.5. Change user password
+
+**PATH**: `/users/{user}/change_password`
+**METHOD**: `PUT`
+
+| Parameter   | In    | Type   | Required | Default | Description         |
+| ----------- | ----- | ------ | -------- | ------- | ------------------- |
+| user        | path  | string | true     |         | User's name         |
+| newpassword | query | string | true     |         | User's new password |
 
 ### 2.5. Add policies
 
