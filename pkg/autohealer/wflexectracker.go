@@ -29,8 +29,8 @@ import (
 
 const (
 	DefaultMistralActionRetries        int = 5
-	DefaultMistralActionRetryDelay         = 60 * time.Second
-	DefaultMistralActionExecutionCheck     = 15 * time.Second
+	DefaultMistralActionRetryDelay         = 60
+	DefaultMistralActionExecutionCheck     = 15
 )
 
 const (
@@ -64,7 +64,7 @@ func NewTracker(l log.Logger, mistralAct model.ActionMistral, os model.OpenStack
 
 // Start starts execution tracker
 func (tracker *WFLExecTracker) start() error {
-	ticker := time.NewTicker(DefaultMistralActionExecutionCheck)
+	ticker := time.NewTicker(DefaultMistralActionExecutionCheck * time.Second)
 outerloop:
 	for {
 		if err := tracker.executeWFL(); err != nil {
@@ -86,7 +86,7 @@ outerloop:
 				if exec.State == WorkflowExecutionErrorState {
 					level.Debug(tracker.logger).Log("msg",
 						fmt.Sprintf("execution %s in error state", tracker.execution.ID))
-					time.Sleep(DefaultMistralActionRetryDelay)
+					time.Sleep(DefaultMistralActionRetryDelay * time.Second)
 					continue outerloop
 				}
 				if exec.State == WorkflowExecutionSuccessState {
