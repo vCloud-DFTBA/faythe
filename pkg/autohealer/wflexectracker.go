@@ -1,0 +1,116 @@
+// Copyright (c) 2020 Dat Vu Tuan <tuandatk25a@gmail.com>
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package autohealer
+
+import (
+	"fmt"
+	"time"
+
+	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
+	"github.com/gophercloud/gophercloud/openstack/workflow/v2/executions"
+	"github.com/pkg/errors"
+
+	"github.com/vCloud-DFTBA/faythe/pkg/alert"
+	"github.com/vCloud-DFTBA/faythe/pkg/model"
+)
+
+const (
+	DefaultMistralActionRetries        int = 5
+	DefaultMistralActionRetryDelay         = 60 * time.Second
+	DefaultMistralActionExecutionCheck     = 15 * time.Second
+)
+
+const (
+	WorkflowExecutionSuccessState        = "SUCCESS"
+	WorkflowExecutionErrorState          = "ERROR"
+)
+
+// WFLTracker tracks workflow execution and retries if necessary
+type WFLExecTracker struct {
+	os         model.OpenStack
+	mistralAct model.ActionMistral
+	execution  *executions.Execution
+	logger     log.Logger
+	retries    int
+	retried    int
+}
+
+// NewTracker spawns new execution tracker instance
+func NewTracker(l log.Logger, mistralAct model.ActionMistral, os model.OpenStack) *WFLExecTracker {
+	tracker := &WFLExecTracker{
+		os:         os,
+		mistralAct: mistralAct,
+		logger:     l,
+		execution:  &executions.Execution{},
+		retried:    0,
+		retries:    DefaultMistralActionRetries,
+	}
+
+	return tracker
+}
+
+// Start starts execution tracker
+func (tracker *WFLExecTracker) start() error {
+	ticker := time.NewTicker(DefaultMistralActionExecutionCheck)
+outerloop:
+	for {
+		if err := tracker.executeWFL(); err != nil {
+			return err
+		}
+		level.Debug(tracker.logger).Log("msg",
+			fmt.Sprintf("Execution %d of workflow %s, execution %s",
+				tracker.retried, tracker.mistralAct.WorkflowID, tracker.execution.ID))
+		for {
+			select {
+			case <-ticker.C:
+				exec, err := alert.GetExecution(tracker.os, tracker.execution.ID)
+				if err != nil {
+					level.Error(tracker.logger).Log("msg",
+						fmt.Sprintf("error while getting execution state %s", err))
+					continue
+				}
+				tracker.execution = exec
+				if exec.State == WorkflowExecutionErrorState {
+					level.Debug(tracker.logger).Log("msg",
+						fmt.Sprintf("execution %s in error state", tracker.execution.ID))
+					time.Sleep(DefaultMistralActionRetryDelay)
+					continue outerloop
+				}
+				if exec.State == WorkflowExecutionSuccessState {
+					return nil
+				}
+			}
+		}
+	}
+}
+
+func (tracker *WFLExecTracker) executeWFL() error {
+	tracker.retried += 1
+	if tracker.retried > tracker.retries {
+		level.Debug(tracker.logger).Log("msg",
+			fmt.Sprintf("Retried executions of workflow %s exceed number of retries",
+				tracker.mistralAct.WorkflowID))
+		return errors.Errorf("number of retries reached maximum")
+	}
+	exec, err := alert.ExecuteWorkflow(tracker.os, &tracker.mistralAct)
+	if err != nil {
+		level.Error(tracker.logger).Log("msg",
+			fmt.Sprintf("error while executing workflow %s", err))
+		return err
+	}
+	tracker.execution = exec
+	return nil
+}

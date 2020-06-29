@@ -20,7 +20,7 @@ import (
 	"github.com/vCloud-DFTBA/faythe/pkg/model"
 )
 
-func ExecuteWorkflow(os model.OpenStack, a *model.ActionMistral) error {
+func ExecuteWorkflow(os model.OpenStack, a *model.ActionMistral) (*executions.Execution, error) {
 	createOpts := &executions.CreateOpts{
 		WorkflowID:  a.WorkflowID,
 		Input:       a.Input,
@@ -29,13 +29,27 @@ func ExecuteWorkflow(os model.OpenStack, a *model.ActionMistral) error {
 
 	client, err := os.NewWorkflowClient()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	_, err = executions.Create(client, createOpts).Extract()
+	exec, err := executions.Create(client, createOpts).Extract()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return exec, nil
+}
+
+func GetExecution(os model.OpenStack, execId string) (*executions.Execution, error) {
+	client, err := os.NewWorkflowClient()
+	if err != nil {
+		return nil, err
+	}
+
+	exec, err := executions.Get(client, execId).Extract()
+	if err != nil {
+		return nil, err
+	}
+
+	return exec, nil
 }
