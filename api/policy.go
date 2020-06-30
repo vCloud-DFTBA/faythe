@@ -59,6 +59,13 @@ func (a *API) addPolicies(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	for _, p := range pols {
+		if err := p.Validate(); err != nil {
+			a.respondError(w, apiError{
+				code: http.StatusBadRequest,
+				err: err,
+			})
+			return
+		}
 		rules = append(rules, []string{user, p.Path, p.Method})
 	}
 	// Add new policy to Etcd

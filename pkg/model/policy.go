@@ -14,9 +14,18 @@
 
 package model
 
+import "github.com/pkg/errors"
+
 type Policy struct {
 	Path   string `json:"path"`
 	Method string `json:"method"`
 }
 
 type Polices []Policy
+
+func (p Policy) Validate() error {
+	if p.Path == "" || p.Method == "" {
+		return errors.New("missing arguments for policy")
+	}
+	return nil
+}
