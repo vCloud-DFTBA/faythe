@@ -100,19 +100,17 @@ func (a *API) Register(r *mux.Router) {
 	// General middleware
 	r.Use(mw.Instrument, mw.Logging, mw.RestrictDomain, mw.HandleCors)
 	// Unrestricted subrouter
-	pubr := r.PathPrefix("/public").Subrouter()
-	pubr.HandleFunc("/tokens", a.issueToken).Methods("OPTIONS", "POST")
+	r.HandleFunc("/tokens", a.issueToken).Methods("OPTIONS", "POST")
 	// Prometheus golang metrics
-	pubr.Handle("/metrics", promhttp.Handler()).Methods("GET")
-
-	pubr.HandleFunc("/", a.index).Methods("GET")
-	pubr.HandleFunc("/status", a.status).Methods("GET")
+	r.Handle("/metrics", promhttp.Handler()).Methods("GET")
+	r.HandleFunc("/", a.index).Methods("GET")
+	r.HandleFunc("/status", a.status).Methods("GET")
 
 	// Profiling endpoints
 	cfg := config.Get()
 	if cfg.EnableProfiling {
-		pubr.HandleFunc("/debug/pprof/", pprof.Index)
-		pubr.Handle("/debug/pprof/{profile}", http.DefaultServeMux)
+		r.HandleFunc("/debug/pprof/", pprof.Index)
+		r.Handle("/debug/pprof/{profile}", http.DefaultServeMux)
 	}
 
 	// Restricted subrouter
