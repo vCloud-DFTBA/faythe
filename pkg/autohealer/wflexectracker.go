@@ -28,24 +28,24 @@ import (
 )
 
 const (
-	DefaultMistralActionRetries        int = 5
-	DefaultMistralActionRetryDelay         = 60
-	DefaultMistralActionExecutionCheck     = 15
+	DefaultMistralActionRetries        = 5
+	DefaultMistralActionRetryDelay     = 60
+	DefaultMistralActionExecutionCheck = 15
 )
 
 const (
-	WorkflowExecutionSuccessState        = "SUCCESS"
-	WorkflowExecutionErrorState          = "ERROR"
+	WorkflowExecutionSuccessState = "SUCCESS"
+	WorkflowExecutionErrorState   = "ERROR"
 )
 
-// WFLTracker tracks workflow execution and retries if necessary
+// WFLTracker tracks workflow execution and maxRetries if necessary
 type WFLExecTracker struct {
 	os         model.OpenStack
 	mistralAct model.ActionMistral
 	execution  *executions.Execution
 	logger     log.Logger
-	retries    int
-	retried    int
+	maxRetries int
+	numRetried int
 }
 
 // NewTracker spawns new execution tracker instance
@@ -55,8 +55,8 @@ func NewTracker(l log.Logger, mistralAct model.ActionMistral, os model.OpenStack
 		mistralAct: mistralAct,
 		logger:     l,
 		execution:  &executions.Execution{},
-		retried:    0,
-		retries:    DefaultMistralActionRetries,
+		numRetried: 0,
+		maxRetries: DefaultMistralActionRetries,
 	}
 
 	return tracker
@@ -71,21 +71,21 @@ outerloop:
 			return err
 		}
 		level.Debug(tracker.logger).Log("msg",
-			fmt.Sprintf("Execution %d of workflow %s, execution %s",
-				tracker.retried, tracker.mistralAct.WorkflowID, tracker.execution.ID))
+			fmt.Sprintf("Execution %d of workflow", tracker.numRetried),
+			"workflow", tracker.mistralAct.WorkflowID, "execution", tracker.execution.ID)
 		for {
 			select {
 			case <-ticker.C:
 				exec, err := alert.GetExecution(tracker.os, tracker.execution.ID)
 				if err != nil {
-					level.Error(tracker.logger).Log("msg",
-						fmt.Sprintf("error while getting execution state %s", err))
+					level.Error(tracker.logger).Log("msg", "error while getting execution state",
+						"err", err)
 					continue
 				}
 				tracker.execution = exec
 				if exec.State == WorkflowExecutionErrorState {
-					level.Debug(tracker.logger).Log("msg",
-						fmt.Sprintf("execution %s in error state", tracker.execution.ID))
+					level.Debug(tracker.logger).Log("msg", "execution in error state",
+						"execution", tracker.execution.ID)
 					time.Sleep(DefaultMistralActionRetryDelay * time.Second)
 					continue outerloop
 				}
@@ -98,17 +98,15 @@ outerloop:
 }
 
 func (tracker *WFLExecTracker) executeWFL() error {
-	tracker.retried += 1
-	if tracker.retried > tracker.retries {
-		level.Debug(tracker.logger).Log("msg",
-			fmt.Sprintf("Retried executions of workflow %s exceed number of retries",
-				tracker.mistralAct.WorkflowID))
-		return errors.Errorf("number of retries reached maximum")
+	tracker.numRetried += 1
+	if tracker.numRetried > tracker.maxRetries {
+		level.Debug(tracker.logger).Log("msg", "Retried workflow executions exceeds maxRetries",
+			"workflow", tracker.mistralAct.WorkflowID)
+		return errors.Errorf("number of retried reached maximum")
 	}
 	exec, err := alert.ExecuteWorkflow(tracker.os, &tracker.mistralAct)
 	if err != nil {
-		level.Error(tracker.logger).Log("msg",
-			fmt.Sprintf("error while executing workflow %s", err))
+		level.Error(tracker.logger).Log("msg", "Error while executing workflow", "err", err)
 		return err
 	}
 	tracker.execution = exec

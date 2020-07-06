@@ -322,8 +322,8 @@ func (h *Healer) do(compute string) {
 					return
 				}
 				exporter.ReportSuccessHealerActionCounter(cluster.ClusterID, "mistral")
-				level.Info(h.logger).Log("msg",
-					fmt.Sprintf("Workflow %s for compute %s succeeded", at.WorkflowID, compute))
+				level.Info(h.logger).Log("msg", "Workflow execution succeeded",
+					"workflow", at.WorkflowID, "compute", compute)
 			}(compute)
 		}
 	}
