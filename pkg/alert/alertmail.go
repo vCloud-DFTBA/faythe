@@ -21,10 +21,13 @@ import (
 	"gopkg.in/mail.v2"
 
 	"github.com/vCloud-DFTBA/faythe/config"
+	"github.com/vCloud-DFTBA/faythe/pkg/history"
 	"github.com/vCloud-DFTBA/faythe/pkg/model"
 )
 
 func SendMail(a *model.ActionMail) error {
+	actionHistory := history.ActionHistory{}
+	actionHistory.Create(a.Type)
 	m := mail.NewMessage()
 	mc := config.Get().MailConfig
 	if a.Body == "" || a.Subject == "" {
@@ -42,7 +45,10 @@ func SendMail(a *model.ActionMail) error {
 	d.TLSConfig = &tls.Config{InsecureSkipVerify: true}
 
 	if err := d.DialAndSend(m); err != nil {
+		actionHistory.Update(history.Error, fmt.Sprintf("Failed mail to %s", a.Receivers), "")
 		return err
 	}
+
+	actionHistory.Update(history.Success, fmt.Sprintf("Sent mail to %s", a.Receivers), "")
 	return nil
 }

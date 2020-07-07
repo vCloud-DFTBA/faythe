@@ -16,6 +16,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/vCloud-DFTBA/faythe/pkg/history"
 	"net"
 	"net/http"
 	"net/url"
@@ -170,6 +171,9 @@ func main() {
 	if err := openstack.Load(etcdcli); err != nil {
 		level.Error(logger).Log("msg", "error while loading cloud information", "err", err)
 	}
+
+	// Init history engine for saving action histories
+	history.Init(log.With(logger, "component", "action history"), etcdcli)
 
 	stopc := make(chan struct{})
 	go etcdcli.Run(stopc)

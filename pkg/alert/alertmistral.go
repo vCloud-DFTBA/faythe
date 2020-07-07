@@ -15,12 +15,17 @@
 package alert
 
 import (
+	"fmt"
+
 	"github.com/gophercloud/gophercloud/openstack/workflow/v2/executions"
 
+	"github.com/vCloud-DFTBA/faythe/pkg/history"
 	"github.com/vCloud-DFTBA/faythe/pkg/model"
 )
 
 func ExecuteWorkflow(os model.OpenStack, a *model.ActionMistral) error {
+	actionHistory := history.ActionHistory{}
+	actionHistory.Create(a.Type)
 	createOpts := &executions.CreateOpts{
 		WorkflowID:  a.WorkflowID,
 		Input:       a.Input,
@@ -29,13 +34,15 @@ func ExecuteWorkflow(os model.OpenStack, a *model.ActionMistral) error {
 
 	client, err := os.NewWorkflowClient()
 	if err != nil {
+		actionHistory.Update(history.Error, fmt.Sprintf("Failed mistral action %s", a.WorkflowID), "")
 		return err
 	}
 
 	_, err = executions.Create(client, createOpts).Extract()
 	if err != nil {
+		actionHistory.Update(history.Error, fmt.Sprintf("Failed mistral action %s", a.WorkflowID), "")
 		return err
 	}
-
+	actionHistory.Update(history.Success, fmt.Sprintf("Executed mistral action %s", a.WorkflowID), "")
 	return nil
 }
