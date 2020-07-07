@@ -23,14 +23,14 @@ import (
 // Set of raw Prometheus metrics.
 // Do not increment directly, use Report* methods.
 var (
-	MemberJoinCounter = prometheus.NewCounter(
+	memberJoinCounter = prometheus.NewCounter(
 		prometheus.CounterOpts{
 			Namespace: "faythe",
 			Subsystem: "cluster",
 			Name:      "member_join_total",
 			Help:      "A counter of the number of members that have joined.",
 		})
-	MemberLeaveCounter = prometheus.NewCounter(
+	memberLeaveCounter = prometheus.NewCounter(
 		prometheus.CounterOpts{
 			Namespace: "faythe",
 			Subsystem: "cluster",
@@ -40,8 +40,8 @@ var (
 )
 
 func init() {
-	prometheus.MustRegister(MemberJoinCounter)
-	prometheus.MustRegister(MemberLeaveCounter)
+	prometheus.MustRegister(memberJoinCounter)
+	prometheus.MustRegister(memberLeaveCounter)
 }
 
 func RegisterMemberInfo(clusterID string, member model.Member) {
@@ -61,9 +61,9 @@ func RegisterMemberInfo(clusterID string, member model.Member) {
 }
 
 func ReportClusterJoin() {
-	MemberJoinCounter.Inc()
+	memberJoinCounter.Inc()
 }
 
 func ReportClusterLeave() {
-	MemberLeaveCounter.Inc()
+	memberLeaveCounter.Inc()
 }

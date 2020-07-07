@@ -1,5 +1,17 @@
 # Monitoring Faythe
 
+- [Monitoring Faythe](#monitoring-faythe)
+  - [1. Health Check](#1-health-check)
+  - [2. Metrics **endpoint**](#2-metrics-endpoint)
+    - [2.1. Cluster](#21-cluster)
+    - [2.2. API Requests](#22-api-requests)
+    - [2.3. Metric backend](#23-metric-backend)
+    - [2.5. Autoscaler](#25-autoscaler)
+    - [2.5. Autohealer](#25-autohealer)
+    - [2.6. Etcd requests](#26-etcd-requests)
+    - [2.7. Golang application metrics](#27-golang-application-metrics)
+  - [3. Example metrics](#3-example-metrics)
+
 ## 1. Health Check
 
 Faythe also provides the simple `/healthz` endpoint with the member uptime.
@@ -53,7 +65,13 @@ The naming of metrics follows the suggested [Prometheus best practices](https://
 | faythe_autohealer_action_successes_total | The total number of healers action successes.                             | counter |
 | faythe_autohealer_action_failures_total  | The total number of healers action failures.                              | counter |
 
-### 2.6. Golang application metrics
+### 2.6. Etcd requests
+
+| Name                               | Description                                                | Type    |
+| ---------------------------------- | ---------------------------------------------------------- | ------- |
+| faythe_etcd_request_failures_total | The total number of Etcd request failures (not retryable). | counter |
+
+### 2.7. Golang application metrics
 
 Faythe uses the `prometheus/promhttp` library's HTTP `Handler` as the handler function. Please refer [prometheus client](https://github.com/prometheus/client_golang/blob/master/prometheus/) for more details.
 
@@ -230,6 +248,10 @@ Faythe uses the `prometheus/promhttp` library's HTTP `Handler` as the handler fu
     # HELP faythe_metric_backend_query_failures_total The total number of metric backend query failures total.
     # TYPE faythe_metric_backend_query_failures_total counter
     faythe_metric_backend_query_failures_total{cluster="prod",endpoint="http://10.240.201.233:9095",type="prometheus"} 5
+    # HELP faythe_etcd_request_failures_total The total number of Etcd request failures (not retryable).
+    # TYPE faythe_etcd_request_failures_total counter
+    faythe_etcd_request_failures_total{action="get",cluster="staging",path="/users/21232f297a57a5a743894a0e4a801fc3"} 1
+    faythe_etcd_request_failures_total{action="put",cluster="staging",path="/nresolvers/87f086a3b8cab595dc69c9a4b57359ca/0f4a921b271d68158b50038b6c4c8d7b"} 1
     # HELP go_gc_duration_seconds A summary of the GC invocation durations.
     # TYPE go_gc_duration_seconds summary
     go_gc_duration_seconds{quantile="0"} 2.4959e-05

@@ -93,12 +93,13 @@ func main() {
 	}
 
 	var (
-		etcdcfg = etcdv3.Config{}
-		etcdcli = &common.Etcd{}
-		router  = mux.NewRouter()
-		fapi    = &api.API{}
-		fas     = &autoscaler.Manager{}
-		cls     = &cluster.Cluster{}
+		etcdcfg   = etcdv3.Config{}
+		etcdcli   = &common.Etcd{}
+		router    = mux.NewRouter()
+		fapi      = &api.API{}
+		fas       = &autoscaler.Manager{}
+		cls       = &cluster.Cluster{}
+		clusterID string
 	)
 	// Load configurations from file
 	err = config.Set(cfg.configFile, log.With(logger, "component", "config manager"))
@@ -111,7 +112,17 @@ func main() {
 
 	// Init Etcdv3 client
 	copier.Copy(&etcdcfg, config.Get().EtcdConfig)
-	etcdcli, err = common.NewEtcd(log.With(logger, "component", "etcd wrapper"), etcdcfg)
+	// clusterID is the id of cluster. It could be a random string
+	// or a user-defined string.
+	if cfg.clusterID == "" {
+		clusterID = common.RandToken()
+		level.Info(logger).Log("msg", "A new cluster is starting...")
+	} else {
+		clusterID = strings.Trim(cfg.clusterID, "/")
+		level.Info(logger).Log("msg", "A node is joining to existing cluster...")
+	}
+	etcdcli, err = common.NewEtcd(log.With(logger, "component", "etcd wrapper"),
+		clusterID, etcdcfg)
 
 	if err != nil {
 		level.Error(logger).Log("msg", errors.Wrapf(err, "Error instantiating Etcd V3 client."))
@@ -119,7 +130,7 @@ func main() {
 	}
 
 	// Init cluster
-	cls, err = cluster.New(cfg.clusterID, cfg.listenAddress,
+	cls, err = cluster.New(clusterID, cfg.listenAddress,
 		log.With(logger, "component", "cluster"), etcdcli)
 	if err != nil {
 		level.Error(logger).Log("msg", errors.Wrap(err, "Error initializing Cluster"))

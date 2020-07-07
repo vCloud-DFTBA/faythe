@@ -79,7 +79,7 @@ func (h *Healer) run(ctx context.Context, e *common.Etcd, wg *sync.WaitGroup, nc
 	h.updateSilence(e)
 
 	// Record the number of healers
-	exporter.ReportNumberOfHealers(cluster.ClusterID, 1)
+	exporter.ReportNumberOfHealers(cluster.GetID(), 1)
 	defer func() {
 		wg.Done()
 		ticker.Stop()
@@ -120,7 +120,7 @@ func (h *Healer) run(ctx context.Context, e *common.Etcd, wg *sync.WaitGroup, nc
 					level.Error(h.logger).Log("msg", "Executing query failed, skip current interval",
 						"query", h.Query, "err", err)
 					h.state = model.StateFailed
-					exporter.ReportMetricQueryFailureCounter(cluster.ClusterID,
+					exporter.ReportMetricQueryFailureCounter(cluster.GetID(),
 						h.backend.GetType(), h.backend.GetAddress())
 					continue
 				}
@@ -260,7 +260,7 @@ func (h *Healer) do(compute string) {
 				if err := alert.SendHTTP(h.logger, h.httpCli, at, params); err != nil {
 					level.Error(h.logger).Log("msg", "Error doing HTTP action",
 						"url", at.URL.String(), "err", err)
-					exporter.ReportFailureHealerActionCounter(cluster.ClusterID, "http")
+					exporter.ReportFailureHealerActionCounter(cluster.GetID(), "http")
 					m := &model.ActionMail{
 						Receivers: h.Receivers,
 						Subject:   fmt.Sprintf("[autohealing] Node %s down, failed to trigger http request", compute),
@@ -275,7 +275,7 @@ func (h *Healer) do(compute string) {
 					}
 					return
 				}
-				exporter.ReportSuccessHealerActionCounter(cluster.ClusterID, "http")
+				exporter.ReportSuccessHealerActionCounter(cluster.GetID(), "http")
 				level.Info(h.logger).Log("msg", "Sending request",
 					"url", url, "method", at.Method)
 			}(string(at.URL), compute)
@@ -289,10 +289,10 @@ func (h *Healer) do(compute string) {
 				if err := alert.SendMail(at); err != nil {
 					level.Error(h.logger).Log("msg", "error doing Mail action",
 						"err", err)
-					exporter.ReportFailureHealerActionCounter(cluster.ClusterID, "mail")
+					exporter.ReportFailureHealerActionCounter(cluster.GetID(), "mail")
 					return
 				}
-				exporter.ReportSuccessHealerActionCounter(cluster.ClusterID, "mail")
+				exporter.ReportSuccessHealerActionCounter(cluster.GetID(), "mail")
 				level.Info(h.logger).Log("msg", "Sending mail to", "receivers", strings.Join(at.Receivers, ","))
 			}(compute)
 		case *model.ActionMistral:
@@ -312,15 +312,15 @@ func (h *Healer) do(compute string) {
 				if !ok {
 					level.Error(h.logger).Log("msg",
 						fmt.Sprintf("cannot find cloud key %s in store", h.CloudID))
-					exporter.ReportFailureHealerActionCounter(cluster.ClusterID, "mistral")
+					exporter.ReportFailureHealerActionCounter(cluster.GetID(), "mistral")
 					return
 				}
 				if err := alert.ExecuteWorkflow(os, at); err != nil {
 					level.Error(h.logger).Log("msg", "error doing Mistral action", "err", err)
-					exporter.ReportFailureHealerActionCounter(cluster.ClusterID, "mistral")
+					exporter.ReportFailureHealerActionCounter(cluster.GetID(), "mistral")
 					return
 				}
-				exporter.ReportSuccessHealerActionCounter(cluster.ClusterID, "mistral")
+				exporter.ReportSuccessHealerActionCounter(cluster.GetID(), "mistral")
 				level.Info(h.logger).Log("msg", fmt.Sprintf("Triggering workflow %s", at.WorkflowID))
 			}(compute)
 		}
@@ -342,7 +342,7 @@ func (h *Healer) Stop() {
 	<-h.terminated
 	h.state = model.StateStopped
 	// Record the number of healers
-	exporter.ReportNumberOfHealers(cluster.ClusterID, -1)
+	exporter.ReportNumberOfHealers(cluster.GetID(), -1)
 	level.Debug(h.logger).Log("msg", "Healer is stopped")
 }
 

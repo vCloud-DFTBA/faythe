@@ -27,7 +27,6 @@ import (
 	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
 	etcdv3 "go.etcd.io/etcd/clientv3"
-	"go.etcd.io/etcd/clientv3/namespace"
 	"go.etcd.io/etcd/etcdserver/api/v3rpc/rpctypes"
 	"stathat.com/c/consistent"
 
@@ -36,10 +35,7 @@ import (
 	"github.com/vCloud-DFTBA/faythe/pkg/model"
 )
 
-// ClusterID is the id of cluster. It could be a random string
-// or a user-defined string. Just make cluster id be available
-// cross modules.
-var ClusterID string
+var clusterID string
 
 // ClusterState is the state of the Cluster instance
 type ClusterState int
@@ -68,6 +64,12 @@ func (s ClusterState) String() string {
 	}
 }
 
+// GetID makes cluster id be available
+// across modules.
+func GetID() string {
+	return clusterID
+}
+
 // Cluster manages a set of member and the consistent hash ring as well.
 type Cluster struct {
 	id        string
@@ -83,26 +85,16 @@ type Cluster struct {
 }
 
 // New creates a new cluster manager instance.
-func New(cid, bindAddr string, l log.Logger, e *common.Etcd) (*Cluster, error) {
+func New(id string, bindAddr string, l log.Logger, e *common.Etcd) (*Cluster, error) {
+	clusterID = id
 	c := &Cluster{
 		logger:  l,
 		etcdcli: e,
 		members: make(map[string]model.Member),
 		stopCh:  make(chan struct{}),
 	}
-	if cid == "" {
-		ClusterID = common.RandToken()
-		level.Info(c.logger).Log("msg", "A new cluster is starting...")
-	} else {
-		ClusterID = strings.Trim(cid, "/")
-		level.Info(c.logger).Log("msg", "A node is joining to existing cluster...")
-	}
-	level.Info(c.logger).Log("msg", "Use the cluster id to join", "id", cid)
-	c.id = ClusterID
-	// Override the client interface with namespace
-	c.etcdcli.Watcher = namespace.NewWatcher(c.etcdcli.Watcher, c.id)
-	c.etcdcli.Lease = namespace.NewLease(c.etcdcli.Lease, c.id)
-	c.etcdcli.KV = namespace.NewKV(c.etcdcli.KV, c.id)
+	level.Info(c.logger).Log("msg", "Use the cluster id to join", "id", clusterID)
+	c.id = id
 
 	// Load the existing cluster
 	getResp, _ := c.etcdcli.DoGet(model.DefaultClusterPrefix, etcdv3.WithPrefix())
@@ -237,7 +229,8 @@ func (c *Cluster) Run(rc chan struct{}) {
 					time.Sleep(common.DefaultEtcdtIntervalBetweenRetries)
 					continue
 				}
-				c.etcdcli.ErrCh <- err
+				eerr := common.NewEtcdErr(model.DefaultClusterPrefix, "watch", err)
+				c.etcdcli.ErrCh <- eerr
 				return
 			}
 			for _, event := range watchResp.Events {

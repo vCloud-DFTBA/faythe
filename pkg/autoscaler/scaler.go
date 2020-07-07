@@ -23,6 +23,7 @@ import (
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
+
 	"github.com/vCloud-DFTBA/faythe/pkg/alert"
 	"github.com/vCloud-DFTBA/faythe/pkg/cluster"
 	"github.com/vCloud-DFTBA/faythe/pkg/common"
@@ -73,7 +74,7 @@ func (s *Scaler) Stop() {
 	close(s.done)
 	<-s.terminated
 	s.state = model.StateStopped
-	exporter.ReportNumScalers(cluster.ClusterID, -1)
+	exporter.ReportNumScalers(cluster.GetID(), -1)
 	level.Debug(s.logger).Log("msg", "Scaler is stopped")
 }
 
@@ -83,7 +84,7 @@ func (s *Scaler) run(ctx context.Context, wg *sync.WaitGroup) {
 	cooldown, _ := common.ParseDuration(s.Cooldown)
 	ticker := time.NewTicker(interval)
 	// Report number of scalers
-	exporter.ReportNumScalers(cluster.ClusterID, 1)
+	exporter.ReportNumScalers(cluster.GetID(), 1)
 	defer func() {
 		ticker.Stop()
 		wg.Done()
@@ -107,7 +108,7 @@ func (s *Scaler) run(ctx context.Context, wg *sync.WaitGroup) {
 					level.Error(s.logger).Log("msg", "Executing query failed, skip current interval",
 						"query", s.Query, "err", err)
 					s.state = model.StateFailed
-					exporter.ReportMetricQueryFailureCounter(cluster.ClusterID,
+					exporter.ReportMetricQueryFailureCounter(cluster.GetID(),
 						s.backend.GetType(), s.backend.GetAddress())
 					continue
 				}
@@ -144,11 +145,11 @@ func (s *Scaler) do() {
 			if err := alert.SendHTTP(s.logger, s.httpCli, a, nil); err != nil {
 				level.Error(s.logger).Log("msg", "Error doing HTTP action",
 					"url", url, "err", err)
-				exporter.ReportFailureScalerActionCounter(cluster.ClusterID, "http")
+				exporter.ReportFailureScalerActionCounter(cluster.GetID(), "http")
 				return
 			}
 
-			exporter.ReportSuccessScalerActionCounter(cluster.ClusterID, "http")
+			exporter.ReportSuccessScalerActionCounter(cluster.GetID(), "http")
 			level.Info(s.logger).Log("msg", "Sending request",
 				"url", url, "method", a.Method)
 			s.alert.Fire(time.Now())

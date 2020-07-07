@@ -22,11 +22,37 @@ import (
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
+	"github.com/prometheus/client_golang/prometheus"
 	etcdv3 "go.etcd.io/etcd/clientv3"
+	"go.etcd.io/etcd/clientv3/namespace"
 	"go.etcd.io/etcd/etcdserver/api/v3rpc/rpctypes"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
+
+// Set of raw Prometheus metrics.
+// NOTE(kiennt): To prevent import cycle, have to move this part from the exporter
+// common etcd.
+// Do not increment directly, use Report* methods.
+var (
+	failureEtcdRequestsCounter = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "faythe",
+			Subsystem: "etcd",
+			Name:      "request_failures_total",
+			Help:      "The total number of Etcd request failures (not retryable).",
+		},
+		[]string{"cluster", "action", "path"},
+	)
+)
+
+func init() {
+	prometheus.MustRegister(failureEtcdRequestsCounter)
+}
+
+func ReportFailureEtcdRequestCounter(clusterID, action, path string) {
+	failureEtcdRequestsCounter.WithLabelValues(clusterID, action, path).Inc()
+}
 
 const (
 	defaultKvRequestTimeout    = 10 * time.Second
@@ -37,20 +63,41 @@ const (
 	DefaultEtcdtIntervalBetweenRetries = time.Second * 5
 )
 
+// EtcdError is the Etcd error wrapper
+type EtcdError struct {
+	action string
+	path   string
+	err    error
+}
+
+func (ee EtcdError) Error() string {
+	return ee.err.Error()
+}
+
+// NewEtcdErr returns an Etcd error.
+func NewEtcdErr(path, action string, err error) EtcdError {
+	return EtcdError{action, path, err}
+}
+
 // Etcd is the Etcd v3 client wrapper with addition context.
 type Etcd struct {
 	*etcdv3.Client
-	logger log.Logger
-	ErrCh  chan error
+	namespace string
+	logger    log.Logger
+	ErrCh     chan EtcdError
 }
 
 // NewEtcd constructs a new Etcd client
-func NewEtcd(l log.Logger, cfg etcdv3.Config) (*Etcd, error) {
+func NewEtcd(l log.Logger, ns string, cfg etcdv3.Config) (*Etcd, error) {
 	cli, err := etcdv3.New(cfg)
 	if err != nil {
 		return nil, err
 	}
-	return &Etcd{cli, l, make(chan error, 1)}, nil
+	// Override the client interface with namespace
+	cli.Watcher = namespace.NewWatcher(cli.Watcher, ns)
+	cli.Lease = namespace.NewLease(cli.Lease, ns)
+	cli.KV = namespace.NewKV(cli.KV, ns)
+	return &Etcd{cli, ns, l, make(chan EtcdError, 1)}, nil
 }
 
 // Context returns a cancelable context and its cancel function.
@@ -97,7 +144,8 @@ func (e *Etcd) DoGet(key string, opts ...etcdv3.OpOption) (*etcdv3.GetResponse, 
 		break
 	}
 	if err != nil {
-		e.ErrCh <- err
+		eerr := NewEtcdErr(key, "get", err)
+		e.ErrCh <- eerr
 	}
 	return result, err
 }
@@ -122,7 +170,8 @@ func (e *Etcd) DoPut(key, val string, opts ...etcdv3.OpOption) (*etcdv3.PutRespo
 		break
 	}
 	if err != nil {
-		e.ErrCh <- err
+		eerr := NewEtcdErr(key, "put", err)
+		e.ErrCh <- eerr
 	}
 	return result, err
 }
@@ -147,7 +196,8 @@ func (e *Etcd) DoDelete(key string, opts ...etcdv3.OpOption) (*etcdv3.DeleteResp
 		break
 	}
 	if err != nil {
-		e.ErrCh <- err
+		eerr := NewEtcdErr(key, "delete", err)
+		e.ErrCh <- eerr
 	}
 	return result, err
 }
@@ -171,7 +221,8 @@ func (e *Etcd) DoGrant(ttl int64) (*etcdv3.LeaseGrantResponse, error) {
 		break
 	}
 	if err != nil {
-		e.ErrCh <- err
+		eerr := NewEtcdErr("", "grant", err)
+		e.ErrCh <- eerr
 	}
 	return result, err
 }
@@ -197,7 +248,8 @@ func (e *Etcd) DoKeepAliveOnce(id etcdv3.LeaseID) (*etcdv3.LeaseKeepAliveRespons
 		break
 	}
 	if err != nil && !IsNotFound(err) {
-		e.ErrCh <- err
+		eerr := NewEtcdErr("", "keep-alive-once", err)
+		e.ErrCh <- eerr
 	}
 	return result, err
 }
@@ -221,7 +273,8 @@ func (e *Etcd) DoKeepAlive(id etcdv3.LeaseID) (<-chan *etcdv3.LeaseKeepAliveResp
 	)
 	result, err = e.KeepAlive(context.Background(), id)
 	if err != nil {
-		e.ErrCh <- err
+		eerr := NewEtcdErr("", "keep-alive", err)
+		e.ErrCh <- eerr
 	}
 	return result, err
 }
@@ -245,7 +298,8 @@ func (e *Etcd) DoRevoke(id etcdv3.LeaseID) (*etcdv3.LeaseRevokeResponse, error) 
 		break
 	}
 	if err != nil {
-		e.ErrCh <- err
+		eerr := NewEtcdErr("", "revoke", err)
+		e.ErrCh <- eerr
 	}
 	return result, err
 }
@@ -254,7 +308,8 @@ func (e *Etcd) DoRevoke(id etcdv3.LeaseID) (*etcdv3.LeaseRevokeResponse, error) 
 func (e *Etcd) Run(stopc chan struct{}) {
 	for {
 		select {
-		case <-e.ErrCh:
+		case err := <-e.ErrCh:
+			ReportFailureEtcdRequestCounter(e.namespace, err.action, err.path)
 			stopc <- struct{}{}
 		}
 	}

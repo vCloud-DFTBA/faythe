@@ -65,7 +65,7 @@ func NewManager(l log.Logger, e *common.Etcd, c *cluster.Cluster) *Manager {
 		ncout:   make(chan map[string]string, 1),
 		cluster: c,
 	}
-	exporter.ReportNumberOfHealers(cluster.ClusterID, 0)
+	exporter.ReportNumberOfHealers(cluster.GetID(), 0)
 	hm.load()
 	hm.state = model.StateActive
 	return hm
@@ -213,7 +213,8 @@ func (hm *Manager) Run() {
 					time.Sleep(common.DefaultEtcdtIntervalBetweenRetries)
 					continue
 				}
-				hm.etcdcli.ErrCh <- err
+				eerr := common.NewEtcdErr(model.DefaultCloudPrefix, "watch", err)
+				hm.etcdcli.ErrCh <- eerr
 				break
 			}
 
@@ -266,7 +267,8 @@ func (hm *Manager) Run() {
 					time.Sleep(common.DefaultEtcdtIntervalBetweenRetries)
 					continue
 				}
-				hm.etcdcli.ErrCh <- err
+				eerr := common.NewEtcdErr(model.DefaultHealerPrefix, "watch", err)
+				hm.etcdcli.ErrCh <- eerr
 				break
 			}
 

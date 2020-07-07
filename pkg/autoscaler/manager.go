@@ -57,7 +57,7 @@ func NewManager(l log.Logger, e *common.Etcd, c *cluster.Cluster) *Manager {
 		cluster: c,
 	}
 	// Init with 0
-	exporter.ReportNumScalers(cluster.ClusterID, 0)
+	exporter.ReportNumScalers(cluster.GetID(), 0)
 	// Load at init
 	m.load()
 	m.state = model.StateActive
@@ -112,7 +112,8 @@ func (m *Manager) Run() {
 					time.Sleep(common.DefaultEtcdtIntervalBetweenRetries)
 					continue
 				}
-				m.etcdcli.ErrCh <- err
+				eerr := common.NewEtcdErr(model.DefaultScalerPrefix, "watch", err)
+				m.etcdcli.ErrCh <- eerr
 				break
 			}
 			for _, event := range watchResp.Events {

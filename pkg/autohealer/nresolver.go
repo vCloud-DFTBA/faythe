@@ -64,7 +64,7 @@ func (nr *NResolver) run(ctx context.Context, wg *sync.WaitGroup, nc *chan NodeM
 			if err != nil {
 				level.Error(nr.logger).Log("msg", "Executing query failed",
 					"query", model.DefaultNResolverQuery, "err", err)
-				exporter.ReportMetricQueryFailureCounter(cluster.ClusterID,
+				exporter.ReportMetricQueryFailureCounter(cluster.GetID(),
 					nr.backend.GetType(), nr.backend.GetAddress())
 				continue
 			}
