@@ -16,7 +16,6 @@ package main
 
 import (
 	"fmt"
-	"github.com/vCloud-DFTBA/faythe/pkg/history"
 	"net"
 	"net/http"
 	"net/url"
@@ -48,6 +47,7 @@ import (
 	"github.com/vCloud-DFTBA/faythe/pkg/cloud/store/openstack"
 	"github.com/vCloud-DFTBA/faythe/pkg/cluster"
 	"github.com/vCloud-DFTBA/faythe/pkg/common"
+	"github.com/vCloud-DFTBA/faythe/pkg/history"
 )
 
 func init() {
