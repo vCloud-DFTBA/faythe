@@ -153,6 +153,9 @@ func (a *API) Register(r *mux.Router) {
 	resr.HandleFunc("/silences/{provider_id:[a-z 0-9]+}", a.createSilence).Methods("OPTIONS", "POST")
 	resr.HandleFunc("/silences/{provider_id:[a-z 0-9]+}", a.listSilences).Methods("OPTIONS", "GET")
 	resr.HandleFunc("/silences/{provider_id:[a-z 0-9]+}/{id:[a-z 0-9]+}", a.expireSilence).Methods("OPTIONS", "DELETE")
+
+	// Action history endpoints
+	resr.HandleFunc("/actions/history", a.listActionHistory).Methods("OPTIONS", "GET")
 }
 
 func (a *API) receive(req *http.Request, v interface{}) error {

@@ -17,19 +17,21 @@ package alert
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"time"
 
 	"github.com/avast/retry-go"
-	"github.com/go-kit/kit/log"
-
 	"github.com/vCloud-DFTBA/faythe/pkg/common"
+	"github.com/vCloud-DFTBA/faythe/pkg/history"
 	"github.com/vCloud-DFTBA/faythe/pkg/model"
 )
 
-func SendHTTP(l log.Logger, cli *http.Client, a *model.ActionHTTP, add ...map[string]map[string]string) error {
+func SendHTTP(cli *http.Client, a *model.ActionHTTP, add ...map[string]map[string]string) error {
+	actionHistory := history.ActionHistory{}
+	actionHistory.Create(a.Type)
 	delay, _ := common.ParseDuration(a.Delay)
 	err := retry.Do(
 		func() error {
@@ -67,6 +69,7 @@ func SendHTTP(l log.Logger, cli *http.Client, a *model.ActionHTTP, add ...map[st
 			if err != nil {
 				return err
 			}
+			actionHistory.Update(history.Success, fmt.Sprintf("Sent request to %s", string(a.URL)), "")
 			return nil
 		},
 		retry.DelayType(func(n uint, config *retry.Config) time.Duration {
@@ -85,5 +88,6 @@ func SendHTTP(l log.Logger, cli *http.Client, a *model.ActionHTTP, add ...map[st
 			return common.RetryableError(err)
 		}),
 	)
+	actionHistory.Update(history.Error, fmt.Sprintf("Failed request to %s", string(a.URL)), "")
 	return err
 }
