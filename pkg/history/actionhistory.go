@@ -16,10 +16,10 @@ package history
 
 import (
 	"encoding/json"
-	"github.com/go-kit/kit/log/level"
 	"time"
 
 	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
 	etcdv3 "go.etcd.io/etcd/clientv3"
 
 	"github.com/vCloud-DFTBA/faythe/pkg/common"
@@ -58,7 +58,7 @@ var history History
 
 func Init(log log.Logger, e *common.Etcd) {
 	history = History{
-		log: log,
+		log:     log,
 		etcdcli: e,
 	}
 }
