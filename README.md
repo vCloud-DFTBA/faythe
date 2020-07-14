@@ -48,10 +48,6 @@ Follow the documentation [here](./docs/getting-started.md).
 
 Check out [documentation directory](./docs).
 
-## Version
-
-You can find [Faythe legacy version](https://github.com/vCloud-DFTBA/faythe/tree/legacy). This is a just work version with autoscaling & autohealing.
-
 ## Project status
 
 This project is in alpha. There may be breaking changes made as we continue to expand the project and integrated user feedback.
