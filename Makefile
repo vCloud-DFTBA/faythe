@@ -66,3 +66,6 @@ clean:
 lint:
 	go install github.com/golangci/golangci-lint/cmd/golangci-lint
 	GO111MODULE=on golangci-lint run
+
+dist:
+	zip -j -m faythe-$(DOCKER_IMAGE_TAG) $(GO_OUT)/faythe
