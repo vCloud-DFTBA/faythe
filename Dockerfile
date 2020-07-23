@@ -5,7 +5,7 @@ ENV APPLOC=$GOPATH/src/faythe
 RUN apk add --no-cache git make bash
 ADD . $APPLOC
 WORKDIR $APPLOC
-RUN GO_OUT=/bin/faythe make build && \
+RUN GO_OUT=/bin make build && \
     chmod +x /bin/faythe
 
 FROM alpine:3.12
