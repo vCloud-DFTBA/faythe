@@ -31,19 +31,27 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/jinzhu/copier"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/promlog"
 	logflag "github.com/prometheus/common/promlog/flag"
+	"github.com/prometheus/common/version"
 	etcdv3 "go.etcd.io/etcd/clientv3"
 	"gopkg.in/alecthomas/kingpin.v2"
 
+	// Add version information
 	"github.com/vCloud-DFTBA/faythe/api"
 	"github.com/vCloud-DFTBA/faythe/config"
 	"github.com/vCloud-DFTBA/faythe/pkg/autohealer"
 	"github.com/vCloud-DFTBA/faythe/pkg/autoscaler"
+	_ "github.com/vCloud-DFTBA/faythe/pkg/build"
 	"github.com/vCloud-DFTBA/faythe/pkg/cloud/store/openstack"
 	"github.com/vCloud-DFTBA/faythe/pkg/cluster"
 	"github.com/vCloud-DFTBA/faythe/pkg/common"
 )
+
+func init() {
+	prometheus.MustRegister(version.NewCollector("faythe"))
+}
 
 func main() {
 	if os.Getenv("DEBUG") != "" {
@@ -63,6 +71,7 @@ func main() {
 	}
 
 	a := kingpin.New(filepath.Base(os.Args[0]), "The Faythe server")
+	a.Version(version.Print("faythe"))
 	a.HelpFlag.Short('h')
 	a.Flag("config.file", "Faythe configuration file path.").
 		Default("/etc/faythe/config.yml").StringVar(&cfg.configFile)
@@ -85,9 +94,10 @@ func main() {
 
 	logger := promlog.New(&cfg.logConfig)
 	cfg.externalURL, _ = computeExternalURL(cfg.url, cfg.listenAddress)
-	level.Info(logger).Log("msg", "Staring Faythe...")
+	level.Info(logger).Log("msg", "Staring Faythe", "version", version.Info())
+	level.Info(logger).Log("build_context", version.BuildContext())
 	rtStats := common.RuntimeStats()
-	level.Debug(logger).Log("msg", "Golang runtime stats")
+	level.Debug(logger).Log("msg", "golang runtime stats")
 	for k, v := range rtStats {
 		level.Debug(logger).Log(k, v)
 	}
