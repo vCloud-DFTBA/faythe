@@ -68,4 +68,4 @@ lint:
 	GO111MODULE=on golangci-lint run
 
 dist:
-	zip -j -m faythe-$(DOCKER_IMAGE_TAG) $(GO_OUT)/faythe
+	zip -j -m faythe-$(DOCKER_IMAGE_TAG).zip $(GO_OUT)/faythe
