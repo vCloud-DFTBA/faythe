@@ -42,9 +42,11 @@ GO_LDFLAGS := -X $(VPREFIX).Branch=$(GIT_BRANCH) -X $(VPREFIX).Version=$(DOCKER_
 			  -X $(VPREFIX).Revision=$(GIT_REVISION) -X $(VPREFIX).BuildUser=$(shell whoami)@$(shell hostname) \
 			  -X $(VPREFIX).BuildDate=$(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 GO_FLAGS   := -ldflags "-s -w $(GO_LDFLAGS)" $(MOD_FLAG)
+# Output directory
+GO_OUT     := cmd/faythe
 
 build: cmd/faythe/main.go
-	go build $(GO_FLAGS) -o /tmp ./...
+	go build $(GO_FLAGS) -o $(GO_OUT) ./...
 
 install:
 	go install $(GO_FLAGS) ./cmd/faythe
@@ -58,8 +60,9 @@ push-image:
 	docker push $(DOCKER_IMAGE_FULL_LATEST)
 
 clean:
-	rm -rf /tmp/faythe
+	rm -rf $(GO_OUT)/faythe
 	go clean $(MOD_FLAG) ./...
 
 lint:
+	go install github.com/golangci/golangci-lint/cmd/golangci-lint
 	GO111MODULE=on golangci-lint run
