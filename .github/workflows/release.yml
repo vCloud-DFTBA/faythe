@@ -24,7 +24,7 @@ jobs:
         echo "::set-env name=date::$(date +'%Y-%m-%d')"
 
     - run: |
-        ref="${github_ref##*/v}"
+        ref="${github_ref##*/}"
         echo $ref
         echo "::set-env name=ref::$ref"
       env:
@@ -44,7 +44,7 @@ jobs:
       with:
         tag_name: ${{ github.ref }}
         release_name: ${{ env.ref }} / ${{ env.date }}
-        draft: true
+        draft: false
         prerelease: true
 
     - name: Upload release asset
