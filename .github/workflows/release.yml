@@ -20,9 +20,19 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v2
 
+    - run: |
+        echo "::set-env name=date::$(date +'%Y-%m-%d')"
+
+    - run: |
+        ref="${github_ref##*/v}"
+        echo $ref
+        echo "::set-env name=ref::$ref"
+      env:
+        github_ref: ${{ github.ref }}
+
     - name: Build & create dist
       run: |
-        export RELEASE_TAG=${GITHUB_REF##*/}
+        export RELEASE_TAG=${{ env.ref }}
         make build
         make dist
 
@@ -33,7 +43,7 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         tag_name: ${{ github.ref }}
-        release_name: Release ${{ github.ref }}
+        release_name: ${{ env.ref }} / ${{ env.date }}
         draft: true
         prerelease: true
 
@@ -44,6 +54,6 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./faythe-${{ github.ref }}.zip
-        asset_name: faythe-${{ github.ref }}.zip
+        asset_path: ./faythe-${{ env.ref }}.zip
+        asset_name: faythe-${{ env.ref }}.zip
         asset_content_type: application/zip
