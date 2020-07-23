@@ -5,8 +5,8 @@ on:
       - master
 
 jobs:
-  build-container:
-    name: Build container
+  build-image:
+    name: Build image
     runs-on: ubuntu-latest
     steps:
     - name: Login to Docker Hub

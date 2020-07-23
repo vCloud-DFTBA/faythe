@@ -30,11 +30,11 @@ jobs:
       env:
         github_ref: ${{ github.ref }}
 
-    - name: Build & create dist
+    - name: Build, create dist & push image
       run: |
         export RELEASE_TAG=${{ env.ref }}
-        make build
-        make dist
+        make build dist
+        make build-image push-image
 
     - name: Make release
       id: create_release
