@@ -1,0 +1,59 @@
+name: Release
+on:
+  push:
+    tags:
+      - '*'
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    steps:
+    - name: Login to Docker Hub
+      run: docker login -u '${{ secrets.DOCKER_USER }}' -p '${{ secrets.DOCKER_PASS }}'
+
+    - name: Set up Go 1.14
+      uses: actions/setup-go@v1
+      with:
+        go-version: 1.14
+      id: go
+
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - run: |
+        echo "::set-env name=date::$(date +'%Y-%m-%d')"
+
+    - run: |
+        ref="${github_ref##*/}"
+        echo $ref
+        echo "::set-env name=ref::$ref"
+      env:
+        github_ref: ${{ github.ref }}
+
+    - name: Build, create dist & push image
+      run: |
+        export RELEASE_TAG=${{ env.ref }}
+        make build dist
+        make build-image push-image
+
+    - name: Make release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: ${{ env.ref }} / ${{ env.date }}
+        draft: true
+        prerelease: false
+
+    - name: Upload release asset
+      id: upload_release_asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./faythe-${{ env.ref }}.zip
+        asset_name: faythe-${{ env.ref }}.zip
+        asset_content_type: application/zip

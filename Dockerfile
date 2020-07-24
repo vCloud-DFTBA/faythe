@@ -1,14 +1,11 @@
 FROM golang:1.14.4-alpine as builder
 LABEL maintainer="Kien Nguyen-Tuan <kiennt2609@gmail.com>"
-
 ENV GO111MODULE=on
 ENV APPLOC=$GOPATH/src/faythe
-
-RUN apk add --no-cache git
-
+RUN apk add --no-cache git make bash
 ADD . $APPLOC
 WORKDIR $APPLOC
-RUN go build -mod vendor -o /bin/faythe cmd/faythe/main.go && \
+RUN GO_OUT=/bin make build && \
     chmod +x /bin/faythe
 
 FROM alpine:3.12

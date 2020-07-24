@@ -19,3 +19,5 @@
 
 # MacOS
 .DS_Store
+
+cmd/faythe/faythe
