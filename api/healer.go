@@ -150,7 +150,6 @@ func (a *API) createHealer(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 	a.respondSuccess(rw, http.StatusOK, nil)
-	return
 }
 
 func (a *API) listHealers(rw http.ResponseWriter, req *http.Request) {
@@ -174,7 +173,6 @@ func (a *API) listHealers(rw http.ResponseWriter, req *http.Request) {
 		healers.Set(string(e.Key), h)
 	}
 	a.respondSuccess(rw, http.StatusOK, healers.Items())
-	return
 }
 
 func (a *API) deleteHealer(w http.ResponseWriter, req *http.Request) {
@@ -191,5 +189,4 @@ func (a *API) deleteHealer(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	a.respondSuccess(w, http.StatusOK, nil)
-	return
 }
