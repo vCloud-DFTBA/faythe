@@ -64,7 +64,6 @@ clean:
 	go clean $(MOD_FLAG) ./...
 
 lint:
-	go install github.com/golangci/golangci-lint/cmd/golangci-lint
 	GO111MODULE=on golangci-lint run
 
 dist:
