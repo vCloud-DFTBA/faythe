@@ -37,19 +37,19 @@ import (
 
 var clusterID string
 
-// ClusterState is the state of the Cluster instance
-type ClusterState int
+// State is the state of the Cluster instance
+type State int
 
 const (
 	// DefaultLeaseTTL etcd lease time-to-live in seconds
-	DefaultLeaseTTL int64        = 10
-	ClusterAlive    ClusterState = iota
+	DefaultLeaseTTL int64 = 10
+	ClusterAlive    State = iota
 	ClusterLeaving
 	ClusterLeft
 	ClusterJoining
 )
 
-func (s ClusterState) String() string {
+func (s State) String() string {
 	switch s {
 	case ClusterAlive:
 		return "alive"
@@ -80,7 +80,7 @@ type Cluster struct {
 	etcdcli   *common.Etcd
 	ring      *consistent.Consistent
 	stopCh    chan struct{}
-	state     ClusterState
+	state     State
 	stateLock sync.RWMutex
 }
 
@@ -117,14 +117,14 @@ func New(id string, bindAddr string, l log.Logger, e *common.Etcd) (*Cluster, er
 }
 
 // getState returns the current state of this Cluster instance
-func (c *Cluster) getState() ClusterState {
+func (c *Cluster) getState() State {
 	c.stateLock.RLock()
 	defer c.stateLock.RUnlock()
 	return c.state
 }
 
 // setState for safety update the state
-func (c *Cluster) setState(new ClusterState) {
+func (c *Cluster) setState(new State) {
 	c.stateLock.Lock()
 	defer c.stateLock.Unlock()
 	c.state = new
