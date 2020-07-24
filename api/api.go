@@ -70,7 +70,7 @@ func New(l log.Logger, e *common.Etcd) (*API, error) {
 
 	// Init Policy engine
 	var etcdCfg etcdv3.Config
-	copier.Copy(&etcdCfg, config.Get().EtcdConfig)
+	_ = copier.Copy(&etcdCfg, config.Get().EtcdConfig)
 	adapter := etcdadapter.NewAdapter(etcdCfg, cluster.GetID(), model.DefaultPoliciesPrefix)
 	policyModel := casbinmodel.NewModel()
 	policyModel.AddDef("r", "r", "sub, obj, act")

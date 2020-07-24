@@ -121,7 +121,7 @@ func main() {
 	config.WatchConfig()
 
 	// Init Etcdv3 client
-	copier.Copy(&etcdcfg, config.Get().EtcdConfig)
+	_ = copier.Copy(&etcdcfg, config.Get().EtcdConfig)
 	// clusterID is the id of cluster. It could be a random string
 	// or a user-defined string.
 	if cfg.clusterID == "" {
@@ -197,7 +197,7 @@ func main() {
 			case <-stopc:
 				stopFunc()
 				level.Info(logger).Log("msg", "Faythe is stopping, bye bye!")
-				syscall.Kill(syscall.Getpid(), syscall.SIGTERM)
+				_ = syscall.Kill(syscall.Getpid(), syscall.SIGTERM)
 			}
 		}
 	}()

@@ -62,7 +62,7 @@ func newHealer(l log.Logger, data []byte, b metrics.Backend) *Healer {
 		httpCli:    common.NewHTTPClient(),
 	}
 	_ = json.Unmarshal(data, h)
-	h.Validate()
+	_ = h.Validate()
 	h.state = model.StateActive
 	return h
 }
@@ -267,7 +267,7 @@ func (h *Healer) do(compute string) {
 						Body: fmt.Sprintf("Node %s is down for more than %s.\nBut failed to trigger autohealing, due to %s",
 							compute, h.Duration, err.Error()),
 					}
-					m.Validate()
+					_ = m.Validate()
 					if err := alert.SendMail(m); err != nil {
 						level.Error(h.logger).Log("msg", "error doing Mail action",
 							"err", err)

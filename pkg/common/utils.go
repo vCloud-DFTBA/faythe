@@ -91,7 +91,7 @@ func CheckPasswordAgainstHash(password, hash string) bool {
 // using 64-bit FNV-1a hash function.
 func HashFNV(s string) string {
 	h := fnv.New64a()
-	h.Write([]byte(s))
+	_, _ = h.Write([]byte(s))
 	return string(h.Sum64())
 }
 
@@ -109,7 +109,7 @@ func Hash(s string, f crypto.Hash) string {
 	case crypto.SHA512:
 		h = sha512.New()
 	}
-	h.Write([]byte(s))
+	_, _ = h.Write([]byte(s))
 	return fmt.Sprintf("%x", h.Sum(nil))
 }
 

@@ -82,7 +82,7 @@ func (hm *Manager) load() {
 	for _, p := range []string{model.DefaultNResolverPrefix, model.DefaultHealerPrefix} {
 		r, err := hm.etcdcli.DoGet(p, etcdv3.WithPrefix())
 		if err != nil {
-			level.Error(hm.logger).Log("msg", "error getting list Workers", "err", err)
+			level.Error(hm.logger).Log("msg", "Error getting list Workers", "err", err)
 			return
 		}
 		var hname string
@@ -236,21 +236,30 @@ func (hm *Manager) Run() {
 						Monitor: cloud.Monitor,
 						CloudID: cloud.ID,
 					}
-					nr.Validate()
+					_ = nr.Validate()
 					raw, err := json.Marshal(nr)
 					if err != nil {
 						level.Error(hm.logger).Log("msg", "Error while marshalling nresolver object", "err", err)
 					}
-					hm.etcdcli.DoPut(name, string(raw))
+					_, err = hm.etcdcli.DoPut(name, string(raw))
+					if err != nil {
+						level.Error(hm.logger).Log("msg", "Error putting nresolver object", "err", err)
+					}
 					hm.startWorker(model.DefaultNResolverPrefix, name, raw)
 				}
 				if event.Type == etcdv3.EventTypeDelete {
 					if _, ok := hm.rqt.Get(name); ok {
 						hm.stopWorker(name)
-						hm.etcdcli.DoDelete(name, etcdv3.WithPrefix())
+						_, err := hm.etcdcli.DoDelete(name, etcdv3.WithPrefix())
+						if err != nil {
+							level.Error(hm.logger).Log("msg", "Error deleting nresolver object", "err", err)
+						}
 					}
 					hname := strings.ReplaceAll(name, model.DefaultNResolverPrefix, model.DefaultHealerPrefix)
-					hm.etcdcli.DoDelete(hname, etcdv3.WithPrefix())
+					_, err := hm.etcdcli.DoDelete(hname, etcdv3.WithPrefix())
+					if err != nil {
+						level.Error(hm.logger).Log("msg", "Error deleting healer object", "err", err)
+					}
 				}
 			}
 		case watchResp := <-hm.watchh:
