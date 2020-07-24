@@ -78,6 +78,9 @@ func New(l log.Logger, e *common.Etcd) (*API, error) {
 	policyModel.AddDef("e", "e", "some(where (p.eft == allow))")
 	policyModel.AddDef("m", "m", "r.sub == p.sub && keyMatch(r.obj, p.obj) && regexMatch(r.act, p.act)")
 	policyEngine, err := casbin.NewEnforcer(policyModel, adapter)
+	if err != nil {
+		return nil, errors.Wrap(err, "Error initializing Policy enforcer")
+	}
 
 	a := &API{
 		logger:       l,
