@@ -122,9 +122,6 @@ func RandToken() string {
 
 // Path returns a etcd key path.
 func Path(keys ...string) string {
-	for index, key := range keys {
-		keys[index] = key
-	}
 	return strings.Join(append([]string{}, keys...), "/")
 }
 
