@@ -204,7 +204,7 @@ func (c *Cluster) Run(rc chan struct{}) {
 	ctx, cancel := c.etcdcli.WatchContext()
 	watch := c.etcdcli.Watch(ctx, model.DefaultClusterPrefix,
 		etcdv3.WithPrefix(), etcdv3.WithCreatedNotify())
-	defer cancel()
+	defer func() { cancel() }()
 
 	for {
 		select {

@@ -92,7 +92,7 @@ func (m *Manager) Run() {
 	retryCount := 1
 	ctx, cancel := m.etcdcli.WatchContext()
 	watch := m.etcdcli.Watch(ctx, model.DefaultScalerPrefix, etcdv3.WithPrefix())
-	defer cancel()
+	defer func() { cancel() }()
 
 	for {
 		select {
