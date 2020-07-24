@@ -375,36 +375,6 @@ func isClientTimeout(err error) bool {
 	return code == codes.DeadlineExceeded
 }
 
-func isCanceled(err error) bool {
-	if err == nil {
-		return false
-	}
-	if err == context.Canceled {
-		return true
-	}
-	ev, ok := status.FromError(err)
-	if !ok {
-		return false
-	}
-	code := ev.Code()
-	return code == codes.Canceled
-}
-
-func isUnavailable(err error) bool {
-	if err == nil {
-		return false
-	}
-	if err == context.Canceled {
-		return true
-	}
-	ev, ok := status.FromError(err)
-	if !ok {
-		return false
-	}
-	code := ev.Code()
-	return code == codes.Unavailable
-}
-
 // IsNotFound verifies the type of given error is NotFound or not.
 func IsNotFound(err error) bool {
 	if err == nil || err == context.Canceled {

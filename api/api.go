@@ -209,13 +209,3 @@ func (a *API) respondSuccess(w http.ResponseWriter, code int, data interface{}) 
 		level.Error(a.logger).Log("msg", "failed to write data to connection", "err", err)
 	}
 }
-
-func (a *API) unauthorizedHandler() http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		a.respondError(w, apiError{
-			code: http.StatusUnauthorized,
-			err:  errors.New("Invalid credentials"),
-		})
-		return
-	})
-}
