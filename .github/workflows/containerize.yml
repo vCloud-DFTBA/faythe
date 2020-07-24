@@ -22,7 +22,7 @@ jobs:
       uses: actions/checkout@v2
 
     - name: Build image
-      uses: make build-image
+      run: make build-image
 
     - name: Push image
-      uses: make push-image
+      run: make push-image
