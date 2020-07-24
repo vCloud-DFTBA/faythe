@@ -46,7 +46,7 @@ func newNResolver(l log.Logger, data []byte, b metrics.Backend) *NResolver {
 		done:    make(chan struct{}),
 		backend: b,
 	}
-	json.Unmarshal(data, nr)
+	_ = json.Unmarshal(data, nr)
 	return nr
 }
 
