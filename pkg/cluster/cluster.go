@@ -164,12 +164,10 @@ func (c *Cluster) join() error {
 	// {"level":"warn","ts":1542791960.4143248,"caller":"clientv3/lease.go:524","msg":"lease keepalive response queue is full; dropping response send","queue-size":16,"queue-capacity":16}
 	go func() {
 		for {
-			select {
-			case r := <-keepAliveRespCh:
-				// avoid dead loop when channel was closed
-				if r == nil {
-					return
-				}
+			r := <-keepAliveRespCh
+			// avoid dead loop when channel was closed
+			if r == nil {
+				return
 			}
 		}
 	}()

@@ -307,11 +307,9 @@ func (e *Etcd) DoRevoke(id etcdv3.LeaseID) (*etcdv3.LeaseRevokeResponse, error) 
 // Run waits for Etcd client's error.
 func (e *Etcd) Run(stopc chan struct{}) {
 	for {
-		select {
-		case err := <-e.ErrCh:
-			ReportFailureEtcdRequestCounter(e.namespace, err.action, err.path)
-			stopc <- struct{}{}
-		}
+		err := <-e.ErrCh
+		ReportFailureEtcdRequestCounter(e.namespace, err.action, err.path)
+		stopc <- struct{}{}
 	}
 }
 
