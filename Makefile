@@ -64,7 +64,7 @@ clean:
 	go clean $(MOD_FLAG) ./...
 
 lint:
-	GO111MODULE=on golangci-lint run
+	GO111MODULE=on golangci-lint run -v $(GOLANGCI_ARG)
 
 dist:
 	zip -j -m faythe-$(DOCKER_IMAGE_TAG).zip $(GO_OUT)/faythe
