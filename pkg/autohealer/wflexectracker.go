@@ -74,31 +74,29 @@ outerloop:
 			fmt.Sprintf("Execution %d of workflow", tracker.numRetried),
 			"workflow", tracker.mistralAct.WorkflowID, "execution", tracker.execution.ID)
 		for {
-			select {
-			case <-ticker.C:
-				exec, err := alert.GetExecution(tracker.os, tracker.execution.ID)
-				if err != nil {
-					level.Error(tracker.logger).Log("msg", "error while getting execution state",
-						"err", err)
-					continue
-				}
-				tracker.execution = exec
-				if exec.State == WorkflowExecutionErrorState {
-					level.Debug(tracker.logger).Log("msg", "execution in error state",
-						"execution", tracker.execution.ID)
-					time.Sleep(DefaultMistralActionRetryDelay* time.Second)
-					continue outerloop
-				}
-				if exec.State == WorkflowExecutionSuccessState {
-					return nil
-				}
+			<-ticker.C
+			exec, err := alert.GetExecution(tracker.os, tracker.execution.ID)
+			if err != nil {
+				level.Error(tracker.logger).Log("msg", "error while getting execution state",
+					"err", err)
+				continue
+			}
+			tracker.execution = exec
+			if exec.State == WorkflowExecutionErrorState {
+				level.Debug(tracker.logger).Log("msg", "execution in error state",
+					"execution", tracker.execution.ID)
+				time.Sleep(DefaultMistralActionRetryDelay * time.Second)
+				continue outerloop
+			}
+			if exec.State == WorkflowExecutionSuccessState {
+				return nil
 			}
 		}
 	}
 }
 
 func (tracker *WFLExecTracker) executeWFL() error {
-	tracker.numRetried += 1
+	tracker.numRetried++
 	if tracker.numRetried > tracker.maxRetries {
 		level.Debug(tracker.logger).Log("msg", "Retried workflow executions exceeds maxRetries",
 			"workflow", tracker.mistralAct.WorkflowID)
