@@ -40,13 +40,13 @@ func ExecuteWorkflow(os model.OpenStack, a *model.ActionMistral) (*executions.Ex
 	return exec, nil
 }
 
-func GetExecution(os model.OpenStack, execId string) (*executions.Execution, error) {
+func GetExecution(os model.OpenStack, execID string) (*executions.Execution, error) {
 	client, err := os.NewWorkflowClient()
 	if err != nil {
 		return nil, err
 	}
 
-	exec, err := executions.Get(client, execId).Extract()
+	exec, err := executions.Get(client, execID).Extract()
 	if err != nil {
 		return nil, err
 	}
