@@ -48,5 +48,4 @@ func (a *API) listActionHistory(rw http.ResponseWriter, req *http.Request) {
 		actionHistories.Set(string(e.Key), actHis)
 	}
 	a.respondSuccess(rw, http.StatusOK, actionHistories.Items())
-	return
 }
