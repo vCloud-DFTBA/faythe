@@ -158,7 +158,6 @@ func (a *API) listClouds(w http.ResponseWriter, req *http.Request) {
 	}
 	wg.Wait()
 	a.respondSuccess(w, http.StatusOK, clouds.Items())
-	return
 }
 
 // Remove the cloud information from etcd3
@@ -194,7 +193,6 @@ func (a *API) unregisterCloud(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	a.respondSuccess(w, http.StatusOK, nil)
-	return
 }
 
 func (a *API) updateCloud(w http.ResponseWriter, req *http.Request) {

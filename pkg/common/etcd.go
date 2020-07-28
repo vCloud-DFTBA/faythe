@@ -307,11 +307,9 @@ func (e *Etcd) DoRevoke(id etcdv3.LeaseID) (*etcdv3.LeaseRevokeResponse, error) 
 // Run waits for Etcd client's error.
 func (e *Etcd) Run(stopc chan struct{}) {
 	for {
-		select {
-		case err := <-e.ErrCh:
-			ReportFailureEtcdRequestCounter(e.namespace, err.action, err.path)
-			stopc <- struct{}{}
-		}
+		err := <-e.ErrCh
+		ReportFailureEtcdRequestCounter(e.namespace, err.action, err.path)
+		stopc <- struct{}{}
 	}
 }
 
@@ -373,36 +371,6 @@ func isClientTimeout(err error) bool {
 	}
 	code := ev.Code()
 	return code == codes.DeadlineExceeded
-}
-
-func isCanceled(err error) bool {
-	if err == nil {
-		return false
-	}
-	if err == context.Canceled {
-		return true
-	}
-	ev, ok := status.FromError(err)
-	if !ok {
-		return false
-	}
-	code := ev.Code()
-	return code == codes.Canceled
-}
-
-func isUnavailable(err error) bool {
-	if err == nil {
-		return false
-	}
-	if err == context.Canceled {
-		return true
-	}
-	ev, ok := status.FromError(err)
-	if !ok {
-		return false
-	}
-	code := ev.Code()
-	return code == codes.Unavailable
 }
 
 // IsNotFound verifies the type of given error is NotFound or not.

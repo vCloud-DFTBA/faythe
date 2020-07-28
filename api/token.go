@@ -76,10 +76,3 @@ func (a *API) issueToken(w http.ResponseWriter, req *http.Request) {
 		err:  errors.New("Invalid credentials"),
 	})
 }
-
-// revokeToken revoke a token
-func (a *API) revokeToken(w http.ResponseWriter, req *http.Request) {
-	// TODO(kiennt):
-	// we don't use any store now so unable to
-	// revoke token at this time.
-}

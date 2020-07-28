@@ -93,7 +93,6 @@ func (a *API) createSilence(rw http.ResponseWriter, req *http.Request) {
 	}
 
 	a.respondSuccess(rw, http.StatusOK, nil)
-	return
 }
 
 func (a *API) listSilences(rw http.ResponseWriter, req *http.Request) {
@@ -117,7 +116,6 @@ func (a *API) listSilences(rw http.ResponseWriter, req *http.Request) {
 		silences.Set(string(e.Key), s)
 	}
 	a.respondSuccess(rw, http.StatusOK, silences.Items())
-	return
 }
 
 func (a *API) expireSilence(w http.ResponseWriter, req *http.Request) {
@@ -134,5 +132,4 @@ func (a *API) expireSilence(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	a.respondSuccess(w, http.StatusOK, nil)
-	return
 }

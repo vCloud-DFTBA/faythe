@@ -137,7 +137,6 @@ func (a *API) addUser(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	a.respondSuccess(w, http.StatusOK, nil)
-	return
 }
 
 // removeUser deletes an user
@@ -187,7 +186,6 @@ func (a *API) removeUser(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	a.respondSuccess(w, http.StatusOK, nil)
-	return
 }
 
 // listUsers returns a list of current Faythe users with associated policies.
@@ -233,7 +231,6 @@ func (a *API) listUsers(w http.ResponseWriter, req *http.Request) {
 	}
 	wg.Wait()
 	a.respondSuccess(w, http.StatusOK, users)
-	return
 }
 
 // changePassword updates the new password for a given user
@@ -304,5 +301,4 @@ func (a *API) changePassword(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	a.respondSuccess(w, http.StatusOK, nil)
-	return
 }

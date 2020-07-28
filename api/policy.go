@@ -62,7 +62,7 @@ func (a *API) addPolicies(w http.ResponseWriter, req *http.Request) {
 		if err := p.Validate(); err != nil {
 			a.respondError(w, apiError{
 				code: http.StatusBadRequest,
-				err: err,
+				err:  err,
 			})
 			return
 		}
@@ -84,7 +84,6 @@ func (a *API) addPolicies(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	a.respondSuccess(w, http.StatusOK, nil)
-	return
 }
 
 // removePolicies allows to remove more than one policys at once.
@@ -138,5 +137,4 @@ func (a *API) removePolicies(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	a.respondSuccess(w, http.StatusOK, nil)
-	return
 }

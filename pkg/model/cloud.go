@@ -43,10 +43,6 @@ func (cl *Cloud) Validate() error {
 		}
 	}
 
-	// Require Monitor backend
-	if &cl.Monitor == nil {
-		return errors.New("missing `Monitor` option")
-	}
 	if err := cl.Monitor.Address.Validate(); err != nil {
 		return err
 	}

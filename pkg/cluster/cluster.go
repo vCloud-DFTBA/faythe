@@ -37,19 +37,19 @@ import (
 
 var clusterID string
 
-// ClusterState is the state of the Cluster instance
-type ClusterState int
+// State is the state of the Cluster instance
+type State int
 
 const (
 	// DefaultLeaseTTL etcd lease time-to-live in seconds
-	DefaultLeaseTTL int64        = 10
-	ClusterAlive    ClusterState = iota
+	DefaultLeaseTTL int64 = 10
+	ClusterAlive    State = iota
 	ClusterLeaving
 	ClusterLeft
 	ClusterJoining
 )
 
-func (s ClusterState) String() string {
+func (s State) String() string {
 	switch s {
 	case ClusterAlive:
 		return "alive"
@@ -80,7 +80,7 @@ type Cluster struct {
 	etcdcli   *common.Etcd
 	ring      *consistent.Consistent
 	stopCh    chan struct{}
-	state     ClusterState
+	state     State
 	stateLock sync.RWMutex
 }
 
@@ -117,14 +117,14 @@ func New(id string, bindAddr string, l log.Logger, e *common.Etcd) (*Cluster, er
 }
 
 // getState returns the current state of this Cluster instance
-func (c *Cluster) getState() ClusterState {
+func (c *Cluster) getState() State {
 	c.stateLock.RLock()
 	defer c.stateLock.RUnlock()
 	return c.state
 }
 
 // setState for safety update the state
-func (c *Cluster) setState(new ClusterState) {
+func (c *Cluster) setState(new State) {
 	c.stateLock.Lock()
 	defer c.stateLock.Unlock()
 	c.state = new
@@ -164,12 +164,10 @@ func (c *Cluster) join() error {
 	// {"level":"warn","ts":1542791960.4143248,"caller":"clientv3/lease.go:524","msg":"lease keepalive response queue is full; dropping response send","queue-size":16,"queue-capacity":16}
 	go func() {
 		for {
-			select {
-			case r := <-keepAliveRespCh:
-				// avoid dead loop when channel was closed
-				if r == nil {
-					return
-				}
+			r := <-keepAliveRespCh
+			// avoid dead loop when channel was closed
+			if r == nil {
+				return
 			}
 		}
 	}()
@@ -206,7 +204,7 @@ func (c *Cluster) Run(rc chan struct{}) {
 	ctx, cancel := c.etcdcli.WatchContext()
 	watch := c.etcdcli.Watch(ctx, model.DefaultClusterPrefix,
 		etcdv3.WithPrefix(), etcdv3.WithCreatedNotify())
-	defer cancel()
+	defer func() { cancel() }()
 
 	for {
 		select {

@@ -14,10 +14,6 @@
 
 package model
 
-import (
-	"github.com/pkg/errors"
-)
-
 type NResolver struct {
 	Monitor  Monitor `json:"address"`
 	ID       string  `json:"ID"`
@@ -26,9 +22,6 @@ type NResolver struct {
 }
 
 func (nr *NResolver) Validate() error {
-	if &nr.Monitor == nil {
-		return errors.New("missing `Monitor` option")
-	}
 	if err := nr.Monitor.Address.Validate(); err != nil {
 		return err
 	}

@@ -70,7 +70,7 @@ func New(l log.Logger, e *common.Etcd) (*API, error) {
 
 	// Init Policy engine
 	var etcdCfg etcdv3.Config
-	copier.Copy(&etcdCfg, config.Get().EtcdConfig)
+	_ = copier.Copy(&etcdCfg, config.Get().EtcdConfig)
 	adapter := etcdadapter.NewAdapter(etcdCfg, cluster.GetID(), model.DefaultPoliciesPrefix)
 	policyModel := casbinmodel.NewModel()
 	policyModel.AddDef("r", "r", "sub, obj, act")
@@ -78,6 +78,9 @@ func New(l log.Logger, e *common.Etcd) (*API, error) {
 	policyModel.AddDef("e", "e", "some(where (p.eft == allow))")
 	policyModel.AddDef("m", "m", "r.sub == p.sub && keyMatch(r.obj, p.obj) && regexMatch(r.act, p.act)")
 	policyEngine, err := casbin.NewEnforcer(policyModel, adapter)
+	if err != nil {
+		return nil, errors.Wrap(err, "Error initializing Policy enforcer")
+	}
 
 	a := &API{
 		logger:       l,
@@ -208,14 +211,4 @@ func (a *API) respondSuccess(w http.ResponseWriter, code int, data interface{}) 
 	if _, err := w.Write(b); err != nil {
 		level.Error(a.logger).Log("msg", "failed to write data to connection", "err", err)
 	}
-}
-
-func (a *API) unauthorizedHandler() http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		a.respondError(w, apiError{
-			code: http.StatusUnauthorized,
-			err:  errors.New("Invalid credentials"),
-		})
-		return
-	})
 }

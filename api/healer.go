@@ -47,7 +47,7 @@ func (a *API) createHealer(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 	c := model.Cloud{}
-	json.Unmarshal(resp.Kvs[0].Value, &c)
+	_ = json.Unmarshal(resp.Kvs[0].Value, &c)
 
 	if err := a.receive(req, &h); err != nil {
 		a.respondError(rw, apiError{
@@ -81,8 +81,7 @@ func (a *API) createHealer(rw http.ResponseWriter, req *http.Request) {
 			if !ok {
 				a.respondError(rw, apiError{
 					code: http.StatusBadRequest,
-					err:  fmt.Errorf("action of Mistral type are supported for OpenStack cloud only" +
-						"or unknown Cloud ID"),
+					err:  fmt.Errorf("action of Mistral type are supported for OpenStack cloud only or unknown Cloud ID"),
 				})
 				return
 			}
@@ -150,7 +149,6 @@ func (a *API) createHealer(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 	a.respondSuccess(rw, http.StatusOK, nil)
-	return
 }
 
 func (a *API) listHealers(rw http.ResponseWriter, req *http.Request) {
@@ -174,7 +172,6 @@ func (a *API) listHealers(rw http.ResponseWriter, req *http.Request) {
 		healers.Set(string(e.Key), h)
 	}
 	a.respondSuccess(rw, http.StatusOK, healers.Items())
-	return
 }
 
 func (a *API) deleteHealer(w http.ResponseWriter, req *http.Request) {
@@ -191,5 +188,4 @@ func (a *API) deleteHealer(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	a.respondSuccess(w, http.StatusOK, nil)
-	return
 }

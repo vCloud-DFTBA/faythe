@@ -61,8 +61,8 @@ func newHealer(l log.Logger, data []byte, b metrics.Backend) *Healer {
 		silences:   make(map[string]*model.Silence),
 		httpCli:    common.NewHTTPClient(),
 	}
-	json.Unmarshal(data, h)
-	h.Validate()
+	_ = json.Unmarshal(data, h)
+	_ = h.Validate()
 	h.state = model.StateActive
 	return h
 }
@@ -104,7 +104,7 @@ func (h *Healer) run(ctx context.Context, e *common.Etcd, wg *sync.WaitGroup, nc
 					sid := string(event.Kv.Key)
 					if event.IsCreate() {
 						s := model.Silence{}
-						json.Unmarshal(event.Kv.Value, &s)
+						_ = json.Unmarshal(event.Kv.Value, &s)
 						s.RegexPattern, _ = regexp.Compile(s.Pattern)
 						h.silences[sid] = &s
 					} else if event.Type == etcdv3.EventTypeDelete {
@@ -267,7 +267,7 @@ func (h *Healer) do(compute string) {
 						Body: fmt.Sprintf("Node %s is down for more than %s.\nBut failed to trigger autohealing, due to %s",
 							compute, h.Duration, err.Error()),
 					}
-					m.Validate()
+					_ = m.Validate()
 					if err := alert.SendMail(m); err != nil {
 						level.Error(h.logger).Log("msg", "error doing Mail action",
 							"err", err)
@@ -368,7 +368,7 @@ func (h *Healer) updateSilence(e *common.Etcd) {
 	for _, v := range resp.Kvs {
 		sid := string(v.Key)
 		s := model.Silence{}
-		json.Unmarshal(v.Value, &s)
+		_ = json.Unmarshal(v.Value, &s)
 		s.RegexPattern, _ = regexp.Compile(s.Pattern)
 		h.silences[sid] = &s
 	}
