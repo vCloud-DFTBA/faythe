@@ -81,8 +81,7 @@ func (a *API) createHealer(rw http.ResponseWriter, req *http.Request) {
 			if !ok {
 				a.respondError(rw, apiError{
 					code: http.StatusBadRequest,
-					err: fmt.Errorf("action of Mistral type are supported for OpenStack cloud only" +
-						"or unknown Cloud ID"),
+					err:  fmt.Errorf("action of Mistral type are supported for OpenStack cloud only or unknown Cloud ID"),
 				})
 				return
 			}
