@@ -315,13 +315,15 @@ func (h *Healer) do(compute string) {
 					exporter.ReportFailureHealerActionCounter(cluster.GetID(), "mistral")
 					return
 				}
-				if err := alert.ExecuteWorkflow(os, at); err != nil {
+				tracker := NewTracker(log.With(h.logger), *at, os)
+				if err := tracker.start(); err != nil {
 					level.Error(h.logger).Log("msg", "error doing Mistral action", "err", err)
 					exporter.ReportFailureHealerActionCounter(cluster.GetID(), "mistral")
 					return
 				}
 				exporter.ReportSuccessHealerActionCounter(cluster.GetID(), "mistral")
-				level.Info(h.logger).Log("msg", fmt.Sprintf("Triggering workflow %s", at.WorkflowID))
+				level.Info(h.logger).Log("msg", "Workflow execution succeeded",
+					"workflow", at.WorkflowID, "compute", compute)
 			}(compute)
 		}
 	}
