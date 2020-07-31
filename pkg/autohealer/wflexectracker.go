@@ -33,6 +33,9 @@ const (
 	DefaultMistralActionExecutionCheck = 15
 )
 
+// There are 6 different states:
+// IDLE, RUNNING, SUCCESS, ERROR, PAUSED, CANCELLED
+// but we just handle two main states.
 const (
 	WorkflowExecutionSuccessState = "SUCCESS"
 	WorkflowExecutionErrorState   = "ERROR"
