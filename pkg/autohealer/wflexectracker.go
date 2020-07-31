@@ -41,7 +41,7 @@ const (
 	WorkflowExecutionErrorState   = "ERROR"
 )
 
-// WFLTracker tracks workflow execution and maxRetries if necessary
+// WFLExecTracker tracks workflow execution and maxRetries if necessary
 type WFLExecTracker struct {
 	os         model.OpenStack
 	mistralAct model.ActionMistral
