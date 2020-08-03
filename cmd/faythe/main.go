@@ -97,10 +97,9 @@ func main() {
 	level.Info(logger).Log("msg", "Staring Faythe", "version", version.Info())
 	level.Info(logger).Log("build_context", version.BuildContext())
 	rtStats := common.RuntimeStats()
-	level.Debug(logger).Log("msg", "golang runtime stats")
-	for k, v := range rtStats {
-		level.Debug(logger).Log(k, v)
-	}
+	rtStatsMsg := common.CnvSliceStrToSliceInf(append([]string{"msg", "Golang runtime stats"},
+		rtStats...))
+	level.Debug(logger).Log(rtStatsMsg...)
 
 	var (
 		etcdcfg   = etcdv3.Config{}

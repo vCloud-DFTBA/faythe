@@ -168,15 +168,25 @@ func AddParts(address string) (string, int, error) {
 }
 
 // RuntimeStats is used to return various runtime information
-func RuntimeStats() map[string]string {
-	return map[string]string{
-		"os":         runtime.GOOS,
-		"arch":       runtime.GOARCH,
-		"version":    runtime.Version(),
-		"max_procs":  strconv.FormatInt(int64(runtime.GOMAXPROCS(0)), 10),
-		"goroutines": strconv.FormatInt(int64(runtime.NumGoroutine()), 10),
-		"cpu_count":  strconv.FormatInt(int64(runtime.NumCPU()), 10),
+func RuntimeStats() []string {
+	return []string{
+		"os", runtime.GOOS,
+		"arch", runtime.GOARCH,
+		"version", runtime.Version(),
+		"max_procs", strconv.FormatInt(int64(runtime.GOMAXPROCS(0)), 10),
+		"goroutines", strconv.FormatInt(int64(runtime.NumGoroutine()), 10),
+		"cpu_count", strconv.FormatInt(int64(runtime.NumCPU()), 10),
 	}
+}
+
+// CnvSliceStrToSliceInf converts the given slice of string
+// to slice of interface which be used later in logging.
+func CnvSliceStrToSliceInf(in []string) []interface{} {
+	var ou []interface{}
+	for _, v := range in {
+		ou = append(ou, v)
+	}
+	return ou
 }
 
 // ExternalIP returns an external ip address of the current host

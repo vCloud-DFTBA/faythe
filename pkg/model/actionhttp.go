@@ -67,3 +67,12 @@ func (a *ActionHTTP) Validate() error {
 	}
 	return nil
 }
+
+// InfoLog returns type, url & method information.
+func (a *ActionHTTP) InfoLog() []string {
+	return []string{
+		"type", a.Type,
+		"url", a.URL.String(),
+		"method", a.Method,
+	}
+}

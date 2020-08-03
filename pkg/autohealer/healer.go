@@ -256,9 +256,13 @@ func (h *Healer) do(compute string) {
 			wg.Add(1)
 			go func(url string, compute string) {
 				defer wg.Done()
+				var msg []interface{}
 				if err := alert.SendHTTP(h.httpCli, at); err != nil {
-					level.Error(h.logger).Log("msg", "Error doing HTTP action",
-						"url", at.URL.String(), "err", err)
+					msg = common.CnvSliceStrToSliceInf(append([]string{
+						"msg", "Exec action failed",
+						"err", err.Error()},
+						at.InfoLog()...))
+					level.Error(h.logger).Log(msg...)
 					exporter.ReportFailureHealerActionCounter(cluster.GetID(), "http")
 					m := &model.ActionMail{
 						Receivers: h.Receivers,
@@ -268,26 +272,38 @@ func (h *Healer) do(compute string) {
 					}
 					_ = m.Validate()
 					if err := alert.SendMail(m); err != nil {
-						level.Error(h.logger).Log("msg", "error doing Mail action",
-							"err", err)
+						msg = common.CnvSliceStrToSliceInf(append([]string{
+							"msg", "Exec action failed",
+							"err", err.Error()},
+							at.InfoLog()...))
+						level.Error(h.logger).Log(msg...)
+						exporter.ReportFailureHealerActionCounter(cluster.GetID(), "mail")
 						return
 					}
+					exporter.ReportFailureHealerActionCounter(cluster.GetID(), "mail")
 					return
 				}
 				exporter.ReportSuccessHealerActionCounter(cluster.GetID(), "http")
-				level.Info(h.logger).Log("msg", "Sending request",
-					"url", url, "method", at.Method)
+
+				msg = common.CnvSliceStrToSliceInf(append([]string{
+					"msg", "Exec action success"},
+					at.InfoLog()...))
+				level.Error(h.logger).Log(msg...)
 			}(string(at.URL), compute)
 		case *model.ActionMail:
 			wg.Add(1)
 			go func(compute string) {
 				defer wg.Done()
+				var msg []interface{}
 				at.Receivers = h.Receivers
 				at.Subject = fmt.Sprintf("[autohealing] Node %s down, trigger autohealing", compute)
 				at.Body = fmt.Sprintf("Node %s has been down for more than %s.", compute, h.Duration)
 				if err := alert.SendMail(at); err != nil {
-					level.Error(h.logger).Log("msg", "error doing Mail action",
-						"err", err)
+					msg = common.CnvSliceStrToSliceInf(append([]string{
+						"msg", "Exec action failed",
+						"err", err.Error()},
+						at.InfoLog()...))
+					level.Error(h.logger).Log(msg...)
 					exporter.ReportFailureHealerActionCounter(cluster.GetID(), "mail")
 					return
 				}

@@ -34,3 +34,11 @@ func (a *ActionMistral) Validate() error {
 	}
 	return nil
 }
+
+// InfoLog returns Mistral workflow ID information
+func (a *ActionMistral) InfoLog() []string {
+	return []string{
+		"type", a.Type,
+		"workflow", a.WorkflowID,
+	}
+}

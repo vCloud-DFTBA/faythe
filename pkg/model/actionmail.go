@@ -14,6 +14,8 @@
 
 package model
 
+import "strings"
+
 // Receivers is the list of Mail receivers.
 type Receivers []string
 
@@ -31,4 +33,13 @@ func (a *ActionMail) Validate() error {
 		return err
 	}
 	return nil
+}
+
+// InfoLog returns type & receivers information.
+func (a *ActionMail) InfoLog() []string {
+	receivers := strings.Join(a.Receivers, ",")
+	return []string{
+		"type", a.Type,
+		"receivers", receivers,
+	}
 }

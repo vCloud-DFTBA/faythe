@@ -140,20 +140,25 @@ func (s *Scaler) do() {
 		switch at := a.(type) {
 		case *model.ActionHTTP:
 			wg.Add(1)
+			var msg []interface{}
 			go func(a *model.ActionHTTP) {
 				defer wg.Done()
-				url := a.URL.String()
 				// TODO(kiennt): Check kind of action url -> Authen or not?
 				if err := alert.SendHTTP(s.httpCli, a); err != nil {
-					level.Error(s.logger).Log("msg", "Error doing HTTP action",
-						"url", url, "err", err)
-					exporter.ReportFailureScalerActionCounter(cluster.GetID(), "http")
+					msg = common.CnvSliceStrToSliceInf(append([]string{
+						"msg", "Exec action failed",
+						"err", err.Error()},
+						at.InfoLog()...))
+					level.Error(s.logger).Log(msg...)
+					exporter.ReportFailureHealerActionCounter(cluster.GetID(), "http")
 					return
 				}
 
 				exporter.ReportSuccessScalerActionCounter(cluster.GetID(), "http")
-				level.Info(s.logger).Log("msg", "Sending request",
-					"url", url, "method", a.Method)
+				msg = common.CnvSliceStrToSliceInf(append([]string{
+					"msg", "Exec action success"},
+					at.InfoLog()...))
+				level.Error(s.logger).Log(msg...)
 				s.alert.Fire(time.Now())
 			}(at)
 		}

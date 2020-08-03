@@ -24,6 +24,9 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/vCloud-DFTBA/faythe/pkg/alert"
+	"github.com/vCloud-DFTBA/faythe/pkg/cluster"
+	"github.com/vCloud-DFTBA/faythe/pkg/common"
+	"github.com/vCloud-DFTBA/faythe/pkg/exporter"
 	"github.com/vCloud-DFTBA/faythe/pkg/model"
 )
 
@@ -99,17 +102,26 @@ outerloop:
 }
 
 func (tracker *WFLExecTracker) executeWFL() error {
+	var msg []interface{}
 	tracker.numRetried++
 	if tracker.numRetried > tracker.maxRetries {
-		level.Debug(tracker.logger).Log("msg", "Retried workflow executions exceeds maxRetries",
-			"workflow", tracker.mistralAct.WorkflowID)
+		msg = common.CnvSliceStrToSliceInf(append([]string{
+			"msg", "Retried workflow executions exceeds maxRetries"},
+			tracker.mistralAct.InfoLog()...))
+		level.Debug(tracker.logger).Log(msg...)
 		return errors.Errorf("number of retried reached maximum")
 	}
 	exec, err := alert.ExecuteWorkflow(tracker.os, &tracker.mistralAct)
 	if err != nil {
-		level.Error(tracker.logger).Log("msg", "Error while executing workflow", "err", err)
+		msg = common.CnvSliceStrToSliceInf(append([]string{
+			"msg", "Exec action failed",
+			"err", err.Error()},
+			tracker.mistralAct.InfoLog()...))
+		level.Error(tracker.logger).Log(msg...)
+		exporter.ReportFailureHealerActionCounter(cluster.GetID(), "mistral")
 		return err
 	}
+	exporter.ReportSuccessHealerActionCounter(cluster.GetID(), "mistral")
 	tracker.execution = exec
 	return nil
 }
