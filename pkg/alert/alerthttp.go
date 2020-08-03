@@ -23,13 +23,12 @@ import (
 	"time"
 
 	"github.com/avast/retry-go"
-	"github.com/go-kit/kit/log"
 
 	"github.com/vCloud-DFTBA/faythe/pkg/common"
 	"github.com/vCloud-DFTBA/faythe/pkg/model"
 )
 
-func SendHTTP(l log.Logger, cli *http.Client, a *model.ActionHTTP, add ...map[string]map[string]string) error {
+func SendHTTP(cli *http.Client, a *model.ActionHTTP, add ...map[string]map[string]string) error {
 	delay, _ := common.ParseDuration(a.Delay)
 	err := retry.Do(
 		func() error {
