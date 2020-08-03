@@ -137,24 +137,28 @@ func (s *Scaler) do() {
 	var wg sync.WaitGroup
 
 	for _, a := range s.Actions {
-		wg.Add(1)
-		go func(a *model.ActionHTTP) {
-			defer wg.Done()
-			url := a.URL.String()
-			// TODO(kiennt): Check kind of action url -> Authen or not?
-			if err := alert.SendHTTP(s.httpCli, a); err != nil {
-				level.Error(s.logger).Log("msg", "Error doing HTTP action",
-					"url", url, "err", err)
-				exporter.ReportFailureScalerActionCounter(cluster.GetID(), "http")
-				return
-			}
+		switch at := a.(type) {
+		case *model.ActionHTTP:
+			wg.Add(1)
+			go func(a *model.ActionHTTP) {
+				defer wg.Done()
+				url := a.URL.String()
+				// TODO(kiennt): Check kind of action url -> Authen or not?
+				if err := alert.SendHTTP(s.httpCli, a); err != nil {
+					level.Error(s.logger).Log("msg", "Error doing HTTP action",
+						"url", url, "err", err)
+					exporter.ReportFailureScalerActionCounter(cluster.GetID(), "http")
+					return
+				}
 
-			exporter.ReportSuccessScalerActionCounter(cluster.GetID(), "http")
-			level.Info(s.logger).Log("msg", "Sending request",
-				"url", url, "method", a.Method)
-			s.alert.Fire(time.Now())
-		}(a)
+				exporter.ReportSuccessScalerActionCounter(cluster.GetID(), "http")
+				level.Info(s.logger).Log("msg", "Sending request",
+					"url", url, "method", a.Method)
+				s.alert.Fire(time.Now())
+			}(at)
+		}
 	}
+
 	// Wait until all actions were performed
 	wg.Wait()
 }
