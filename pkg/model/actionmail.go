@@ -14,8 +14,10 @@
 
 package model
 
+// Receivers is the list of Mail receivers.
 type Receivers []string
 
+// ActionMail represents a Mail object.
 type ActionMail struct {
 	Action
 	Receivers Receivers `json:"-"`
@@ -23,6 +25,7 @@ type ActionMail struct {
 	Body      string    `json:"body"`
 }
 
+// Validate returns nil if all fields of the Action have valid values.
 func (a *ActionMail) Validate() error {
 	if err := a.validate(); err != nil {
 		return err
