@@ -256,8 +256,7 @@ func (h *Healer) do(compute string) {
 			wg.Add(1)
 			go func(url string, compute string) {
 				defer wg.Done()
-				params := make(map[string]map[string]string)
-				if err := alert.SendHTTP(h.httpCli, at, params); err != nil {
+				if err := alert.SendHTTP(h.httpCli, at); err != nil {
 					level.Error(h.logger).Log("msg", "Error doing HTTP action",
 						"url", at.URL.String(), "err", err)
 					exporter.ReportFailureHealerActionCounter(cluster.GetID(), "http")

@@ -142,7 +142,7 @@ func (s *Scaler) do() {
 			defer wg.Done()
 			url := a.URL.String()
 			// TODO(kiennt): Check kind of action url -> Authen or not?
-			if err := alert.SendHTTP(s.httpCli, a, nil); err != nil {
+			if err := alert.SendHTTP(s.httpCli, a); err != nil {
 				level.Error(s.logger).Log("msg", "Error doing HTTP action",
 					"url", url, "err", err)
 				exporter.ReportFailureScalerActionCounter(cluster.GetID(), "http")

@@ -28,7 +28,8 @@ import (
 	"github.com/vCloud-DFTBA/faythe/pkg/model"
 )
 
-func SendHTTP(cli *http.Client, a *model.ActionHTTP, add ...map[string]map[string]string) error {
+// SendHTTP constructs and sends a HTTP request.
+func SendHTTP(cli *http.Client, a *model.ActionHTTP) error {
 	delay, _ := common.ParseDuration(a.Delay)
 	err := retry.Do(
 		func() error {
@@ -36,21 +37,19 @@ func SendHTTP(cli *http.Client, a *model.ActionHTTP, add ...map[string]map[strin
 			if err != nil {
 				return err
 			}
-			if add != nil {
-				req.Header.Set("Content-Type", "application/json")
-				if header, ok := add[0]["header"]; ok {
-					req.SetBasicAuth(header["username"], header["password"])
+			if a.Header != nil {
+				for k, v := range a.Header {
+					req.Header.Set(k, v)
+				}
+			}
+			if a.Body != nil {
+				b, err := json.Marshal(a.Body)
+				if err != nil {
+					return err
 				}
 
-				if body, ok := add[0]["body"]; ok {
-					b, err := json.Marshal(body)
-					if err != nil {
-						return err
-					}
-
-					req.Body = ioutil.NopCloser(bytes.NewReader(b))
-					req.ContentLength = int64(len(b))
-				}
+				req.Body = ioutil.NopCloser(bytes.NewReader(b))
+				req.ContentLength = int64(len(b))
 			}
 			resp, err := cli.Do(req)
 			// Close the response body
