@@ -54,6 +54,8 @@ func newScaler(l log.Logger, data []byte, b metrics.Backend) *Scaler {
 		httpCli:    common.NewHTTPClient(),
 	}
 	_ = json.Unmarshal(data, s)
+	// Force validate for backward compatible
+	_ = s.Validate()
 	if s.Alert == nil {
 		s.Alert = &model.Alert{}
 	}
