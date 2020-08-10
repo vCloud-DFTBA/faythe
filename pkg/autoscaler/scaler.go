@@ -54,6 +54,8 @@ func newScaler(l log.Logger, data []byte, b metrics.Backend) *Scaler {
 		httpCli:    common.NewHTTPClient(),
 	}
 	_ = json.Unmarshal(data, s)
+	// Force validate for backward compatible
+	_ = s.Validate()
 	if s.Alert == nil {
 		s.Alert = &model.Alert{}
 	}
@@ -137,24 +139,33 @@ func (s *Scaler) do() {
 	var wg sync.WaitGroup
 
 	for _, a := range s.Actions {
-		wg.Add(1)
-		go func(a *model.ActionHTTP) {
-			defer wg.Done()
-			url := a.URL.String()
-			// TODO(kiennt): Check kind of action url -> Authen or not?
-			if err := alert.SendHTTP(s.logger, s.httpCli, a, nil); err != nil {
-				level.Error(s.logger).Log("msg", "Error doing HTTP action",
-					"url", url, "err", err)
-				exporter.ReportFailureScalerActionCounter(cluster.GetID(), "http")
-				return
-			}
+		switch at := a.(type) {
+		case *model.ActionHTTP:
+			wg.Add(1)
+			var msg []interface{}
+			go func(a *model.ActionHTTP) {
+				defer wg.Done()
+				// TODO(kiennt): Check kind of action url -> Authen or not?
+				if err := alert.SendHTTP(s.httpCli, a); err != nil {
+					msg = common.CnvSliceStrToSliceInf(append([]string{
+						"msg", "Exec action failed",
+						"err", err.Error()},
+						at.InfoLog()...))
+					level.Error(s.logger).Log(msg...)
+					exporter.ReportFailureHealerActionCounter(cluster.GetID(), "http")
+					return
+				}
 
-			exporter.ReportSuccessScalerActionCounter(cluster.GetID(), "http")
-			level.Info(s.logger).Log("msg", "Sending request",
-				"url", url, "method", a.Method)
-			s.alert.Fire(time.Now())
-		}(a)
+				exporter.ReportSuccessScalerActionCounter(cluster.GetID(), "http")
+				msg = common.CnvSliceStrToSliceInf(append([]string{
+					"msg", "Exec action success"},
+					at.InfoLog()...))
+				level.Error(s.logger).Log(msg...)
+				s.alert.Fire(time.Now())
+			}(at)
+		}
 	}
+
 	// Wait until all actions were performed
 	wg.Wait()
 }

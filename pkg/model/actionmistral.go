@@ -16,6 +16,8 @@ package model
 
 import "github.com/pkg/errors"
 
+// ActionMistral is the special action contains
+// OpenStack Mistral workflow information.
 type ActionMistral struct {
 	Action
 	WorkflowID string                 `json:"workflow_id"`
@@ -31,4 +33,12 @@ func (a *ActionMistral) Validate() error {
 		return err
 	}
 	return nil
+}
+
+// InfoLog returns Mistral workflow ID information
+func (a *ActionMistral) InfoLog() []string {
+	return []string{
+		"type", a.Type,
+		"workflow", a.WorkflowID,
+	}
 }

@@ -27,6 +27,8 @@ type Action struct {
 
 type ActionInterface interface {
 	Validate() error
+	// InfoLog returns a list which is used in logging.
+	InfoLog() []string
 }
 
 func (a Action) validate() error {

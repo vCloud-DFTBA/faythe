@@ -16,6 +16,9 @@ package model
 
 import (
 	"crypto"
+	"encoding/json"
+	"fmt"
+	"strings"
 
 	"github.com/pkg/errors"
 
@@ -24,23 +27,42 @@ import (
 
 // Scaler represents a Scaler object
 type Scaler struct {
-	Query       string                 `json:"query"`
-	Duration    string                 `json:"duration"`
-	Description string                 `json:"description"`
-	Interval    string                 `json:"interval"`
-	Actions     map[string]*ActionHTTP `json:"actions"`
-	Tags        []string               `json:"tags"`
-	Active      bool                   `json:"active"`
-	ID          string                 `json:"id,omitempty"`
-	Alert       *Alert                 `json:"alert,omitempty"`
-	Cooldown    string                 `json:"cooldown"`
+	Query       string                     `json:"query"`
+	Duration    string                     `json:"duration"`
+	Description string                     `json:"description"`
+	Interval    string                     `json:"interval"`
+	Actions     map[string]ActionInterface `json:"ractions"`
+	ActionsRaw  map[string]json.RawMessage `json:"actions"`
+	Tags        []string                   `json:"tags"`
+	Active      bool                       `json:"active"`
+	ID          string                     `json:"id,omitempty"`
+	Alert       *Alert                     `json:"alert,omitempty"`
+	Cooldown    string                     `json:"cooldown"`
 }
 
 // Validate returns nil if all fields of the Scaler have valid values.
 func (s *Scaler) Validate() error {
-	for _, a := range s.Actions {
-		if err := a.Validate(); err != nil {
-			return err
+	if s.ActionsRaw != nil {
+		s.Actions = make(map[string]ActionInterface, len(s.ActionsRaw))
+		for k, v := range s.ActionsRaw {
+			a := Action{}
+			if err := json.Unmarshal(v, &a); err != nil {
+				return err
+			}
+			// TODO(kiennt): Support other action types like mail & mistral.
+			switch strings.ToLower(a.Type) {
+			case "http":
+				ah := &ActionHTTP{}
+				if err := json.Unmarshal(v, ah); err != nil {
+					return err
+				}
+				s.Actions[k] = ah
+			default:
+				return fmt.Errorf("type %s is not supported", a.Type)
+			}
+			if err := s.Actions[k].Validate(); err != nil {
+				return err
+			}
 		}
 	}
 
