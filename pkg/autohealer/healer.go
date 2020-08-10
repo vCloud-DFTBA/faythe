@@ -193,7 +193,6 @@ func (h *Healer) run(ctx context.Context, e *common.Etcd, wg *sync.WaitGroup, nc
 				}
 
 
-
 				for instance := range rIs {
 					if _, ok := chans[instance]; !ok {
 						ci := make(chan struct{})
