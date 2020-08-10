@@ -192,7 +192,6 @@ func (h *Healer) run(ctx context.Context, e *common.Etcd, wg *sync.WaitGroup, nc
 					continue
 				}
 
-
 				for instance := range rIs {
 					if _, ok := chans[instance]; !ok {
 						ci := make(chan struct{})
@@ -278,10 +277,8 @@ func (h *Healer) do(compute string) {
 							"err", err.Error()},
 							at.InfoLog()...))
 						level.Error(h.logger).Log(msg...)
-						exporter.ReportFailureHealerActionCounter(cluster.GetID(), "mail")
 						return
 					}
-					exporter.ReportFailureHealerActionCounter(cluster.GetID(), "mail")
 					return
 				}
 				exporter.ReportSuccessHealerActionCounter(cluster.GetID(), "http")
@@ -315,6 +312,7 @@ func (h *Healer) do(compute string) {
 			wg.Add(1)
 			go func(compute string) {
 				defer wg.Done()
+				var msg []interface{}
 				mc := config.Get().MailConfig
 				at.Input = map[string]interface{}{
 					"compute":       compute,
@@ -335,6 +333,21 @@ func (h *Healer) do(compute string) {
 				if err := tracker.start(); err != nil {
 					level.Error(h.logger).Log("msg", "error doing Mistral action", "err", err)
 					exporter.ReportFailureHealerActionCounter(cluster.GetID(), "mistral")
+					m := &model.ActionMail{
+						Receivers: h.Receivers,
+						Subject:   fmt.Sprintf("[autohealing] Node %s down, mistral workflow execution failed", compute),
+						Body: fmt.Sprintf("Node %s is down for more than %s.\nMistral workflow executions has exceeded maxinum number of retry.",
+							compute, h.Duration),
+					}
+					_ = m.Validate()
+					if err := alert.SendMail(m); err != nil {
+						msg = common.CnvSliceStrToSliceInf(append([]string{
+							"msg", "Error while sending email notifying mistral action failed",
+							"err", err.Error()},
+							at.InfoLog()...))
+						level.Error(h.logger).Log(msg...)
+						return
+					}
 					return
 				}
 				exporter.ReportSuccessHealerActionCounter(cluster.GetID(), "mistral")
