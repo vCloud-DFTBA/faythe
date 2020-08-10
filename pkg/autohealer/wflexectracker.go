@@ -24,9 +24,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/vCloud-DFTBA/faythe/pkg/alert"
-	"github.com/vCloud-DFTBA/faythe/pkg/cluster"
 	"github.com/vCloud-DFTBA/faythe/pkg/common"
-	"github.com/vCloud-DFTBA/faythe/pkg/exporter"
 	"github.com/vCloud-DFTBA/faythe/pkg/model"
 )
 
@@ -118,10 +116,8 @@ func (tracker *WFLExecTracker) executeWFL() error {
 			"err", err.Error()},
 			tracker.mistralAct.InfoLog()...))
 		level.Error(tracker.logger).Log(msg...)
-		exporter.ReportFailureHealerActionCounter(cluster.GetID(), "mistral")
 		return err
 	}
-	exporter.ReportSuccessHealerActionCounter(cluster.GetID(), "mistral")
 	tracker.execution = exec
 	return nil
 }
