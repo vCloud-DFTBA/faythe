@@ -264,6 +264,21 @@ func (h *Healer) do(compute string) {
 						at.InfoLog()...))
 					level.Error(h.logger).Log(msg...)
 					exporter.ReportFailureHealerActionCounter(cluster.GetID(), "http")
+					m := &model.ActionMail{
+						Receivers: h.Receivers,
+						Subject:   fmt.Sprintf("[autohealing] Node %s down, failed to trigger http request", compute),
+						Body: fmt.Sprintf("Node %s is down for more than %s.\nBut failed to trigger autohealing, due to %s",
+							compute, h.Duration, err.Error()),
+					}
+					_ = m.Validate()
+					if err := alert.SendMail(m); err != nil {
+						msg = common.CnvSliceStrToSliceInf(append([]string{
+							"msg", "Exec action failed",
+							"err", err.Error()},
+							at.InfoLog()...))
+						level.Error(h.logger).Log(msg...)
+						return
+					}
 					return
 				}
 				exporter.ReportSuccessHealerActionCounter(cluster.GetID(), "http")
