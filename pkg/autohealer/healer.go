@@ -170,6 +170,13 @@ func (h *Healer) run(ctx context.Context, e *common.Etcd, wg *sync.WaitGroup, nc
 					if _, ok := chans[k]; ok {
 						delete(rIs, k)
 					}
+					// Check silenced instances
+					for ks, vs := range h.silences {
+						if matched := vs.RegexPattern.MatchString(k); matched {
+							level.Info(h.logger).Log("msg", fmt.Sprintf("instance %s is ignored because of silence: %s", k, ks))
+							delete(rIs, k)
+						}
+					}
 				}
 
 				// If number of instances > DefaultMaxNumberOfInstances, clear all goroutines
@@ -185,14 +192,8 @@ func (h *Healer) run(ctx context.Context, e *common.Etcd, wg *sync.WaitGroup, nc
 					continue
 				}
 
-			processing:
+
 				for instance := range rIs {
-					for k, v := range h.silences {
-						if matched := v.RegexPattern.MatchString(instance); matched {
-							level.Info(h.logger).Log("msg", fmt.Sprintf("instance %s is ignored because of silence: %s", instance, k))
-							continue processing
-						}
-					}
 					if _, ok := chans[instance]; !ok {
 						ci := make(chan struct{})
 						chans[instance] = &ci
