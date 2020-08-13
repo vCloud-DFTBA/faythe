@@ -50,41 +50,50 @@ func newNResolver(l log.Logger, data []byte, b metrics.Backend) *NResolver {
 	return nr
 }
 
-func (nr *NResolver) run(ctx context.Context, wg *sync.WaitGroup, nc *chan NodeMetric) {
+func (nr *NResolver) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string]string) {
 	interval, _ := common.ParseDuration(nr.Interval)
 	ticker := time.NewTicker(interval)
 	defer func() {
 		wg.Done()
 		ticker.Stop()
 	}()
+
+	// A trick to run it immediately to fetch the list of nodes
+	// before the corresponding healer is up.
+	// There is no way to create ticker with instance first tick
+	// https://github.com/golang/go/issues/17601
+	doWork := func() {
+		result, err := nr.backend.QueryInstant(ctx, model.DefaultNResolverQuery, time.Now())
+		if err != nil {
+			level.Error(nr.logger).Log("msg", "Executing query failed",
+				"query", model.DefaultNResolverQuery, "err", err)
+			exporter.ReportMetricQueryFailureCounter(cluster.GetID(),
+				nr.backend.GetType(), nr.backend.GetAddress())
+			return
+		}
+		level.Debug(nr.logger).Log("msg", "Executing query success", "query", model.DefaultNResolverQuery)
+		nr.mtx.Lock()
+		for _, el := range result {
+			j, err := el.MarshalJSON()
+			if err != nil {
+				level.Error(nr.logger).Log("msg", "Error while unmarshalling metrics result", "err", err)
+			}
+			nm := NodeMetric{
+				CloudID: nr.CloudID,
+			}
+			err = json.Unmarshal(j, &nm)
+			if err != nil {
+				level.Error(nr.logger).Log("msg", "Error while unmarshalling metrics result", "err", err)
+			}
+			nc <- map[string]string{nm.Metric.Instance: nm.Metric.Nodename}
+		}
+		nr.mtx.Unlock()
+	}
+	doWork()
 	for {
 		select {
 		case <-ticker.C:
-			result, err := nr.backend.QueryInstant(ctx, model.DefaultNResolverQuery, time.Now())
-			if err != nil {
-				level.Error(nr.logger).Log("msg", "Executing query failed",
-					"query", model.DefaultNResolverQuery, "err", err)
-				exporter.ReportMetricQueryFailureCounter(cluster.GetID(),
-					nr.backend.GetType(), nr.backend.GetAddress())
-				continue
-			}
-			level.Debug(nr.logger).Log("msg", "Executing query success", "query", model.DefaultNResolverQuery)
-			nr.mtx.Lock()
-			for _, el := range result {
-				j, err := el.MarshalJSON()
-				if err != nil {
-					level.Error(nr.logger).Log("msg", "Error while unmarshalling metrics result", "err", err)
-				}
-				nm := NodeMetric{
-					CloudID: nr.CloudID,
-				}
-				err = json.Unmarshal(j, &nm)
-				if err != nil {
-					level.Error(nr.logger).Log("msg", "Error while unmarshalling metrics result", "err", err)
-				}
-				*nc <- nm
-			}
-			nr.mtx.Unlock()
+			doWork()
 		case <-nr.done:
 			return
 		}
