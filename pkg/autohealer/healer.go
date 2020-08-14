@@ -203,13 +203,14 @@ func (h *Healer) run(ctx context.Context, e *common.Etcd, wg *sync.WaitGroup, nc
 						chans[instance] = &ci
 						go func(ci chan struct{}, instance string) {
 							var compute string
+							// Rest your goroutine, prevent CPU spike
+							ticker := time.NewTicker(100 * time.Millisecond)
 							for {
+								<-ticker.C
 								if com, ok := h.nodes.Get(instance); ok {
 									compute = com.(string)
 									break
 								}
-								// A trick to prevent a busy loop
-								time.Sleep(200 * time.Millisecond)
 							}
 							level.Info(h.logger).Log("msg", fmt.Sprintf("Processing instance: %s", instance))
 							a := alert.Alert{}
@@ -220,7 +221,7 @@ func (h *Healer) run(ctx context.Context, e *common.Etcd, wg *sync.WaitGroup, nc
 									return
 								case <-ci:
 									return
-								default:
+								case <-ticker.C:
 									if !a.IsActive() {
 										a.Start()
 									}
@@ -232,8 +233,6 @@ func (h *Healer) run(ctx context.Context, e *common.Etcd, wg *sync.WaitGroup, nc
 										delete(chans, instance)
 										return
 									}
-									// A trick to prevent a busy loop
-									time.Sleep(200 * time.Millisecond)
 								}
 							}
 						}(ci, instance)
