@@ -26,6 +26,7 @@ import (
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
+	cmap "github.com/orcaman/concurrent-map"
 	etcdv3 "go.etcd.io/etcd/clientv3"
 
 	"github.com/vCloud-DFTBA/faythe/config"
@@ -43,6 +44,7 @@ import (
 type Healer struct {
 	model.Healer
 	backend    metrics.Backend
+	nodes      cmap.ConcurrentMap
 	done       chan struct{}
 	logger     log.Logger
 	mtx        sync.RWMutex
@@ -56,6 +58,7 @@ func newHealer(l log.Logger, data []byte, b metrics.Backend) *Healer {
 	h := &Healer{
 		backend:    b,
 		done:       make(chan struct{}),
+		nodes:      cmap.New(),
 		logger:     l,
 		terminated: make(chan struct{}),
 		silences:   make(map[string]*model.Silence),
@@ -93,6 +96,8 @@ func (h *Healer) run(ctx context.Context, e *common.Etcd, wg *sync.WaitGroup, nc
 			select {
 			case <-h.done:
 				return
+			case node := <-nc:
+				h.updateNodes(node)
 			case <-sticker.C:
 				h.validateSilence()
 			case watchResp := <-swatch:
@@ -198,22 +203,13 @@ func (h *Healer) run(ctx context.Context, e *common.Etcd, wg *sync.WaitGroup, nc
 						chans[instance] = &ci
 						go func(ci chan struct{}, instance string) {
 							var compute string
-							key := common.Path(h.CloudID, instance)
-						wait:
-							//	wait for correct compute-instance pair
+							// Rest your goroutine, prevent CPU spike
+							ticker := time.NewTicker(100 * time.Millisecond)
 							for {
-								select {
-								case <-h.done:
-									return
-								case <-ci:
-									return
-								case c := <-nc:
-									if com, ok := c[key]; ok && com != "" {
-										compute = com
-										break wait
-									}
-								default:
-									nc <- map[string]string{"instance": key}
+								<-ticker.C
+								if com, ok := h.nodes.Get(instance); ok {
+									compute = com.(string)
+									break
 								}
 							}
 							level.Info(h.logger).Log("msg", fmt.Sprintf("Processing instance: %s", instance))
@@ -225,7 +221,7 @@ func (h *Healer) run(ctx context.Context, e *common.Etcd, wg *sync.WaitGroup, nc
 									return
 								case <-ci:
 									return
-								default:
+								case <-ticker.C:
 									if !a.IsActive() {
 										a.Start()
 									}
@@ -237,7 +233,6 @@ func (h *Healer) run(ctx context.Context, e *common.Etcd, wg *sync.WaitGroup, nc
 										delete(chans, instance)
 										return
 									}
-
 								}
 							}
 						}(ci, instance)
@@ -245,6 +240,12 @@ func (h *Healer) run(ctx context.Context, e *common.Etcd, wg *sync.WaitGroup, nc
 				}
 			}
 		}
+	}
+}
+
+func (h *Healer) updateNodes(n map[string]string) {
+	for ip, hostname := range n {
+		h.nodes.Set(ip, hostname)
 	}
 }
 

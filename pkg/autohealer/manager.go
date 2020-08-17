@@ -45,9 +45,8 @@ type Manager struct {
 	watchc  etcdv3.WatchChan
 	watchh  etcdv3.WatchChan
 	wg      *sync.WaitGroup
-	nodes   map[string]string
-	ncin    chan NodeMetric
-	ncout   chan map[string]string
+	ncin    map[string]chan map[string]string
+	ncout   map[string]chan map[string]string
 	cluster *cluster.Cluster
 	state   model.State
 }
@@ -60,9 +59,8 @@ func NewManager(l log.Logger, e *common.Etcd, c *cluster.Cluster) *Manager {
 		stop:    make(chan struct{}),
 		etcdcli: e,
 		wg:      &sync.WaitGroup{},
-		nodes:   make(map[string]string),
-		ncin:    make(chan NodeMetric),
-		ncout:   make(chan map[string]string, 1),
+		ncin:    make(map[string]chan map[string]string),
+		ncout:   make(map[string]chan map[string]string),
 		cluster: c,
 	}
 	exporter.ReportNumberOfHealers(cluster.GetID(), 0)
@@ -116,15 +114,17 @@ func (hm *Manager) startWorker(p string, name string, data []byte) {
 		nr := newNResolver(log.With(hm.logger, "nresolver", name), data, backend)
 		hm.rqt.Set(name, nr)
 		hm.wg.Add(1)
+		hm.ncin[nr.CloudID] = make(chan map[string]string)
 		go func() {
-			nr.run(context.Background(), hm.wg, &hm.ncin)
+			nr.run(context.Background(), hm.wg, hm.ncin[nr.CloudID])
 		}()
 	} else {
 		h := newHealer(log.With(hm.logger, "healer", name), data, backend)
 		hm.rqt.Set(name, h)
 		hm.wg.Add(1)
+		hm.ncout[h.CloudID] = make(chan map[string]string)
 		go func() {
-			h.run(context.Background(), hm.etcdcli, hm.wg, hm.ncout)
+			h.run(context.Background(), hm.etcdcli, hm.wg, hm.ncout[h.CloudID])
 		}()
 	}
 }
@@ -194,6 +194,8 @@ func (hm *Manager) Run() {
 		cancelc()
 		cancelh()
 	}()
+
+	go hm.pubSubNodes()
 
 	for {
 		select {
@@ -296,13 +298,21 @@ func (hm *Manager) Run() {
 					}
 				}
 			}
-		case nm := <-hm.ncin:
-			hm.nodes[common.Path(nm.CloudID, strings.Split(nm.Metric.Instance, ":")[0])] = nm.Metric.Nodename
-		case nm := <-hm.ncout:
-			if m, ok := hm.nodes[nm["instance"]]; ok && len(hm.nodes) != 0 {
-				hm.ncout <- map[string]string{nm["instance"]: m}
-			} else {
-				hm.ncout <- map[string]string{nm["instance"]: ""}
+		}
+	}
+}
+
+// pubSubNodes receives the map info ({instance-ip: compute-name} from NResolver
+// and sends it to Healer
+func (hm *Manager) pubSubNodes() {
+	for {
+		select {
+		case <-hm.stop:
+			return
+		default:
+			for cl, nmch := range hm.ncin {
+				nm := <-nmch
+				hm.ncout[cl] <- nm
 			}
 		}
 	}
