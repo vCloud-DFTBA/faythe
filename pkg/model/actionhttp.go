@@ -31,7 +31,7 @@ type ActionHTTP struct {
 	Delay     string            `json:"delay,omitempty"`
 	DelayType string            `json:"delay_type,omitempty"`
 	Header    map[string]string `json:"header,omitempty"`
-	Body      map[string]string `json:"body,omitempty"`
+	Body      interface{}       `json:"body,omitempty"`
 }
 
 // Validate returns nil if all fields of the Action have valid values.
