@@ -279,6 +279,22 @@ func (h *Healer) do(compute string) {
 			go func(url string, compute string) {
 				defer wg.Done()
 				var msg []interface{}
+				if at.CloudAuthToken {
+					// If HTTP uses cloud auth token, let's get it from Cloud base client.
+					// Only OpenStack provider is supported at this time.
+					store := openstack.Get()
+					if os, ok := store.Get(h.CloudID); ok {
+						baseCli, _ := os.BaseClient()
+						if token, ok := baseCli.AuthenticatedHeaders()["X-Auth-Token"]; ok {
+							at.Header["X-Auth-Token"] = token
+						}
+					} else {
+						level.Error(h.logger).Log("msg",
+							fmt.Sprintf("cannot find cloud key %s in store", h.CloudID))
+						exporter.ReportFailureHealerActionCounter(cluster.GetID(), "mistral")
+						return
+					}
+				}
 				if err := alert.SendHTTP(h.httpCli, at); err != nil {
 					msg = common.CnvSliceStrToSliceInf(append([]string{
 						"msg", "Exec action failed",

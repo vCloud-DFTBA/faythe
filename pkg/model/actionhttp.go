@@ -25,13 +25,14 @@ import (
 // ActionHTTP represents a HTTP request with retry logic.
 type ActionHTTP struct {
 	Action
-	URL       URL               `json:"url"`
-	Method    string            `json:"method,omitempty"`
-	Attempts  uint              `json:"attempts,omitempty"`
-	Delay     string            `json:"delay,omitempty"`
-	DelayType string            `json:"delay_type,omitempty"`
-	Header    map[string]string `json:"header,omitempty"`
-	Body      interface{}       `json:"body,omitempty"`
+	URL            URL               `json:"url"`
+	CloudAuthToken bool              `json:"cloud_auth_token"`
+	Method         string            `json:"method,omitempty"`
+	Attempts       uint              `json:"attempts,omitempty"`
+	Delay          string            `json:"delay,omitempty"`
+	DelayType      string            `json:"delay_type,omitempty"`
+	Header         map[string]string `json:"header,omitempty"`
+	Body           interface{}       `json:"body,omitempty"`
 }
 
 // Validate returns nil if all fields of the Action have valid values.
