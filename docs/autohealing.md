@@ -3,18 +3,21 @@
 > **BEFORE YOU READ:** We suggest you to go through [Getting Started](getting-started.md) and [Autoscaling](autoscaling.md) to have understanding of the big picture.
 
 - [Faythe Autohealing](#faythe-autohealing)
-  - [Name Resolver](#name-resolver)
-    - [NResolver API](#nresolver-api)
-  - [Silencer](#silencer)
-    - [Silencer API](#silencer-api)
-      - [Create Silencer](#create-silencer)
-      - [List Silencer](#list-silencer)
-      - [Delete Silencer/Expire Silencer](#delete-silencerexpire-silencer)
-  - [Healer](#healer)
-    - [Healer API](#healer-api)
-      - [Create healer](#create-healer)
-      - [List healer](#list-healer)
-      - [Delete healer](#delete-healer)
+  - [1. Name Resolver](#1-name-resolver)
+    - [1.1. Overview](#11-overview)
+    - [1.2. NResolver API](#12-nresolver-api)
+  - [2. Silencer](#2-silencer)
+    - [2.1. Overview](#21-overview)
+    - [2.2. Silencer API](#22-silencer-api)
+      - [2.1.1. Create Silencer](#211-create-silencer)
+      - [2.1.2. List Silencer](#212-list-silencer)
+      - [2.1.3. Delete Silencer/Expire Silencer](#213-delete-silencerexpire-silencer)
+  - [3. Healer](#3-healer)
+    - [3.1. Overview](#31-overview)
+    - [3.2. Healer API](#32-healer-api)
+      - [3.1.1. Create healer](#311-create-healer)
+      - [3.1.2. List healer](#312-list-healer)
+      - [3.1.3. Delete healer](#313-delete-healer)
 
 Faythe autohealing basically does the job that automatically migrate VMs on hosts if predicted problems occur.
 
@@ -24,13 +27,15 @@ Faythe autohealing contains 3 major components:
 - Silencer
 - Healer
 
-## Name Resolver
+## 1. Name Resolver
+
+### 1.1. Overview
 
 Name resolver as the name it tells, it resolve host IP address to host's name.
 
 Some cloud providers, OpenStack for example, execute commands based on host's name not the IP address. On the other hand, some metrics backends only care about host IP address. Hence, faythe needs to store the mapping of host IP address and its name.
 
-### NResolver API
+### 1.2. NResolver API
 
 You do not need to care much about Name Resolver because it is created along with the cloud provider.
 
@@ -71,13 +76,15 @@ Resp
 }
 ```
 
-## Silencer
+## 2. Silencer
+
+### 2.1. Overview
 
 Silencers come in handy if you want to add a set of ignored hosts in case of maintenance.
 
-### Silencer API
+### 2.2. Silencer API
 
-#### Create Silencer
+#### 2.1.1. Create Silencer
 
 Parameter explains:
 
@@ -111,7 +118,7 @@ Resp
 }
 ```
 
-#### List Silencer
+#### 2.1.2. List Silencer
 
 Silencers of a cloud provider can be listed in:
 
@@ -119,7 +126,7 @@ Silencers of a cloud provider can be listed in:
 
 **METHOD**: `GET`
 
-#### Delete Silencer/Expire Silencer
+#### 2.1.3. Delete Silencer/Expire Silencer
 
 Silencer is automatically deleted and expired after reaching TTL duration. However, you can manually delete it by:
 
@@ -139,42 +146,48 @@ Resp
 }
 ```
 
-## Healer
+## 3. Healer
+
+### 3.1. Overview
 
 Healer is the core of this module. Healer receives the query from user and evaluate the need of healing for hosts based on that query.
 
 You can also define the level of evaluation, that means healing is only triggered if it meets the required level of evaluation. For example, if the evaluation level is 2 then healer must receives 2 kinds if metric before triggering actions.
 
-### Healer API
+### 3.2. Healer API
 
 Healer has 3 APIs as usual: create, list, delete
 
-#### Create healer
+#### 3.1.1. Create healer
 
-Currently, we only support one healer per cloud provider.
+Currently, we only support one healer per cloud provider. For supported actions, please check [here](./action.md)
 
 **PATH**: `/healers/{provider-id}`
 
 **METHOD**: `POST`
 
-| Parameter          | In   | Type    | Required | Default                                                 | Description                                                                                                                                                                                      |
-| ------------------ | ---- | ------- | -------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| query              | body | string  | true     | up{job=~\"._compute-cadvisor._\|._compute-node._\"} < 1 | Query that will be executed against the Prometheus API. See [the official documentation](https://prometheus.io/docs/prometheus/latest/querying/basics/) for more details.                        | Query that will be executed against the Prometheus API. See [the official documentation](https://prometheus.io/docs/prometheus/latest/querying/basics/) for more details. |
-| action             | body | object  | true     |                                                         | List of actions when healing is triggered                                                                                                                                                        |
-| action.receivers   | body | list    | false    |                                                         | List of receivers in mail action                                                                                                                                                                 |
-| action.url         | body | string  | false    |                                                         | The url that the action will call to                                                                                                                                                             |
-| action.workflow_id | body | string  | false    |                                                         | Executing Mistral workflow. Only supported with `openstack` provider. `Required` if `action.type==mistral`                                                                                       |
-| actions.type       | body | string  | false    | http                                                    | The type of action. Currently support `mail`, `http`, `mistral`.                                                                                                                                 |
-| actions.method     | body | string  | false    | POST                                                    | The HTTP method                                                                                                                                                                                  |
-| actions.attempts   | body | integer | false    | 10                                                      | The count of retry.                                                                                                                                                                              |
-| actions.delay      | body | string  | false    | 100ms                                                   | The delay between retries, re.the format please refer [note](./note.md#time-durations).                                                                                                          |
-| actions.delay_type | body | string  | false    | fixed                                                   | The delay type: `fixed` or `backoff`. BackOffDelay is a DelayType which increases delay between consecutive retries. FixedDelay is a DelayType which keeps delay the same through all iterations |
-| interval           | body | string  | true     | 18s                                                     | The time between two continuous evaluate, re.the format please refer [note](./note.md#time-durations).                                                                                           |
-| receivers          | body | list    | true     |                                                         | List of email receiving healing notifications                                                                                                                                                    |
-| duration           | body | string  | true     | 3m                                                      | The total evaluation time, re.the format please refer [note](./note.md#time-durations).                                                                                                          |
-| description        | body | string  | false    |                                                         |                                                                                                                                                                                                  |
-| tags               | body | list    | false    |                                                         |                                                                                                                                                                                                  |
-| active             | body | boolean | true     | false                                                   | Enable the healer or not.                                                                                                                                                                        |
+| Parameter               | In   | Type    | Required | Default                                                 | Description                                                                                                                                                                                      |
+| ----------------------- | ---- | ------- | -------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| query                   | body | string  | true     | up{job=~\"._compute-cadvisor._\|._compute-node._\"} < 1 | Query that will be executed against the Prometheus API. See [the official documentation](https://prometheus.io/docs/prometheus/latest/querying/basics/) for more details.                        | Query that will be executed against the Prometheus API. See [the official documentation](https://prometheus.io/docs/prometheus/latest/querying/basics/) for more details. |
+| action                  | body | object  | true     |                                                         | List of actions when healing is triggered                                                                                                                                                        |
+| action.receivers        | body | list    | false    |                                                         | List of receivers in mail action                                                                                                                                                                 |
+| action.workflow_id      | body | string  | false    |                                                         | Executing Mistral workflow. Only supported with `openstack` provider. `Required` if `action.type==mistral`                                                                                       |
+| action                  | body | object  | true     |                                                         | The defined scale actions.                                                                                                                                                                       |
+| action.url              | body | string  | true     |                                                         | The action URL.                                                                                                                                                                                  |
+| action.cloud_auth_token | body | boolean | false    | false                                                   | If True, this action is called using Cloud provider authentication (Keystone if the provider is OpenStack).                                                                                      |
+| action.header           | body | object  | false    |                                                         | The additional headers for action request.                                                                                                                                                       |
+| action.body             | body | object  | false    |                                                         | The additional body for action request.                                                                                                                                                          |
+| action.type             | body | string  | false    | http                                                    | The type of action.                                                                                                                                                                              |
+| action.method           | body | string  | false    | POST                                                    | The HTTP method                                                                                                                                                                                  |
+| action.attempts         | body | integer | false    | 10                                                      | The count of retry.                                                                                                                                                                              |
+| action.delay            | body | string  | false    | 100ms                                                   | The delay between retries. Please refer [note](./note.md#time-durations) for formats.                                                                                                            |
+| action.delay_type       | body | string  | false    | fixed                                                   | The delay type: `fixed` or `backoff`. BackOffDelay is a DelayType which increases delay between consecutive retries. FixedDelay is a DelayType which keeps delay the same through all iterations |
+| interval                | body | string  | true     | 18s                                                     | The time between two continuous evaluate, re.the format please refer [note](./note.md#time-durations).                                                                                           |
+| receivers               | body | list    | true     |                                                         | List of email receiving healing notifications                                                                                                                                                    |
+| duration                | body | string  | true     | 3m                                                      | The total evaluation time, re.the format please refer [note](./note.md#time-durations).                                                                                                          |
+| description             | body | string  | false    |                                                         |                                                                                                                                                                                                  |
+| tags                    | body | list    | false    |                                                         |                                                                                                                                                                                                  |
+| active                  | body | boolean | true     | false                                                   | Enable the healer or not.                                                                                                                                                                        |
 
 For example:
 
@@ -213,13 +226,13 @@ Resp
 }
 ```
 
-#### List healer
+#### 3.1.2. List healer
 
 **PATH**: `/healers/{provider-id}`
 
 **METHOD**: `GET`
 
-#### Delete healer
+#### 3.1.3. Delete healer
 
 **PATH**: `/healers/{provider-id}/{healer-id}`
 
