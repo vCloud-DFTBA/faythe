@@ -165,8 +165,8 @@ func main() {
 	go fah.Run()
 
 	// Init Cloud store
-	openstack.InitStore()
-	if err := openstack.Load(etcdcli); err != nil {
+	openstack.InitStore(etcdcli)
+	if err := openstack.Load(); err != nil {
 		level.Error(logger).Log("msg", "error while loading cloud information", "err", err)
 	}
 
