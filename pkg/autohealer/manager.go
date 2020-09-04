@@ -312,7 +312,9 @@ func (hm *Manager) pubSubNodes() {
 		default:
 			for cl, nmch := range hm.ncin {
 				nm := <-nmch
-				hm.ncout[cl] <- nm
+				if _, ok := hm.ncout[cl]; ok {
+					hm.ncout[cl] <- nm
+				}
 			}
 		}
 	}
