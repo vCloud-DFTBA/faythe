@@ -77,6 +77,7 @@ func (nr *NResolver) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[st
 			j, err := el.MarshalJSON()
 			if err != nil {
 				level.Error(nr.logger).Log("msg", "Error while unmarshalling metrics result", "err", err)
+				return
 			}
 			nm := NodeMetric{
 				CloudID: nr.CloudID,
@@ -84,10 +85,11 @@ func (nr *NResolver) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[st
 			err = json.Unmarshal(j, &nm)
 			if err != nil {
 				level.Error(nr.logger).Log("msg", "Error while unmarshalling metrics result", "err", err)
+				return
 			}
 			nc <- map[string]string{nm.Metric.Instance: nm.Metric.Nodename}
 		}
-		nr.mtx.Unlock()
+		defer nr.mtx.Unlock()
 	}
 	doWork()
 	for {
