@@ -41,7 +41,6 @@ type Manager struct {
 	rgt     *common.Registry
 	stop    chan struct{}
 	etcdcli *common.Etcd
-	wg      *sync.WaitGroup
 	cluster *cluster.Cluster
 	state   model.State
 }
@@ -53,7 +52,6 @@ func NewManager(l log.Logger, e *common.Etcd, c *cluster.Cluster) *Manager {
 		rgt:     &common.Registry{Items: make(map[string]common.Worker)},
 		stop:    make(chan struct{}),
 		etcdcli: e,
-		wg:      &sync.WaitGroup{},
 		cluster: c,
 	}
 	// Init with 0
@@ -81,8 +79,6 @@ func (m *Manager) Stop() {
 	m.state = model.StateStopping
 	close(m.stop)
 	m.save()
-	// Wait until all scalers shut down
-	m.wg.Wait()
 	m.state = model.StateStopped
 	level.Info(m.logger).Log("msg", "Autoscale manager stopped")
 }
@@ -165,20 +161,18 @@ func (m *Manager) startScaler(name string, data []byte) {
 	}
 	s := newScaler(log.With(m.logger, "scaler", name), data, backend)
 	m.rgt.Set(name, s)
-	m.wg.Add(1)
-	go func() {
-		s.run(context.Background(), m.wg)
-	}()
+	go s.run(context.Background())
 }
 
 // save puts scalers to etcd
 func (m *Manager) save() {
+	var wg sync.WaitGroup
 	for i := range m.rgt.Iter() {
-		m.wg.Add(1)
+		wg.Add(1)
 		go func(i common.RegistryItem) {
 			defer func() {
 				m.stopScaler(i.Name)
-				m.wg.Done()
+				wg.Done()
 			}()
 			switch it := i.Value.(type) {
 			case *Scaler:
@@ -202,6 +196,9 @@ func (m *Manager) save() {
 			}
 		}(i)
 	}
+
+	// Wait until all scalers to shut down
+	wg.Wait()
 }
 
 func (m *Manager) load() {

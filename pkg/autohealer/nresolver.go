@@ -50,13 +50,10 @@ func newNResolver(l log.Logger, data []byte, b metrics.Backend) *NResolver {
 	return nr
 }
 
-func (nr *NResolver) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string]string) {
+func (nr *NResolver) run(ctx context.Context, nc chan map[string]string) {
 	interval, _ := common.ParseDuration(nr.Interval)
 	ticker := time.NewTicker(interval)
-	defer func() {
-		wg.Done()
-		ticker.Stop()
-	}()
+	defer ticker.Stop()
 
 	// A trick to run it immediately to fetch the list of nodes
 	// before the corresponding healer is up.
