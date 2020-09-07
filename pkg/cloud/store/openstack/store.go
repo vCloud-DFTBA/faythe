@@ -41,7 +41,6 @@ func (s *Store) Get(key string) (model.OpenStack, bool) {
 	value, ok := s.clouds[key]
 	if !ok {
 		// Try to get Cloud provider info from Etcd
-		// Check the issue: https://github.com/vCloud-DFTBA/faythe/issues/23
 		r, err := s.etcdcli.DoGet(common.Path(model.DefaultCloudPrefix, key))
 		if err != nil || len(r.Kvs) != 1 {
 			return value, ok
