@@ -251,6 +251,14 @@ func (h *Healer) updateNodes(n map[string]string) {
 
 func (h *Healer) do(compute string) {
 	var wg sync.WaitGroup
+	store := openstack.Get()
+	os, ok := store.Get(h.CloudID)
+	if !ok {
+		level.Error(h.logger).Log("msg",
+			fmt.Sprintf("cannot find cloud key %s in store", h.CloudID))
+		exporter.ReportFailureHealerActionCounter(cluster.GetID(), "mistral")
+		return
+	}
 	for _, a := range h.Actions {
 		switch at := a.(type) {
 		case *model.ActionHTTP:
@@ -267,7 +275,7 @@ func (h *Healer) do(compute string) {
 					exporter.ReportFailureHealerActionCounter(cluster.GetID(), "http")
 					m := &model.ActionMail{
 						Receivers: h.Receivers,
-						Subject:   fmt.Sprintf("[autohealing] Node %s down, failed to trigger http request", compute),
+						Subject:   fmt.Sprintf("[autohealing][%s] Node %s down, failed to trigger http request", os.ID, compute),
 						Body: fmt.Sprintf("Node %s is down for more than %s.\nBut failed to trigger autohealing, due to %s",
 							compute, h.Duration, err.Error()),
 					}
@@ -295,7 +303,7 @@ func (h *Healer) do(compute string) {
 				defer wg.Done()
 				var msg []interface{}
 				at.Receivers = h.Receivers
-				at.Subject = fmt.Sprintf("[autohealing] Node %s down, trigger autohealing", compute)
+				at.Subject = fmt.Sprintf("[autohealing][%s] Node %s down, trigger autohealing", os.ID, compute)
 				at.Body = fmt.Sprintf("Node %s has been down for more than %s.", compute, h.Duration)
 				if err := alert.SendMail(at); err != nil {
 					msg = common.CnvSliceStrToSliceInf(append([]string{
@@ -336,7 +344,7 @@ func (h *Healer) do(compute string) {
 					exporter.ReportFailureHealerActionCounter(cluster.GetID(), "mistral")
 					m := &model.ActionMail{
 						Receivers: h.Receivers,
-						Subject:   fmt.Sprintf("[autohealing] Node %s down, mistral workflow execution failed", compute),
+						Subject:   fmt.Sprintf("[autohealing][%s] Node %s down, mistral workflow execution failed", os.ID, compute),
 						Body: fmt.Sprintf("Node %s is down for more than %s.\nMistral workflow executions has exceeded maxinum number of retry.",
 							compute, h.Duration),
 					}
