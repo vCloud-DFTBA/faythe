@@ -28,8 +28,9 @@ import (
 
 // Store supports get and set cloud information
 type Store struct {
-	mtx    sync.RWMutex
-	clouds map[string]model.OpenStack
+	mtx     sync.RWMutex
+	etcdcli *common.Etcd
+	clouds  map[string]model.OpenStack
 }
 
 // Get returns cloud information
@@ -38,6 +39,20 @@ func (s *Store) Get(key string) (model.OpenStack, bool) {
 	defer s.mtx.RUnlock()
 
 	value, ok := s.clouds[key]
+	if !ok {
+		// Try to get Cloud provider info from Etcd
+		r, err := s.etcdcli.DoGet(common.Path(model.DefaultCloudPrefix, key))
+		if err != nil || len(r.Kvs) != 1 {
+			return value, ok
+		}
+		cloud := model.OpenStack{}
+		if err := json.Unmarshal(r.Kvs[0].Value, &cloud); err != nil {
+			return value, ok
+		}
+		s.Set(key, cloud)
+		value = cloud
+		ok = true
+	}
 	return value, ok
 }
 
@@ -60,15 +75,16 @@ func (s *Store) Delete(key string) {
 var s *Store
 
 // InitStore creates a new store
-func InitStore() {
+func InitStore(e *common.Etcd) {
 	s = &Store{
-		clouds: map[string]model.OpenStack{},
+		etcdcli: e,
+		clouds:  map[string]model.OpenStack{},
 	}
 }
 
 // Load retrieves cloud information from etcd
-func Load(e *common.Etcd) error {
-	r, err := e.DoGet(model.DefaultCloudPrefix, etcdv3.WithPrefix())
+func Load() error {
+	r, err := s.etcdcli.DoGet(model.DefaultCloudPrefix, etcdv3.WithPrefix())
 	if err != nil {
 		return fmt.Errorf("error getting list of clouds from etcd")
 	}
