@@ -259,6 +259,20 @@ func (h *Healer) do(compute string) {
 		exporter.ReportFailureHealerActionCounter(cluster.GetID(), "mistral")
 		return
 	}
+	// Create a email subject prefix
+	subject := "[autohealing]"
+	if h.Description != "" {
+		subject = fmt.Sprintf("%s[%s]", subject, h.Description)
+	}
+	if len(h.Tags) > 0 {
+		for _, t := range h.Tags {
+			subject = fmt.Sprintf("%s[%s]", subject, t)
+		}
+	}
+	if h.Description == "" && len(h.Tags) == 0 {
+		subject = fmt.Sprintf("%s[%s]", subject, os.ID)
+	}
+
 	for _, a := range h.Actions {
 		switch at := a.(type) {
 		case *model.ActionHTTP:
@@ -275,7 +289,7 @@ func (h *Healer) do(compute string) {
 					exporter.ReportFailureHealerActionCounter(cluster.GetID(), "http")
 					m := &model.ActionMail{
 						Receivers: h.Receivers,
-						Subject:   fmt.Sprintf("[autohealing][%s] Node %s down, failed to trigger http request", os.ID, compute),
+						Subject:   fmt.Sprintf("%s Node %s down, failed to trigger http request", subject, compute),
 						Body: fmt.Sprintf("Node %s is down for more than %s.\nBut failed to trigger autohealing, due to %s",
 							compute, h.Duration, err.Error()),
 					}
@@ -303,7 +317,7 @@ func (h *Healer) do(compute string) {
 				defer wg.Done()
 				var msg []interface{}
 				at.Receivers = h.Receivers
-				at.Subject = fmt.Sprintf("[autohealing][%s] Node %s down, trigger autohealing", os.ID, compute)
+				at.Subject = fmt.Sprintf("%s Node %s down, trigger autohealing", subject, compute)
 				at.Body = fmt.Sprintf("Node %s has been down for more than %s.", compute, h.Duration)
 				if err := alert.SendMail(at); err != nil {
 					msg = common.CnvSliceStrToSliceInf(append([]string{
@@ -330,21 +344,13 @@ func (h *Healer) do(compute string) {
 					"smtp_password": mc.Password,
 					"to_addrs":      h.Receivers,
 				}
-				store := openstack.Get()
-				os, ok := store.Get(h.CloudID)
-				if !ok {
-					level.Error(h.logger).Log("msg",
-						fmt.Sprintf("cannot find cloud key %s in store", h.CloudID))
-					exporter.ReportFailureHealerActionCounter(cluster.GetID(), "mistral")
-					return
-				}
 				tracker := NewTracker(log.With(h.logger), *at, os)
 				if err := tracker.start(); err != nil {
 					level.Error(h.logger).Log("msg", "error doing Mistral action", "err", err)
 					exporter.ReportFailureHealerActionCounter(cluster.GetID(), "mistral")
 					m := &model.ActionMail{
 						Receivers: h.Receivers,
-						Subject:   fmt.Sprintf("[autohealing][%s] Node %s down, mistral workflow execution failed", os.ID, compute),
+						Subject:   fmt.Sprintf("%s Node %s down, mistral workflow execution failed", subject, compute),
 						Body: fmt.Sprintf("Node %s is down for more than %s.\nMistral workflow executions has exceeded maxinum number of retry.",
 							compute, h.Duration),
 					}
