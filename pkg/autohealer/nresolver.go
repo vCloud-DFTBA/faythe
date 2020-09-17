@@ -50,13 +50,10 @@ func newNResolver(l log.Logger, data []byte, b metrics.Backend) *NResolver {
 	return nr
 }
 
-func (nr *NResolver) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[string]string) {
+func (nr *NResolver) run(ctx context.Context, nc chan map[string]string) {
 	interval, _ := common.ParseDuration(nr.Interval)
 	ticker := time.NewTicker(interval)
-	defer func() {
-		wg.Done()
-		ticker.Stop()
-	}()
+	defer ticker.Stop()
 
 	// A trick to run it immediately to fetch the list of nodes
 	// before the corresponding healer is up.
@@ -77,6 +74,7 @@ func (nr *NResolver) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[st
 			j, err := el.MarshalJSON()
 			if err != nil {
 				level.Error(nr.logger).Log("msg", "Error while unmarshalling metrics result", "err", err)
+				return
 			}
 			nm := NodeMetric{
 				CloudID: nr.CloudID,
@@ -84,10 +82,11 @@ func (nr *NResolver) run(ctx context.Context, wg *sync.WaitGroup, nc chan map[st
 			err = json.Unmarshal(j, &nm)
 			if err != nil {
 				level.Error(nr.logger).Log("msg", "Error while unmarshalling metrics result", "err", err)
+				return
 			}
 			nc <- map[string]string{nm.Metric.Instance: nm.Metric.Nodename}
 		}
-		nr.mtx.Unlock()
+		defer nr.mtx.Unlock()
 	}
 	doWork()
 	for {

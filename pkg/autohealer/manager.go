@@ -44,7 +44,6 @@ type Manager struct {
 	etcdcli *common.Etcd
 	watchc  etcdv3.WatchChan
 	watchh  etcdv3.WatchChan
-	wg      *sync.WaitGroup
 	ncin    map[string]chan map[string]string
 	ncout   map[string]chan map[string]string
 	cluster *cluster.Cluster
@@ -58,7 +57,6 @@ func NewManager(l log.Logger, e *common.Etcd, c *cluster.Cluster) *Manager {
 		rqt:     &common.Registry{Items: make(map[string]common.Worker)},
 		stop:    make(chan struct{}),
 		etcdcli: e,
-		wg:      &sync.WaitGroup{},
 		ncin:    make(map[string]chan map[string]string),
 		ncout:   make(map[string]chan map[string]string),
 		cluster: c,
@@ -113,19 +111,13 @@ func (hm *Manager) startWorker(p string, name string, data []byte) {
 	if p == model.DefaultNResolverPrefix {
 		nr := newNResolver(log.With(hm.logger, "nresolver", name), data, backend)
 		hm.rqt.Set(name, nr)
-		hm.wg.Add(1)
 		hm.ncin[nr.CloudID] = make(chan map[string]string)
-		go func() {
-			nr.run(context.Background(), hm.wg, hm.ncin[nr.CloudID])
-		}()
+		go nr.run(context.Background(), hm.ncin[nr.CloudID])
 	} else {
 		h := newHealer(log.With(hm.logger, "healer", name), data, backend)
 		hm.rqt.Set(name, h)
-		hm.wg.Add(1)
 		hm.ncout[h.CloudID] = make(chan map[string]string)
-		go func() {
-			h.run(context.Background(), hm.etcdcli, hm.wg, hm.ncout[h.CloudID])
-		}()
+		go h.run(context.Background(), hm.etcdcli, hm.ncout[h.CloudID])
 	}
 }
 
@@ -152,18 +144,18 @@ func (hm *Manager) Stop() {
 	hm.state = model.StateStopping
 	close(hm.stop)
 	hm.save()
-	hm.wg.Wait()
 	hm.state = model.StateStopped
 	level.Info(hm.logger).Log("msg", "Autohealer manager is stopped!")
 }
 
 func (hm *Manager) save() {
+	var wg sync.WaitGroup
 	for e := range hm.rqt.Iter() {
-		hm.wg.Add(1)
+		wg.Add(1)
 		go func(e common.RegistryItem) {
 			defer func() {
 				hm.stopWorker(e.Name)
-				hm.wg.Done()
+				wg.Done()
 			}()
 
 			raw, err := json.Marshal(&e.Value)
@@ -180,6 +172,9 @@ func (hm *Manager) save() {
 			}
 		}(e)
 	}
+
+	// Wait for all healer workers to shut down.
+	wg.Wait()
 }
 
 // Run start healer mananer instance

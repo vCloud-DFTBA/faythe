@@ -70,7 +70,7 @@ func newHealer(l log.Logger, data []byte, b metrics.Backend) *Healer {
 	return h
 }
 
-func (h *Healer) run(ctx context.Context, e *common.Etcd, wg *sync.WaitGroup, nc chan map[string]string) {
+func (h *Healer) run(ctx context.Context, e *common.Etcd, nc chan map[string]string) {
 	interval, _ := common.ParseDuration(h.Interval)
 	sinterval, _ := common.ParseDuration(model.DefaultSilenceValidationInterval)
 	duration, _ := common.ParseDuration(h.Duration)
@@ -84,7 +84,6 @@ func (h *Healer) run(ctx context.Context, e *common.Etcd, wg *sync.WaitGroup, nc
 	// Record the number of healers
 	exporter.ReportNumberOfHealers(cluster.GetID(), 1)
 	defer func() {
-		wg.Done()
 		ticker.Stop()
 		close(h.terminated)
 	}()

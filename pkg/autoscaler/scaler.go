@@ -80,7 +80,7 @@ func (s *Scaler) Stop() {
 	level.Debug(s.logger).Log("msg", "Scaler is stopped")
 }
 
-func (s *Scaler) run(ctx context.Context, wg *sync.WaitGroup) {
+func (s *Scaler) run(ctx context.Context) {
 	interval, _ := common.ParseDuration(s.Interval)
 	duration, _ := common.ParseDuration(s.Duration)
 	cooldown, _ := common.ParseDuration(s.Cooldown)
@@ -89,7 +89,6 @@ func (s *Scaler) run(ctx context.Context, wg *sync.WaitGroup) {
 	exporter.ReportNumScalers(cluster.GetID(), 1)
 	defer func() {
 		ticker.Stop()
-		wg.Done()
 		close(s.terminated)
 	}()
 
