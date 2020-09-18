@@ -153,6 +153,9 @@ func (s *Scaler) do() {
 					if os, ok := store.Get(s.CloudID); ok {
 						baseCli, _ := os.BaseClient()
 						if token, ok := baseCli.AuthenticatedHeaders()["X-Auth-Token"]; ok {
+							if a.Header == nil {
+								a.Header = make(map[string]string)
+							}
 							a.Header["X-Auth-Token"] = token
 						}
 					} else {
