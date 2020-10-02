@@ -154,23 +154,10 @@ func (c *Cluster) join() error {
 
 	// This will keep the key alive 'forever' or until we revoke it
 	// or the connect is canceled.
-	keepAliveRespCh, err := c.etcdcli.DoKeepAlive(c.lease)
+	err = c.etcdcli.DoKeepAlive(c.lease)
 	if err != nil {
 		return err
 	}
-	// discard the keepalive response, make etcd library not to complain
-	// If the keepalive channel is not served, etcd library prints a lot of
-	// log like this, every 3 seconds:
-	// {"level":"warn","ts":1542791960.4143248,"caller":"clientv3/lease.go:524","msg":"lease keepalive response queue is full; dropping response send","queue-size":16,"queue-capacity":16}
-	go func() {
-		for {
-			r := <-keepAliveRespCh
-			// avoid dead loop when channel was closed
-			if r == nil {
-				return
-			}
-		}
-	}()
 
 	c.setState(ClusterAlive)
 	exporter.RegisterMemberInfo(c.id, c.local)

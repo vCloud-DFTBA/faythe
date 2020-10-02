@@ -16,6 +16,7 @@ package common
 
 import (
 	"context"
+	"github.com/pkg/errors"
 	"strconv"
 	"strings"
 	"time"
@@ -278,7 +279,7 @@ func (e *Etcd) DoKeepAliveOnce(id etcdv3.LeaseID) (*etcdv3.LeaseKeepAliveRespons
 // The returned "LeaseKeepAliveResponse" channel closes if underlying keep
 // alive stream is interrupted in some way the client cannot handle itself;
 // given context "ctx" is canceled or timed out.
-func (e *Etcd) DoKeepAlive(id etcdv3.LeaseID) (<-chan *etcdv3.LeaseKeepAliveResponse, error) {
+func (e *Etcd) DoKeepAlive(id etcdv3.LeaseID) error {
 	var (
 		result <-chan *etcdv3.LeaseKeepAliveResponse
 		err    error
@@ -288,7 +289,23 @@ func (e *Etcd) DoKeepAlive(id etcdv3.LeaseID) (<-chan *etcdv3.LeaseKeepAliveResp
 		eerr := NewEtcdErr("", "keep-alive", err)
 		e.ErrCh <- eerr
 	}
-	return result, err
+
+	// discard the keepalive response, make etcd library not to complain
+	// If the keepalive channel is not served, etcd library prints a lot of
+	// log like this, every 3 seconds:
+	// {"level":"warn","ts":1542791960.4143248,"caller":"clientv3/lease.go:524","msg":"lease keepalive response queue is full; dropping response send","queue-size":16,"queue-capacity":16}
+	go func() {
+		for {
+			r := <-result
+			// avoid dead loop when channel was closed
+			if r == nil {
+				eerr := NewEtcdErr("", "keeo-alive", errors.New("KeepAlive channel is closed"))
+				e.ErrCh <- eerr
+				return
+			}
+		}
+	}()
+	return err
 }
 
 // DoRevoke revokes the given lease.
