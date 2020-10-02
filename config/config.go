@@ -167,7 +167,7 @@ var (
 		DialTimeout:          etcdDefaultDialTimeout,
 		DialKeepAliveTime:    etcdDefaultKeepAliveTime,
 		DialKeepAliveTimeout: etcdDefaultKeepAliveTimeOut,
-		DialOptions:          []grpc.DialOption{grpc.WithBlock()},
+		DialOptions:          []grpc.DialOption{grpc.WithBlock()}, // block until the underlying connection is up
 	}
 
 	// DefaultJWTConfig is the default JWT configuration.

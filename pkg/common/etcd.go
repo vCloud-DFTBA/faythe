@@ -97,7 +97,11 @@ func NewEtcd(l log.Logger, ns string, cfg etcdv3.Config) (*Etcd, error) {
 	cli.Watcher = namespace.NewWatcher(cli.Watcher, ns)
 	cli.Lease = namespace.NewLease(cli.Lease, ns)
 	cli.KV = namespace.NewKV(cli.KV, ns)
-	return &Etcd{cli, ns, l, make(chan EtcdError, 1)}, nil
+	etcdcli := &Etcd{cli, ns, l, make(chan EtcdError, 1)}
+	if err = etcdcli.DoSync(); err != nil {
+		return nil, err
+	}
+	return etcdcli, nil
 }
 
 // Context returns a cancelable context and its cancel function.
@@ -108,6 +112,14 @@ func (e *Etcd) Context() (context.Context, context.CancelFunc) {
 // LeaseContext returns a cancelable context and its cancel function.
 func (e *Etcd) LeaseContext() (context.Context, context.CancelFunc) {
 	return context.WithTimeout(context.Background(), defaultLeaseRequestTimeout)
+}
+
+// DoSync synchronizes client's endpoints with the known endpoints from etcd membership
+func (e *Etcd) DoSync() error {
+	ctx, cancel := e.Context()
+	defer cancel()
+	err := e.Sync(ctx)
+	return err
 }
 
 // WatchContext wraps context with the WithRequireLeader
