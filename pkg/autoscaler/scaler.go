@@ -138,6 +138,13 @@ func (s *Scaler) run(ctx context.Context) {
 // do simply creates and executes a POST request
 func (s *Scaler) do() {
 	var wg sync.WaitGroup
+	store := openstack.Get()
+	os, ok := store.Get(s.CloudID)
+	if !ok {
+		level.Error(s.logger).Log("msg",
+			fmt.Sprintf("cannot find cloud key %s in store", s.CloudID))
+		return
+	}
 
 	for _, a := range s.Actions {
 		switch at := a.(type) {
@@ -149,20 +156,12 @@ func (s *Scaler) do() {
 				if a.CloudAuthToken {
 					// If HTTP uses cloud auth token, let's get it from Cloud base client.
 					// Only OpenStack provider is supported at this time.
-					store := openstack.Get()
-					if os, ok := store.Get(s.CloudID); ok {
-						baseCli, _ := os.BaseClient()
-						if token, ok := baseCli.AuthenticatedHeaders()["X-Auth-Token"]; ok {
-							if a.Header == nil {
-								a.Header = make(map[string]string)
-							}
-							a.Header["X-Auth-Token"] = token
+					baseCli, _ := os.BaseClient()
+					if token, ok := baseCli.AuthenticatedHeaders()["X-Auth-Token"]; ok {
+						if a.Header == nil {
+							a.Header = make(map[string]string)
 						}
-					} else {
-						level.Error(s.logger).Log("msg",
-							fmt.Sprintf("cannot find cloud key %s in store", s.CloudID))
-						exporter.ReportFailureScalerActionCounter(cluster.GetID(), "mistral")
-						return
+						a.Header["X-Auth-Token"] = token
 					}
 				}
 				if err := alert.SendHTTP(s.httpCli, a); err != nil {
