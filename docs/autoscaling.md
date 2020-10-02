@@ -197,28 +197,33 @@ Req
 
 ### 4.1. Create a scaler
 
+For supported actions, please check [here](./action.md)
+
 **PATH**: `/scalers/{provider-id}`
 
 **METHOD**: `POST`
 
-| Parameter          | In   | Type    | Required | Default | Description                                                                                                                                                                                      |
-|--------------------|------|---------|----------|---------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| provider-id        | path | string  | true     |         | The cloud provider id.                                                                                                                                                                           |
-| query              | body | string  | true     |         | Query that will be executed against the Prometheus API. See [the official documentation](https://prometheus.io/docs/prometheus/latest/querying/basics/) for more details.                        |
-| duration           | body | string  | true     |         | The time that the `AutoscalingPolicy` must alert the threshold before the policy triggers a scale up or scale down action                                                                        |
-| interval           | body | string  | true     |         | The time between two continuous evaluate, re.the format please refer [note](./note.md#time-durations).                                                                                           |
-| actions            | body | object  | true     |         | The defined scale actions.                                                                                                                                                                       |
-| actions.url        | body | string  | true     |         | The                                                                                                                                                                                              |
-| actions.type       | body | string  | false    | http    | The type of action.                                                                                                                                                                              |
-| actions.method     | body | string  | false    | POST    | The HTTP method                                                                                                                                                                                  |
-| actions.attempts   | body | integer | false    | 10      | The count of retry.                                                                                                                                                                              |
-| actions.delay      | body | string  | false    | 100ms   | The delay between retries. Please refer [note](./note.md#time-durations) for formats.                                                                                                            |
-| actions.delay_type | body | string  | false    | fixed   | The delay type: `fixed` or `backoff`. BackOffDelay is a DelayType which increases delay between consecutive retries. FixedDelay is a DelayType which keeps delay the same through all iterations |
-| description        | body | string  | false    |         |                                                                                                                                                                                                  |
-| metadata           | body | string  | false    |         |                                                                                                                                                                                                  |
-| active             | body | boolean | true     | false   | Enable the scaler or not.                                                                                                                                                                        |
-| cooldown           | body | string  | false    | 10m     | The period to disable scaling events after a scaling action takes place, re.the format please refer [note](./note.md#time-durations).                                                            |
-|                    |      |         |          |         |                                                                                                                                                                                                  |
+| Parameter               | In   | Type    | Required | Default | Description                                                                                                                                                                                      |
+| ----------------------- | ---- | ------- | -------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| provider-id             | path | string  | true     |         | The cloud provider id.                                                                                                                                                                           |
+| query                   | body | string  | true     |         | Query that will be executed against the Prometheus API. See [the official documentation](https://prometheus.io/docs/prometheus/latest/querying/basics/) for more details.                        |
+| duration                | body | string  | true     |         | The time that the `AutoscalingPolicy` must alert the threshold before the policy triggers a scale up or scale down action                                                                        |
+| interval                | body | string  | true     |         | The time between two continuous evaluate, re.the format please refer [note](./note.md#time-durations).                                                                                           |
+| action                  | body | object  | true     |         | The defined scale actions.                                                                                                                                                                       |
+| action.url              | body | string  | true     |         | The action URL.                                                                                                                                                                                  |
+| action.cloud_auth_token | body | boolean | false    | false   | If True, this action is called using Cloud provider authentication (Keystone if the provider is OpenStack).                                                                                      |
+| action.header           | body | object  | false    |         | The additional headers for action request.                                                                                                                                                       |
+| action.body             | body | object  | false    |         | The additional body for action request.                                                                                                                                                          |
+| action.type             | body | string  | false    | http    | The type of action.                                                                                                                                                                              |
+| action.method           | body | string  | false    | POST    | The HTTP method                                                                                                                                                                                  |
+| action.attempts         | body | integer | false    | 10      | The count of retry.                                                                                                                                                                              |
+| action.delay            | body | string  | false    | 100ms   | The delay between retries. Please refer [note](./note.md#time-durations) for formats.                                                                                                            |
+| action.delay_type       | body | string  | false    | fixed   | The delay type: `fixed` or `backoff`. BackOffDelay is a DelayType which increases delay between consecutive retries. FixedDelay is a DelayType which keeps delay the same through all iterations |
+| description             | body | string  | false    |         |                                                                                                                                                                                                  |
+| metadata                | body | string  | false    |         |                                                                                                                                                                                                  |
+| active                  | body | boolean | true     | false   | Enable the scaler or not.                                                                                                                                                                        |
+| cooldown                | body | string  | false    | 10m     | The period to disable scaling events after a scaling action takes place, re.the format please refer [note](./note.md#time-durations).                                                            |
+|                         |      |         |          |         |                                                                                                                                                                                                  |
 
 ### 4.2. List scalers
 
@@ -227,7 +232,7 @@ Req
 **METHOD**: `GET`
 
 | Parameter   | In    | Type   | Required | Default | Description                                                                                             |
-|-------------|-------|--------|----------|---------|---------------------------------------------------------------------------------------------------------|
+| ----------- | ----- | ------ | -------- | ------- | ------------------------------------------------------------------------------------------------------- |
 | provider-id | path  | string | true     |         | The cloud provider id.                                                                                  |
 | tags        | query | string | false    |         | A list of tags to filter the scaler list by. Scalers that match all tags in this list will be returned. |
 | tags-any    | query | string | false    |         | A list of tags to filter the scaler list by. Scalers that match any tags in this list will be returned. |
@@ -240,7 +245,7 @@ Req
 **METHOD**: `DELETE`
 
 | Parameter   | In   | Type   | Required | Default | Description            |
-|-------------|------|--------|----------|---------|------------------------|
+| ----------- | ---- | ------ | -------- | ------- | ---------------------- |
 | provider-id | path | string | true     |         | The cloud provider id. |
 | scaler-id   | path | string | true     |         | The scaler id.         |
 |             |      |        |          |         |                        |

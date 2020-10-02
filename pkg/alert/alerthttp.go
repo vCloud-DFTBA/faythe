@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/avast/retry-go"
+	"github.com/pkg/errors"
 
 	"github.com/vCloud-DFTBA/faythe/pkg/common"
 	"github.com/vCloud-DFTBA/faythe/pkg/model"
@@ -52,12 +53,17 @@ func SendHTTP(cli *http.Client, a *model.ActionHTTP) error {
 				req.ContentLength = int64(len(b))
 			}
 			resp, err := cli.Do(req)
+			if err != nil {
+				return err
+			}
 			// Close the response body
 			if resp != nil {
 				defer resp.Body.Close()
 			}
-			if err != nil {
-				return err
+			// Success is indicated with 2xx status codes
+			statusOK := resp.StatusCode >= 200 && resp.StatusCode < 300
+			if !statusOK {
+				return errors.Errorf("Non-OK HTTP status: %s", resp.Status)
 			}
 			// Read the body even the data is not important
 			// this must to do

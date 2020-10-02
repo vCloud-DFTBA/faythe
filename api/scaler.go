@@ -66,6 +66,7 @@ func (a *API) createScaler(w http.ResponseWriter, req *http.Request) {
 		})
 		return
 	}
+	s.CloudID = vars["provider_id"]
 	path = common.Path(model.DefaultScalerPrefix, vars["provider_id"], s.ID)
 	if strings.ToLower(req.URL.Query().Get("force")) == "true" {
 		force = true
@@ -135,6 +136,10 @@ func (a *API) listScalers(w http.ResponseWriter, req *http.Request) {
 			defer wg.Done()
 			var s model.Scaler
 			_ = json.Unmarshal(evv, &s)
+			// For backward compability, insert CloudID if isn't existing.
+			if s.CloudID == "" {
+				s.CloudID = pid
+			}
 			// Filter
 			// Clouds that match all tags in this list will be returned
 			if fTags := req.FormValue("tags"); fTags != "" {

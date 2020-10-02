@@ -153,13 +153,19 @@ func (m *Manager) startScaler(name string, data []byte) {
 		return
 	}
 	level.Info(m.logger).Log("msg", "Creating scaler", "name", name)
-	backend, err := metrics.GetBackend(m.etcdcli, strings.Split(name, "/")[2])
+	// Extract Cloud provider id from Etcd key
+	providerID := strings.Split(name, "/")[2]
+	backend, err := metrics.GetBackend(m.etcdcli, providerID)
 	if err != nil {
 		level.Error(m.logger).Log("msg", "Error creating registry backend for scaler",
 			"name", name, "err", err)
 		return
 	}
 	s := newScaler(log.With(m.logger, "scaler", name), data, backend)
+	// For backward compability, insert CloudID if isn't existing.
+	if s.CloudID == "" {
+		s.CloudID = providerID
+	}
 	m.rgt.Set(name, s)
 	go s.run(context.Background())
 }
@@ -211,6 +217,7 @@ func (m *Manager) load() {
 	var sname string
 	for _, ev := range resp.Kvs {
 		sname = string(ev.Key)
+		// Extract Cloud provider id from Etcd key
 		providerID := strings.Split(sname, "/")[2]
 		if ok := m.etcdcli.CheckKey(common.Path(model.DefaultCloudPrefix, providerID)); !ok {
 			err = errors.Errorf("unable to find provider %s for scaler %s", providerID, sname)

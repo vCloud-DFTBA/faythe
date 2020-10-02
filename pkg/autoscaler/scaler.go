@@ -17,6 +17,7 @@ package autoscaler
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"sync"
 	"time"
@@ -25,6 +26,7 @@ import (
 	"github.com/go-kit/kit/log/level"
 
 	"github.com/vCloud-DFTBA/faythe/pkg/alert"
+	"github.com/vCloud-DFTBA/faythe/pkg/cloud/store/openstack"
 	"github.com/vCloud-DFTBA/faythe/pkg/cluster"
 	"github.com/vCloud-DFTBA/faythe/pkg/common"
 	"github.com/vCloud-DFTBA/faythe/pkg/exporter"
@@ -136,6 +138,13 @@ func (s *Scaler) run(ctx context.Context) {
 // do simply creates and executes a POST request
 func (s *Scaler) do() {
 	var wg sync.WaitGroup
+	store := openstack.Get()
+	os, ok := store.Get(s.CloudID)
+	if !ok {
+		level.Error(s.logger).Log("msg",
+			fmt.Sprintf("cannot find cloud key %s in store", s.CloudID))
+		return
+	}
 
 	for _, a := range s.Actions {
 		switch at := a.(type) {
@@ -144,7 +153,17 @@ func (s *Scaler) do() {
 			var msg []interface{}
 			go func(a *model.ActionHTTP) {
 				defer wg.Done()
-				// TODO(kiennt): Check kind of action url -> Authen or not?
+				if a.CloudAuthToken {
+					// If HTTP uses cloud auth token, let's get it from Cloud base client.
+					// Only OpenStack provider is supported at this time.
+					baseCli, _ := os.BaseClient()
+					if token, ok := baseCli.AuthenticatedHeaders()["X-Auth-Token"]; ok {
+						if a.Header == nil {
+							a.Header = make(map[string]string)
+						}
+						a.Header["X-Auth-Token"] = token
+					}
+				}
 				if err := alert.SendHTTP(s.httpCli, a); err != nil {
 					msg = common.CnvSliceStrToSliceInf(append([]string{
 						"msg", "Exec action failed",

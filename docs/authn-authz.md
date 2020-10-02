@@ -110,7 +110,7 @@ Authorization: Bearer <token>
 | user          | path | string | true     |         | User's name                                                                                                                                                         |
 | policies      | body | object | true     |         | A list of Policy instance                                                                                                                                           |
 | policy        | body | object | true     |         | A policy instance                                                                                                                                                   |
-| policy.method | body | string | true     |         | Allowed RESTful methods, can be a regex pattern. For example: `(GET)|(POST)`... Please check [Casbin docs](https://casbin.org/docs/en/supported-models) for details |
+| policy.method | body | string | true     |         | Allowed RESTful methods, can be a regex pattern. For example: `(GET)                                                                                                | (POST)`... Please check [Casbin docs](https://casbin.org/docs/en/supported-models) for details |
 | policy.path   | body | string | true     |         | Allowed URL path, can be a regex pattern. For example: `/res/*`, `/res/:id/`... Please check [Casbin docs](https://casbin.org/docs/en/supported-models) for details |
 
 For example, the request body:
@@ -138,7 +138,7 @@ For example, the request body:
 | user          | path | string | true     |         | User's name                                                                                                                                                         |
 | policies      | body | object | true     |         | A list of Policy instance                                                                                                                                           |
 | policy        | body | object | true     |         | A policy instance                                                                                                                                                   |
-| policy.method | body | string | true     |         | Allowed RESTful methods, can be a regex pattern. For example: `(GET)|(POST)`... Please check [Casbin docs](https://casbin.org/docs/en/supported-models) for details |
+| policy.method | body | string | true     |         | Allowed RESTful methods, can be a regex pattern. For example: `(GET)                                                                                                | (POST)`... Please check [Casbin docs](https://casbin.org/docs/en/supported-models) for details |
 | policy.path   | body | string | true     |         | Allowed URL path, can be a regex pattern. For example: `/res/*`, `/res/:id/`... Please check [Casbin docs](https://casbin.org/docs/en/supported-models) for details |
 
 For example, the request body:
