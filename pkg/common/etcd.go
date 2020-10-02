@@ -299,7 +299,7 @@ func (e *Etcd) DoKeepAlive(id etcdv3.LeaseID) error {
 			r := <-result
 			// avoid dead loop when channel was closed
 			if r == nil {
-				eerr := NewEtcdErr("", "keeo-alive", errors.New("KeepAlive channel is closed"))
+				eerr := NewEtcdErr("", "keep-alive", errors.New("KeepAlive channel is closed"))
 				e.ErrCh <- eerr
 				return
 			}
