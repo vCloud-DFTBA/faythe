@@ -203,9 +203,9 @@ func (h *Healer) run(ctx context.Context, e *common.Etcd, nc chan map[string]str
 						go func(ci chan struct{}, instance string) {
 							var compute string
 							// Rest your goroutine, prevent CPU spike
-							ticker := time.NewTicker(100 * time.Millisecond)
+							rTicker := time.NewTicker(100 * time.Millisecond)
 							for {
-								<-ticker.C
+								<-rTicker.C
 								if com, ok := h.nodes.Get(instance); ok {
 									compute = com.(string)
 									break
@@ -220,7 +220,7 @@ func (h *Healer) run(ctx context.Context, e *common.Etcd, nc chan map[string]str
 									return
 								case <-ci:
 									return
-								case <-ticker.C:
+								case <-rTicker.C:
 									if !a.IsActive() {
 										a.Start()
 									}
@@ -244,7 +244,7 @@ func (h *Healer) run(ctx context.Context, e *common.Etcd, nc chan map[string]str
 
 func (h *Healer) updateNodes(n map[string]string) {
 	for ip, hostname := range n {
-		h.nodes.Set(ip, hostname)
+		h.nodes.Set(strings.Split(ip, ":")[0], hostname)
 	}
 }
 
