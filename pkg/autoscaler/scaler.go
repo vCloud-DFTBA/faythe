@@ -178,7 +178,7 @@ func (s *Scaler) do() {
 				msg = common.CnvSliceStrToSliceInf(append([]string{
 					"msg", "Exec action success"},
 					at.InfoLog()...))
-				level.Error(s.logger).Log(msg...)
+				level.Info(s.logger).Log(msg...)
 				s.alert.Fire(time.Now())
 			}(at)
 		}
