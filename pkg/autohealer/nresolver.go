@@ -62,13 +62,13 @@ func (nr *NResolver) run(ctx context.Context, nc chan map[string]string) {
 	doWork := func() {
 		result, err := nr.backend.QueryInstant(ctx, model.DefaultNResolverQuery, time.Now())
 		if err != nil {
-			level.Error(nr.logger).Log("msg", "Executing query failed",
+			level.Error(nr.logger).Log("msg", "Execute query failed",
 				"query", model.DefaultNResolverQuery, "err", err)
 			exporter.ReportMetricQueryFailureCounter(cluster.GetID(),
 				nr.backend.GetType(), nr.backend.GetAddress())
 			return
 		}
-		level.Debug(nr.logger).Log("msg", "Executing query success", "query", model.DefaultNResolverQuery)
+		level.Debug(nr.logger).Log("msg", "Execute query success", "query", model.DefaultNResolverQuery)
 		nr.mtx.Lock()
 		for _, el := range result {
 			j, err := el.MarshalJSON()

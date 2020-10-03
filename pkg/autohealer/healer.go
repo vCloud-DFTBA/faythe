@@ -121,14 +121,14 @@ func (h *Healer) run(ctx context.Context, e *common.Etcd, nc chan map[string]str
 				}
 				r, err := h.backend.QueryInstant(ctx, h.Query, time.Now())
 				if err != nil {
-					level.Error(h.logger).Log("msg", "Executing query failed, skip current interval",
+					level.Error(h.logger).Log("msg", "Execute query failed, skip current interval",
 						"query", h.Query, "err", err)
 					h.state = model.StateFailed
 					exporter.ReportMetricQueryFailureCounter(cluster.GetID(),
 						h.backend.GetType(), h.backend.GetAddress())
 					continue
 				}
-				level.Debug(h.logger).Log("msg", "Executing query success", "query", h.Query)
+				level.Debug(h.logger).Log("msg", "Execute query success", "query", h.Query)
 
 				// Make a dict contains list of distinct result Instances
 				rIs := make(map[string]int)
@@ -291,7 +291,7 @@ func (h *Healer) do(compute string) {
 				}
 				if err := alert.SendHTTP(h.httpCli, at); err != nil {
 					msg = common.CnvSliceStrToSliceInf(append([]string{
-						"msg", "Exec action failed",
+						"msg", "Execute action failed",
 						"err", err.Error()},
 						at.InfoLog()...))
 					level.Error(h.logger).Log(msg...)
@@ -305,7 +305,7 @@ func (h *Healer) do(compute string) {
 					_ = m.Validate()
 					if err := alert.SendMail(m); err != nil {
 						msg = common.CnvSliceStrToSliceInf(append([]string{
-							"msg", "Exec action failed",
+							"msg", "Execute action failed",
 							"err", err.Error()},
 							at.InfoLog()...))
 						level.Error(h.logger).Log(msg...)
@@ -316,9 +316,9 @@ func (h *Healer) do(compute string) {
 				exporter.ReportSuccessHealerActionCounter(cluster.GetID(), "http")
 
 				msg = common.CnvSliceStrToSliceInf(append([]string{
-					"msg", "Exec action success"},
+					"msg", "Execute action success"},
 					at.InfoLog()...))
-				level.Error(h.logger).Log(msg...)
+				level.Info(h.logger).Log(msg...)
 			}(string(at.URL), compute)
 		case *model.ActionMail:
 			wg.Add(1)
@@ -330,7 +330,7 @@ func (h *Healer) do(compute string) {
 				at.Body = fmt.Sprintf("Node %s has been down for more than %s.", compute, h.Duration)
 				if err := alert.SendMail(at); err != nil {
 					msg = common.CnvSliceStrToSliceInf(append([]string{
-						"msg", "Exec action failed",
+						"msg", "Execute action failed",
 						"err", err.Error()},
 						at.InfoLog()...))
 					level.Error(h.logger).Log(msg...)

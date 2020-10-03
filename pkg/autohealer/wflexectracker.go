@@ -112,7 +112,7 @@ func (tracker *WFLExecTracker) executeWFL() error {
 	exec, err := alert.ExecuteWorkflow(tracker.os, &tracker.mistralAct)
 	if err != nil {
 		msg = common.CnvSliceStrToSliceInf(append([]string{
-			"msg", "Exec action failed",
+			"msg", "Execute action failed",
 			"err", err.Error()},
 			tracker.mistralAct.InfoLog()...))
 		level.Error(tracker.logger).Log(msg...)

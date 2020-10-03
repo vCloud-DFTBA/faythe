@@ -108,14 +108,14 @@ func (s *Scaler) run(ctx context.Context) {
 				}
 				result, err := s.backend.QueryInstant(ctx, s.Query, time.Now())
 				if err != nil {
-					level.Error(s.logger).Log("msg", "Executing query failed, skip current interval",
+					level.Error(s.logger).Log("msg", "Execute query failed, skip current interval",
 						"query", s.Query, "err", err)
 					s.state = model.StateFailed
 					exporter.ReportMetricQueryFailureCounter(cluster.GetID(),
 						s.backend.GetType(), s.backend.GetAddress())
 					continue
 				}
-				level.Debug(s.logger).Log("msg", "Executing query success",
+				level.Debug(s.logger).Log("msg", "Execute query success",
 					"query", s.Query)
 				s.mtx.Lock()
 				if len(result) == 0 {
@@ -166,7 +166,7 @@ func (s *Scaler) do() {
 				}
 				if err := alert.SendHTTP(s.httpCli, a); err != nil {
 					msg = common.CnvSliceStrToSliceInf(append([]string{
-						"msg", "Exec action failed",
+						"msg", "Execute action failed",
 						"err", err.Error()},
 						at.InfoLog()...))
 					level.Error(s.logger).Log(msg...)
@@ -176,7 +176,7 @@ func (s *Scaler) do() {
 
 				exporter.ReportSuccessScalerActionCounter(cluster.GetID(), "http")
 				msg = common.CnvSliceStrToSliceInf(append([]string{
-					"msg", "Exec action success"},
+					"msg", "Execute action success"},
 					at.InfoLog()...))
 				level.Info(s.logger).Log(msg...)
 				s.alert.Fire(time.Now())
