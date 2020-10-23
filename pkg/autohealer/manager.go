@@ -20,13 +20,11 @@ import (
 	"encoding/json"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
 	etcdv3 "go.etcd.io/etcd/clientv3"
-	"go.etcd.io/etcd/etcdserver/api/v3rpc/rpctypes"
 	"go.etcd.io/etcd/mvcc/mvccpb"
 
 	"github.com/vCloud-DFTBA/faythe/pkg/cluster"
@@ -179,8 +177,6 @@ func (hm *Manager) save() {
 
 // Run start healer mananer instance
 func (hm *Manager) Run() {
-	retryWatchCCount := 1
-	retryWatchHCount := 1
 	ctxc, cancelc := hm.etcdcli.WatchContext()
 	hm.watchc = hm.etcdcli.Watch(ctxc, model.DefaultCloudPrefix, etcdv3.WithPrefix())
 	ctxh, cancelh := hm.etcdcli.WatchContext()
@@ -199,24 +195,10 @@ func (hm *Manager) Run() {
 		case watchResp := <-hm.watchc:
 			if err := watchResp.Err(); err != nil {
 				level.Error(hm.logger).Log("msg", "Error watching etcd cloud provider keys", "err", err)
-				if err == rpctypes.ErrNoLeader && retryWatchCCount <= common.DefaultEtcdRetryCount {
-					level.Debug(hm.logger).Log("msg", "retry execute", "action", "watch",
-						"err", err, "key", model.DefaultCloudPrefix, "count", retryWatchCCount)
-					// Re-init watch channel
-					ctxc, cancelc = hm.etcdcli.WatchContext()
-					hm.watchc = hm.etcdcli.Watch(ctxc, model.DefaultCloudPrefix, etcdv3.WithPrefix())
-					// Increase retry count
-					retryWatchCCount++
-					time.Sleep(common.DefaultEtcdtIntervalBetweenRetries)
-					continue
-				}
 				eerr := common.NewEtcdErr(model.DefaultCloudPrefix, "watch", err)
 				hm.etcdcli.ErrCh <- eerr
 				break
 			}
-
-			// Reset count once got watchResp
-			retryWatchCCount = 1
 
 			for _, event := range watchResp.Events {
 				name := common.Path(model.DefaultNResolverPrefix, strings.Split(string(event.Kv.Key), "/")[2],
@@ -262,24 +244,10 @@ func (hm *Manager) Run() {
 		case watchResp := <-hm.watchh:
 			if err := watchResp.Err(); err != nil {
 				level.Error(hm.logger).Log("msg", "Error watching etcd healer keys", "err", err)
-				if err == rpctypes.ErrNoLeader && retryWatchHCount <= common.DefaultEtcdRetryCount {
-					level.Debug(hm.logger).Log("msg", "retry execute", "action", "watch",
-						"err", err, "key", model.DefaultHealerPrefix, "count", retryWatchHCount)
-					// Re-init watch channel
-					ctxh, cancelh = hm.etcdcli.WatchContext()
-					hm.watchh = hm.etcdcli.Watch(ctxh, model.DefaultHealerPrefix, etcdv3.WithPrefix())
-					// Increase retry count
-					retryWatchHCount++
-					time.Sleep(common.DefaultEtcdtIntervalBetweenRetries)
-					continue
-				}
 				eerr := common.NewEtcdErr(model.DefaultHealerPrefix, "watch", err)
 				hm.etcdcli.ErrCh <- eerr
 				break
 			}
-
-			// Reset count once got watchResp
-			retryWatchHCount = 1
 
 			for _, event := range watchResp.Events {
 				name := common.Path(model.DefaultHealerPrefix, strings.Split(string(event.Kv.Key), "/")[2],
