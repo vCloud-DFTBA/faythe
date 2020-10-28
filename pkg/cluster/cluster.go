@@ -21,13 +21,11 @@ import (
 	"os"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
 	etcdv3 "go.etcd.io/etcd/clientv3"
-	"go.etcd.io/etcd/etcdserver/api/v3rpc/rpctypes"
 	"stathat.com/c/consistent"
 
 	"github.com/vCloud-DFTBA/faythe/pkg/common"
@@ -187,7 +185,6 @@ func (c *Cluster) leave() {
 
 // Run watches the cluster state's changes and does its job
 func (c *Cluster) Run(rc chan struct{}) {
-	retryCount := 1
 	ctx, cancel := c.etcdcli.WatchContext()
 	watch := c.etcdcli.Watch(ctx, model.DefaultClusterPrefix,
 		etcdv3.WithPrefix(), etcdv3.WithCreatedNotify())
@@ -203,17 +200,6 @@ func (c *Cluster) Run(rc chan struct{}) {
 			reload := false
 			if err := watchResp.Err(); err != nil {
 				level.Error(c.logger).Log("msg", "Error watching cluster state", "err", err)
-				if err == rpctypes.ErrNoLeader && retryCount <= common.DefaultEtcdRetryCount {
-					level.Debug(c.logger).Log("msg", "retry execute", "action", "watch",
-						"err", err, "key", model.DefaultClusterPrefix, "count", retryCount)
-					// Re-init watch channel
-					ctx, cancel = c.etcdcli.WatchContext()
-					watch = c.etcdcli.Watch(ctx, model.DefaultClusterPrefix, etcdv3.WithPrefix())
-					// Increase retry count
-					retryCount++
-					time.Sleep(common.DefaultEtcdtIntervalBetweenRetries)
-					continue
-				}
 				eerr := common.NewEtcdErr(model.DefaultClusterPrefix, "watch", err)
 				c.etcdcli.ErrCh <- eerr
 				return
