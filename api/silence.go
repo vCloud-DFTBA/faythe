@@ -58,6 +58,9 @@ func (a *API) createSilence(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	creator := req.Context().Value("user").(map[string]interface{})
+	s.CreatedBy = creator["name"].(string)
+
 	path = common.Path(model.DefaultSilencePrefix, pid, s.ID)
 	resp, err = a.etcdcli.DoGet(path, etcdv3.WithCountOnly())
 	if err != nil {
