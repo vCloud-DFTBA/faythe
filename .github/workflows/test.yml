@@ -5,10 +5,10 @@ jobs:
     name: Lint
     runs-on: ubuntu-latest
     steps:
-    - name: Set up Golang 1.14
+    - name: Set up Golang 1.14.8
       uses: actions/setup-go@v1
       with:
-        go-version: 1.14
+        go-version: 1.14.8
       id: go
     - name: Install golangci-lint
       run: |
@@ -22,10 +22,10 @@ jobs:
     name: Build
     runs-on: ubuntu-latest
     steps:
-    - name: Set up Golang 1.14
+    - name: Set up Golang 1.14.8
       uses: actions/setup-go@v1
       with:
-        go-version: 1.14
+        go-version: 1.14.8
       id: go
     - name: Checkout code
       uses: actions/checkout@v2
