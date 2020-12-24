@@ -58,6 +58,10 @@ func (a *API) registerCloud(w http.ResponseWriter, req *http.Request) {
 			})
 			return
 		}
+
+		creator := req.Context().Value("user").(map[string]interface{})
+		ops.CreatedBy = creator["name"].(string)
+
 		k = common.Path(model.DefaultCloudPrefix, ops.ID)
 		if strings.ToLower(req.URL.Query().Get("force")) == "true" {
 			force = true

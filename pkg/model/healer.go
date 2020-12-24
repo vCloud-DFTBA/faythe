@@ -37,6 +37,7 @@ type Healer struct {
 	Receivers       Receivers                  `json:"receivers"`
 	Query           string                     `json:"query"`
 	Tags            []string                   `json:"tags"`
+	CreatedBy       string                     `json:"created_by"`
 }
 
 // Validate healer model

@@ -27,6 +27,7 @@ type Cloud struct {
 	Endpoints map[string]URL `json:"endpoints"`
 	Monitor   Monitor        `json:"monitor"`
 	Tags      []string       `json:"tags"`
+	CreatedBy string         `json:"created_by"`
 }
 
 // Validate cloud information

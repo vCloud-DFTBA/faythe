@@ -59,6 +59,10 @@ func (a *API) createScaler(w http.ResponseWriter, req *http.Request) {
 		})
 		return
 	}
+
+	creator := req.Context().Value("user").(map[string]interface{})
+	s.CreatedBy = creator["name"].(string)
+
 	if err := s.Validate(); err != nil {
 		a.respondError(w, apiError{
 			code: http.StatusBadRequest,

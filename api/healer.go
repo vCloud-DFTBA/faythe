@@ -57,6 +57,9 @@ func (a *API) createHealer(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	creator := req.Context().Value("user").(map[string]interface{})
+	h.CreatedBy = creator["name"].(string)
+
 	for _, v := range h.ActionsRaw {
 		action := model.Action{}
 		if err := json.Unmarshal(v, &action); err != nil {

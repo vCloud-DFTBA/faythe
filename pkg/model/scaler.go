@@ -39,6 +39,7 @@ type Scaler struct {
 	Alert       *Alert                     `json:"alert,omitempty"`
 	Cooldown    string                     `json:"cooldown"`
 	CloudID     string                     `json:"cloudid"`
+	CreatedBy   string                     `json:"created_by"`
 }
 
 // Validate returns nil if all fields of the Scaler have valid values.

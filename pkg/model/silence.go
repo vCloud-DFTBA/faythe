@@ -33,6 +33,7 @@ type Silence struct {
 	Description  string         `json:"description"`
 	CreatedAt    time.Time      `json:"created_at"`
 	ExpiredAt    time.Time      `json:"expired_at"`
+	CreatedBy    string         `json:"created_by"`
 }
 
 func (s *Silence) Validate() error {
