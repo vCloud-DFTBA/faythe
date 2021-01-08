@@ -40,7 +40,7 @@ type State int
 
 const (
 	// DefaultLeaseTTL etcd lease time-to-live in seconds
-	DefaultLeaseTTL int64 = 10
+	DefaultLeaseTTL int64 = 30
 	ClusterAlive    State = iota
 	ClusterLeaving
 	ClusterLeft

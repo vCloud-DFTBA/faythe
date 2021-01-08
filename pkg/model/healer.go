@@ -38,6 +38,7 @@ type Healer struct {
 	Query           string                     `json:"query"`
 	Tags            []string                   `json:"tags"`
 	CreatedBy       string                     `json:"created_by"`
+	SyncSilences    bool                       `json:"sync_silences"`
 }
 
 // Validate healer model
@@ -54,6 +55,8 @@ func (h *Healer) Validate() error {
 	if h.Duration == "" {
 		h.Duration = DefaultHealerDuration
 	}
+
+	h.SyncSilences = true
 
 	if len(h.Receivers) == 0 {
 		return fmt.Errorf("receivers cannot be empty")

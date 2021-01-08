@@ -34,6 +34,7 @@ const (
 	// DefaultSilencePrefix is default etcd prefix for Silences
 	DefaultSilencePrefix             = "/silences"
 	DefaultSilenceValidationInterval = "30s"
+	DefaultSyncSilencesInterval      = "20s"
 
 	// DefaultUserPrefix is default etcd prefix for Users
 	DefaultUsersPrefix = "/users"

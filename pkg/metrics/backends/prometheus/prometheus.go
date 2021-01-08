@@ -16,12 +16,16 @@ package prometheus
 
 import (
 	"context"
+	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
+	amclient "github.com/prometheus/alertmanager/api/v2/client"
+	ammodels "github.com/prometheus/alertmanager/api/v2/models"
 	prometheusclient "github.com/prometheus/client_golang/api"
 	prometheus "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
@@ -92,4 +96,52 @@ func (b *Backend) QueryInstant(ctx context.Context, query string, ts time.Time) 
 	default:
 		return nil, errors.Errorf("unknown supported type: '%q'", v)
 	}
+}
+
+// getAlertmanagers returns Alertmanager clients that is associated with the backend.
+func (b *Backend) getAlertmanagers(ctx context.Context) ([]*amclient.Alertmanager, error) {
+	level.Debug(b.logger).Log("msg", "get active Alertmanagers")
+	amResult, err := b.prometheus.AlertManagers(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var ams []*amclient.Alertmanager
+	// Get only active Alertmanager instances.
+	for _, a := range amResult.Active {
+		u, _ := url.Parse(a.URL)
+		level.Debug(b.logger).Log("msg", "setup Alertmanager client", "alertmanager", u.Host)
+		// NOTE(kiennt): This is Alertmanager API Ver 2 client.
+		// https://github.com/prometheus/alertmanager/blob/master/api/v2/client/alertmanager_client.go
+		amCli := amclient.NewHTTPClientWithConfig(nil, &amclient.TransportConfig{
+			Host:     u.Host,
+			BasePath: "/api/v2/", // hardcode here
+			Schemes:  amclient.DefaultSchemes,
+		})
+		ams = append(ams, amCli)
+	}
+	return ams, nil
+}
+
+// GetAlertmanagerSilences returns silences in Alertmanagers.
+func (b *Backend) GetAlertManagerSilences(filter []string, ctx context.Context) (map[string]ammodels.Silence, error) {
+	level.Debug(b.logger).Log("msg", "get Alertmanager silence")
+	ams, err := b.getAlertmanagers(ctx)
+	if err != nil {
+		return nil, err
+	}
+	result := make(map[string]ammodels.Silence)
+	for _, am := range ams {
+		silences, err := am.Silence.GetSilences(nil)
+		if err != nil {
+			fmt.Println(err)
+			continue
+		}
+		for _, s := range silences.GetPayload() {
+			if *s.Status.State != ammodels.SilenceStatusStateActive {
+				continue
+			}
+			result[*s.ID] = s.Silence
+		}
+	}
+	return result, err
 }
