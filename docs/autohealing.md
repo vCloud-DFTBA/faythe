@@ -9,15 +9,15 @@
   - [2. Silencer](#2-silencer)
     - [2.1. Overview](#21-overview)
     - [2.2. Silencer API](#22-silencer-api)
-      - [2.1.1. Create Silencer](#211-create-silencer)
-      - [2.1.2. List Silencer](#212-list-silencer)
-      - [2.1.3. Delete Silencer/Expire Silencer](#213-delete-silencerexpire-silencer)
+      - [2.2.1. Create Silencer](#221-create-silencer)
+      - [2.2.2. List Silencer](#222-list-silencer)
+      - [2.2.3. Delete Silencer/Expire Silencer](#223-delete-silencerexpire-silencer)
   - [3. Healer](#3-healer)
     - [3.1. Overview](#31-overview)
     - [3.2. Healer API](#32-healer-api)
-      - [3.1.1. Create healer](#311-create-healer)
-      - [3.1.2. List healer](#312-list-healer)
-      - [3.1.3. Delete healer](#313-delete-healer)
+      - [3.2.1. Create healer](#321-create-healer)
+      - [3.2.2. List healer](#322-list-healer)
+      - [3.2.3. Delete healer](#323-delete-healer)
 
 Faythe autohealing basically does the job that automatically migrate VMs on hosts if predicted problems occur.
 
@@ -84,7 +84,7 @@ Silencers come in handy if you want to add a set of ignored hosts in case of mai
 
 ### 2.2. Silencer API
 
-#### 2.1.1. Create Silencer
+#### 2.2.1. Create Silencer
 
 Parameter explains:
 
@@ -118,7 +118,7 @@ Resp
 }
 ```
 
-#### 2.1.2. List Silencer
+#### 2.2.2. List Silencer
 
 Silencers of a cloud provider can be listed in:
 
@@ -126,7 +126,7 @@ Silencers of a cloud provider can be listed in:
 
 **METHOD**: `GET`
 
-#### 2.1.3. Delete Silencer/Expire Silencer
+#### 2.2.3. Delete Silencer/Expire Silencer
 
 Silencer is automatically deleted and expired after reaching TTL duration. However, you can manually delete it by:
 
@@ -158,7 +158,7 @@ You can also define the level of evaluation, that means healing is only triggere
 
 Healer has 3 APIs as usual: create, list, delete
 
-#### 3.1.1. Create healer
+#### 3.2.1. Create healer
 
 Currently, we only support one healer per cloud provider. For supported actions, please check [here](./action.md)
 
@@ -167,7 +167,7 @@ Currently, we only support one healer per cloud provider. For supported actions,
 **METHOD**: `POST`
 
 | Parameter               | In   | Type    | Required | Default                                                 | Description                                                                                                                                                                                      |
-| ----------------------- | ---- | ------- | -------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| ----------------------- | ---- | ------- | -------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | query                   | body | string  | true     | up{job=~\"._compute-cadvisor._\|._compute-node._\"} < 1 | Query that will be executed against the Prometheus API. See [the official documentation](https://prometheus.io/docs/prometheus/latest/querying/basics/) for more details.                        | Query that will be executed against the Prometheus API. See [the official documentation](https://prometheus.io/docs/prometheus/latest/querying/basics/) for more details. |
 | action                  | body | object  | true     |                                                         | List of actions when healing is triggered                                                                                                                                                        |
 | action.receivers        | body | list    | false    |                                                         | List of receivers in mail action                                                                                                                                                                 |
@@ -226,13 +226,13 @@ Resp
 }
 ```
 
-#### 3.1.2. List healer
+#### 3.2.2. List healer
 
 **PATH**: `/healers/{provider-id}`
 
 **METHOD**: `GET`
 
-#### 3.1.3. Delete healer
+#### 3.2.3. Delete healer
 
 **PATH**: `/healers/{provider-id}/{healer-id}`
 
