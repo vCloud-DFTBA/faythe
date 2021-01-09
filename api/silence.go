@@ -70,7 +70,7 @@ func (a *API) createSilence(rw http.ResponseWriter, req *http.Request) {
 	if resp.Count > 0 {
 		a.respondError(rw, apiError{
 			code: http.StatusBadRequest,
-			err:  fmt.Errorf("there exists an silence with exact the same pattern and expiration time"),
+			err:  fmt.Errorf("there is an exist silence with the exact the same pattern and expiration time"),
 		})
 		return
 	}

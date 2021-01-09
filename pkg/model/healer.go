@@ -56,8 +56,6 @@ func (h *Healer) Validate() error {
 		h.Duration = DefaultHealerDuration
 	}
 
-	h.SyncSilences = true
-
 	if len(h.Receivers) == 0 {
 		return fmt.Errorf("receivers cannot be empty")
 	}

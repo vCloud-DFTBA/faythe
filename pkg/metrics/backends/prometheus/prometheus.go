@@ -100,7 +100,7 @@ func (b *Backend) QueryInstant(ctx context.Context, query string, ts time.Time) 
 
 // getAlertmanagers returns Alertmanager clients that is associated with the backend.
 func (b *Backend) getAlertmanagers(ctx context.Context) ([]*amclient.Alertmanager, error) {
-	level.Debug(b.logger).Log("msg", "get active Alertmanagers")
+	level.Debug(b.logger).Log("msg", "Get active Alertmanagers")
 	amResult, err := b.prometheus.AlertManagers(ctx)
 	if err != nil {
 		return nil, err
@@ -109,7 +109,7 @@ func (b *Backend) getAlertmanagers(ctx context.Context) ([]*amclient.Alertmanage
 	// Get only active Alertmanager instances.
 	for _, a := range amResult.Active {
 		u, _ := url.Parse(a.URL)
-		level.Debug(b.logger).Log("msg", "setup Alertmanager client", "alertmanager", u.Host)
+		level.Debug(b.logger).Log("msg", "Setup Alertmanager client", "alertmanager", u.Host)
 		// NOTE(kiennt): This is Alertmanager API Ver 2 client.
 		// https://github.com/prometheus/alertmanager/blob/master/api/v2/client/alertmanager_client.go
 		amCli := amclient.NewHTTPClientWithConfig(nil, &amclient.TransportConfig{
@@ -124,7 +124,7 @@ func (b *Backend) getAlertmanagers(ctx context.Context) ([]*amclient.Alertmanage
 
 // GetAlertmanagerSilences returns silences in Alertmanagers.
 func (b *Backend) GetAlertManagerSilences(filter []string, ctx context.Context) (map[string]ammodels.Silence, error) {
-	level.Debug(b.logger).Log("msg", "get Alertmanager silence")
+	level.Debug(b.logger).Log("msg", "Get Alertmanager silences")
 	ams, err := b.getAlertmanagers(ctx)
 	if err != nil {
 		return nil, err

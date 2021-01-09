@@ -17,7 +17,9 @@ package model
 import (
 	"crypto"
 	"fmt"
+	"math"
 	"regexp"
+	"strconv"
 	"time"
 
 	"github.com/vCloud-DFTBA/faythe/pkg/common"
@@ -45,23 +47,28 @@ func (s *Silence) Validate() error {
 		return fmt.Errorf("silence pattern cannot be empty")
 	}
 
-	if s.TTL == "" {
-		return fmt.Errorf("silence ttl cannot be empty")
-	}
-
 	regex, err := regexp.Compile(s.Pattern)
 	if err != nil {
 		return err
 	}
 	s.RegexPattern = regex
 
-	t, err := common.ParseDuration(s.TTL)
-	if err != nil {
-		return err
+	if s.TTL == "" && !s.CreatedAt.IsZero() && !s.ExpiredAt.IsZero() {
+		durationHours := int(math.RoundToEven(s.ExpiredAt.Sub(s.CreatedAt).Hours()))
+		s.TTL = strconv.Itoa(durationHours) + "h"
+	} else if s.TTL != "" {
+		t, err := common.ParseDuration(s.TTL)
+		if err != nil {
+			return err
+		}
+		if s.CreatedAt.IsZero() {
+			s.CreatedAt = time.Now()
+		}
+		s.ExpiredAt = s.CreatedAt.Add(t)
+	} else {
+		return fmt.Errorf("silence ttl, created_at and expired_at cannot be both empty")
 	}
 
-	s.CreatedAt = time.Now()
-	s.ExpiredAt = s.CreatedAt.Add(t)
 	s.ID = common.Hash(fmt.Sprintf("%s-%s", s.Pattern, s.ExpiredAt.String()), crypto.MD5)
 
 	return nil
