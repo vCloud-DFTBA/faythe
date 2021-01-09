@@ -8,10 +8,13 @@
     - [1.2. NResolver API](#12-nresolver-api)
   - [2. Silencer](#2-silencer)
     - [2.1. Overview](#21-overview)
-    - [2.2. Silencer API](#22-silencer-api)
-      - [2.2.1. Create Silencer](#221-create-silencer)
-      - [2.2.2. List Silencer](#222-list-silencer)
-      - [2.2.3. Delete Silencer/Expire Silencer](#223-delete-silencerexpire-silencer)
+    - [2.2. Sync silences (experimental)](#22-sync-silences-experimental)
+      - [2.2.1. How it works](#221-how-it-works)
+      - [2.2.2. Conditions](#222-conditions)
+    - [2.3. Silencer API](#23-silencer-api)
+      - [2.3.1. Create Silencer](#231-create-silencer)
+      - [2.3.2. List Silencer](#232-list-silencer)
+      - [2.3.3. Delete Silencer/Expire Silencer](#233-delete-silencerexpire-silencer)
   - [3. Healer](#3-healer)
     - [3.1. Overview](#31-overview)
     - [3.2. Healer API](#32-healer-api)
@@ -82,9 +85,32 @@ Resp
 
 Silencers come in handy if you want to add a set of ignored hosts in case of maintenance.
 
-### 2.2. Silencer API
+### 2.2. Sync silences (experimental)
 
-#### 2.2.1. Create Silencer
+If your metric backend is `Prometheus`, Faythe is able to sync from Prometheus Alertmanager(s) associated with the Prometheus backend. User has to enable this feature when creating Healer, it is disable by default.
+
+#### 2.2.1. How it works
+
+- Faythe retrieves the Prometheus backend's configuration then get Prometheus Alertmanager's urls and setup clients.
+- Faythe queries the active silences which satisfy [conditions](#222-conditions) from Prometheus Alertmanagers, converts them to Faythe silence format.
+- The Healer's silences dict will be updated with the new silences.
+- Note that, to reduce complexity, this is the **APPEND ONLY** process. Faythe will create new silence if there is a insert/update from Prometheus Alertmanager. If user expires silence in Prometheus Alermanager, Faythe won't notice that, silence will still be there.
+
+#### 2.2.2. Conditions
+
+Faythe doesn't get all the silences from Prometheus Alertmanager. Here are the restricted conditions user has to follow when creating Prometheus Alertmanager's silence:
+
+- Silence's comment has to start with `[faythe]` prefix. For example:
+
+```
+Comment: '[faythe] Silence for maintainance'
+```
+
+- Silence's matcher has to be on `instance` label.
+
+### 2.3. Silencer API
+
+#### 2.3.1. Create Silencer
 
 Parameter explains:
 
@@ -118,7 +144,7 @@ Resp
 }
 ```
 
-#### 2.2.2. List Silencer
+#### 2.3.2. List Silencer
 
 Silencers of a cloud provider can be listed in:
 
@@ -126,7 +152,7 @@ Silencers of a cloud provider can be listed in:
 
 **METHOD**: `GET`
 
-#### 2.2.3. Delete Silencer/Expire Silencer
+#### 2.3.3. Delete Silencer/Expire Silencer
 
 Silencer is automatically deleted and expired after reaching TTL duration. However, you can manually delete it by:
 
@@ -188,6 +214,7 @@ Currently, we only support one healer per cloud provider. For supported actions,
 | description             | body | string  | false    |                                                         |                                                                                                                                                                                                  |
 | tags                    | body | list    | false    |                                                         |                                                                                                                                                                                                  |
 | active                  | body | boolean | true     | false                                                   | Enable the healer or not.                                                                                                                                                                        |
+| sync_silences           | body | boolean | false    | false                                                   | Enable sync silences feature (Prometheus backend is the only supported).                                                                                                                         |
 
 For example:
 
@@ -216,7 +243,8 @@ POST /healers/eb31219d766fde6d8f2d8bcad6269175
 		"autohealing",
 		"5f"
 	],
-	"active": true
+  "active": true,
+  "sync_silences": true
 }
 Resp
 {
