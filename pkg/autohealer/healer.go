@@ -485,7 +485,7 @@ func (h *Healer) syncSilencesFromBackend(ctx context.Context, e *common.Etcd) {
 			continue
 		}
 		if getr.Count > 0 {
-			level.Warn(h.logger).Log("msg", "There is an exist silence with the exact the same pattern and expiration time")
+			level.Warn(h.logger).Log("msg", "There exists an silence with the same pattern and expiration time")
 			continue
 		}
 		t, _ := common.ParseDuration(s.TTL)
