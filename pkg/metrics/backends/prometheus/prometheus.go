@@ -123,7 +123,7 @@ func (b *Backend) getAlertmanagers(ctx context.Context) ([]*amclient.Alertmanage
 }
 
 // GetAlertmanagerSilences returns silences in Alertmanagers.
-func (b *Backend) GetAlertManagerSilences(filter []string, ctx context.Context) (map[string]ammodels.Silence, error) {
+func (b *Backend) GetAlertManagerSilences(ctx context.Context, filter []string) (map[string]ammodels.Silence, error) {
 	level.Debug(b.logger).Log("msg", "Get Alertmanager silences")
 	ams, err := b.getAlertmanagers(ctx)
 	if err != nil {

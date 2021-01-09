@@ -443,7 +443,7 @@ func (h *Healer) syncSilencesFromBackend(ctx context.Context, e *common.Etcd) {
 	}
 	level.Info(h.logger).Log("msg", "Sync silences from metric backend",
 		"backend", h.backend.GetAddress())
-	silencesMap, err := h.backend.(*prometheus.Backend).GetAlertManagerSilences([]string{"instance=~\".+\""}, ctx)
+	silencesMap, err := h.backend.(*prometheus.Backend).GetAlertManagerSilences(ctx, []string{"instance=~\".+\""})
 	if err != nil {
 		level.Error(h.logger).Log("msg", "Error retrieving silences from Alertmanager",
 			"backend", h.backend.GetAddress())
