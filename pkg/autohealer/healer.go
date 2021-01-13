@@ -81,6 +81,8 @@ func (h *Healer) run(ctx context.Context, e *common.Etcd, nc chan map[string]str
 	whitelist := make(map[string]struct{})
 	swatch := e.Watch(ctx, common.Path(model.DefaultSilencePrefix, h.CloudID), etcdv3.WithPrefix())
 	h.updateSilence(e)
+	// Sync silences from Alertmanager
+	go h.syncSilencesFromBackend(ctx, e)
 
 	// Record the number of healers
 	exporter.ReportNumberOfHealers(cluster.GetID(), 1)
@@ -164,9 +166,6 @@ func (h *Healer) run(ctx context.Context, e *common.Etcd, nc chan map[string]str
 					close(*c)
 					delete(chans, k)
 				}
-
-				// Sync silences from Alertmanager
-				h.syncSilencesFromBackend(ctx, e)
 
 				// If number of metrics returned for a instance != EvaluationLevel
 				// Or if instances in whitelist, delete from list of Instances, not process it
@@ -443,63 +442,73 @@ func (h *Healer) syncSilencesFromBackend(ctx context.Context, e *common.Etcd) {
 	}
 	level.Debug(h.logger).Log("msg", "Sync silences from metric backend",
 		"backend", h.backend.GetAddress())
-	silencesMap, err := h.backend.(*prometheus.Backend).GetAlertManagerSilences(ctx, []string{"instance=~\".+\""})
-	if err != nil {
-		level.Error(h.logger).Log("msg", "Error retrieving silences from Alertmanager",
-			"backend", h.backend.GetAddress())
-		return
-	}
-	for _, silence := range silencesMap {
-		// If silence's comment doesn't start with `[faythe]` prefix, ignore it.
-		if !strings.HasPrefix(strings.ToLower(*silence.Comment), "[faythe]") {
-			continue
-		}
-		s := &model.Silence{
-			Name:        "Auto sync silence from Alertmanger",
-			CreatedBy:   *silence.CreatedBy,
-			CreatedAt:   time.Time(*silence.StartsAt),
-			ExpiredAt:   time.Time(*silence.EndsAt),
-			Tags:        []string{"auto-sync", "alertmanager"},
-			Description: *silence.Comment,
-		}
-		for _, matcher := range silence.Matchers {
-			// Only care about matcher with name 'instance'
-			if *matcher.Name == "instance" {
-				s.Pattern = *matcher.Value
-				break
+	syncIntenval, _ := common.ParseDuration(model.DefaultSyncSilencesInterval)
+	syncTicker := time.NewTicker(syncIntenval)
+
+	for {
+		select {
+		case <-h.done:
+			return
+		case <-syncTicker.C:
+			silencesMap, err := h.backend.(*prometheus.Backend).GetAlertManagerSilences(ctx, []string{"instance=~\".+\""})
+			if err != nil {
+				level.Error(h.logger).Log("msg", "Error retrieving silences from Alertmanager",
+					"backend", h.backend.GetAddress())
+				continue
+			}
+			for _, silence := range silencesMap {
+				// If silence's comment doesn't start with `[faythe]` prefix, ignore it.
+				if !strings.HasPrefix(strings.ToLower(*silence.Comment), "[faythe]") {
+					continue
+				}
+				s := &model.Silence{
+					Name:        "Auto sync silence from Alertmanger",
+					CreatedBy:   *silence.CreatedBy,
+					CreatedAt:   time.Time(*silence.StartsAt),
+					ExpiredAt:   time.Time(*silence.EndsAt),
+					Tags:        []string{"auto-sync", "alertmanager"},
+					Description: *silence.Comment,
+				}
+				for _, matcher := range silence.Matchers {
+					// Only care about matcher with name 'instance'
+					if *matcher.Name == "instance" {
+						s.Pattern = *matcher.Value
+						break
+					}
+				}
+				if s.Pattern == "" {
+					continue
+				}
+				if err := s.Validate(); err != nil {
+					level.Error(h.logger).Log("msg", "Error when validating silence", "err", err)
+					continue
+				}
+				// Check if the silence exists
+				path := common.Path(model.DefaultSilencePrefix, h.CloudID, s.ID)
+				getr, err := e.DoGet(path, etcdv3.WithCountOnly())
+				if err != nil {
+					level.Error(h.logger).Log("msg", "Error when checking the existence of silence",
+						"err", err)
+					continue
+				}
+				if getr.Count > 0 {
+					level.Warn(h.logger).Log("msg", "There exists an silence with the same pattern and expiration time")
+					continue
+				}
+				t, _ := common.ParseDuration(s.TTL)
+				grantr, err := e.DoGrant(int64(t.Seconds()))
+				if err != nil {
+					level.Error(h.logger).Log("msg", "Error when getting grant for silence", "err", err)
+					continue
+				}
+				raw, _ := json.Marshal(&s)
+				if _, err := e.DoPut(path, string(raw), etcdv3.WithLease(grantr.ID)); err != nil {
+					level.Error(h.logger).Log("msg", "Error when creating silence", "err", err)
+					continue
+				}
+				h.silences[s.ID] = s
+				level.Info(h.logger).Log("msg", "Create a silence successfully", "id", s.ID)
 			}
 		}
-		if s.Pattern == "" {
-			continue
-		}
-		if err := s.Validate(); err != nil {
-			level.Error(h.logger).Log("msg", "Error when validating silence", "err", err)
-			continue
-		}
-		// Check if the silence exists
-		path := common.Path(model.DefaultSilencePrefix, h.CloudID, s.ID)
-		getr, err := e.DoGet(path, etcdv3.WithCountOnly())
-		if err != nil {
-			level.Error(h.logger).Log("msg", "Error when checking the existence of silence",
-				"err", err)
-			continue
-		}
-		if getr.Count > 0 {
-			level.Warn(h.logger).Log("msg", "There exists an silence with the same pattern and expiration time")
-			continue
-		}
-		t, _ := common.ParseDuration(s.TTL)
-		grantr, err := e.DoGrant(int64(t.Seconds()))
-		if err != nil {
-			level.Error(h.logger).Log("msg", "Error when getting grant for silence", "err", err)
-			continue
-		}
-		raw, _ := json.Marshal(&s)
-		if _, err := e.DoPut(path, string(raw), etcdv3.WithLease(grantr.ID)); err != nil {
-			level.Error(h.logger).Log("msg", "Error when creating silence", "err", err)
-			continue
-		}
-		h.silences[s.ID] = s
-		level.Info(h.logger).Log("msg", "Create a silence successfully", "id", s.ID)
 	}
 }
