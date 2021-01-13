@@ -108,7 +108,11 @@ func (b *Backend) getAlertmanagers(ctx context.Context) ([]*amclient.Alertmanage
 	var ams []*amclient.Alertmanager
 	// Get only active Alertmanager instances.
 	for _, a := range amResult.Active {
-		u, _ := url.Parse(a.URL)
+		u, err := url.Parse(a.URL)
+		if err != nil {
+			level.Error(b.logger).Log("msg", "Invalid Alertmanager URL", a.URL)
+			continue
+		}
 		level.Debug(b.logger).Log("msg", "Setup Alertmanager client", "alertmanager", u.Host)
 		// NOTE(kiennt): This is Alertmanager API Ver 2 client.
 		// https://github.com/prometheus/alertmanager/blob/master/api/v2/client/alertmanager_client.go
