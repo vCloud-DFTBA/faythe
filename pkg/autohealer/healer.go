@@ -437,11 +437,11 @@ func (h *Healer) updateSilence(e *common.Etcd) {
 // is supported at this time.
 func (h *Healer) syncSilencesFromBackend(ctx context.Context, e *common.Etcd) {
 	if h.backend.GetType() != model.PrometheusType || !h.SyncSilences {
-		level.Info(h.logger).Log("msg", "Skip sync silences",
+		level.Debug(h.logger).Log("msg", "Skip sync silences",
 			"backend", h.backend.GetAddress())
 		return
 	}
-	level.Info(h.logger).Log("msg", "Sync silences from metric backend",
+	level.Debug(h.logger).Log("msg", "Sync silences from metric backend",
 		"backend", h.backend.GetAddress())
 	silencesMap, err := h.backend.(*prometheus.Backend).GetAlertManagerSilences(ctx, []string{"instance=~\".+\""})
 	if err != nil {
