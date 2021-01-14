@@ -38,6 +38,7 @@ type Healer struct {
 	Query           string                     `json:"query"`
 	Tags            []string                   `json:"tags"`
 	CreatedBy       string                     `json:"created_by"`
+	SyncSilences    bool                       `json:"sync_silences"`
 }
 
 // Validate healer model
