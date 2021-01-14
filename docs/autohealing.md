@@ -92,7 +92,7 @@ If your metric backend is `Prometheus`, Faythe is able to sync from Prometheus A
 #### 2.2.1. How it works
 
 - Faythe retrieves the Prometheus backend's configuration then get Prometheus Alertmanager's urls and setup clients.
-- Faythe queries the active silences which satisfy [conditions](#222-conditions) from Prometheus Alertmanagers, converts them to Faythe silence format.
+- Faythe queries the active silences which satisfy [conditions](#222-conditions) from Prometheus Alertmanagers every **60 seconds** (Yes, this is fixed value, at least by now), converts them to Faythe silence format.
 - The Healer's silences dict will be updated with the new silences.
 - Note that, to reduce complexity, this is the **APPEND ONLY** process.
   - Faythe will create a _complete new silence_ if there is a insert/update from Prometheus Alertmanager.
