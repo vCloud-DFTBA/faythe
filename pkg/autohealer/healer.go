@@ -51,7 +51,7 @@ type Healer struct {
 	mtx        sync.RWMutex
 	state      model.State
 	terminated chan struct{}
-	silences   map[string]*model.Silence
+	silences   cmap.ConcurrentMap
 	httpCli    *http.Client
 }
 
@@ -62,7 +62,7 @@ func newHealer(l log.Logger, data []byte, b metrics.Backend) *Healer {
 		nodes:      cmap.New(),
 		logger:     l,
 		terminated: make(chan struct{}),
-		silences:   make(map[string]*model.Silence),
+		silences:   cmap.New(),
 		httpCli:    common.NewHTTPClient(),
 	}
 	_ = json.Unmarshal(data, h)
@@ -113,9 +113,9 @@ func (h *Healer) run(ctx context.Context, e *common.Etcd, nc chan map[string]str
 						s := model.Silence{}
 						_ = json.Unmarshal(event.Kv.Value, &s)
 						s.RegexPattern, _ = regexp.Compile(s.Pattern)
-						h.silences[sid] = &s
+						h.silences.Set(sid, &s)
 					} else if event.Type == etcdv3.EventTypeDelete {
-						delete(h.silences, sid)
+						h.silences.Remove(sid)
 					}
 				}
 			case <-ticker.C:
@@ -178,8 +178,9 @@ func (h *Healer) run(ctx context.Context, e *common.Etcd, nc chan map[string]str
 						delete(rIs, k)
 					}
 					// Check silenced instances
-					for ks, vs := range h.silences {
-						if matched := vs.RegexPattern.MatchString(k); matched {
+					for ks, vs := range h.silences.Items() {
+						sil := vs.(*model.Silence)
+						if matched := sil.RegexPattern.MatchString(k); matched {
 							level.Info(h.logger).Log("msg", fmt.Sprintf("instance %s is ignored because of silence: %s", k, ks))
 							delete(rIs, k)
 						}
@@ -406,9 +407,10 @@ func (h *Healer) Stop() {
 
 func (h *Healer) validateSilence() {
 	now := time.Now()
-	for k, s := range h.silences {
-		if s.ExpiredAt.Before(now) || s.ExpiredAt.Equal(now) {
-			delete(h.silences, k)
+	for k, s := range h.silences.Items() {
+		sil := s.(*model.Silence)
+		if sil.ExpiredAt.Before(now) || sil.ExpiredAt.Equal(now) {
+			h.silences.Remove(k)
 		}
 	}
 }
@@ -419,16 +421,14 @@ func (h *Healer) updateSilence(e *common.Etcd) {
 		level.Error(h.logger).Log("msg", "error while getting information from etcd", "err", err)
 		return
 	}
-	// Best way to clear a map https://github.com/golang/go/blob/master/doc/go1.11.html#L447
-	for k := range h.silences {
-		delete(h.silences, k)
-	}
+	// Force init silence map
+	h.silences = cmap.New()
 	for _, v := range resp.Kvs {
 		sid := string(v.Key)
 		s := model.Silence{}
 		_ = json.Unmarshal(v.Value, &s)
 		s.RegexPattern, _ = regexp.Compile(s.Pattern)
-		h.silences[sid] = &s
+		h.silences.Set(sid, &s)
 	}
 }
 
@@ -486,17 +486,20 @@ func (h *Healer) syncSilencesFromBackend(ctx context.Context, e *common.Etcd) {
 				}
 				// Check if the silence exists
 				path := common.Path(model.DefaultSilencePrefix, h.CloudID, s.ID)
-				if existSil, ok := h.silences[s.ID]; ok && existSil.ExpiredAt != s.ExpiredAt || existSil.Pattern != s.Pattern {
-					_, err := e.DoDelete(path, etcdv3.WithPrefix())
-					if err != nil {
-						level.Error(h.logger).Log("msg", "Error when deleting the outdated of silence",
-							"err", err)
-						continue
+				if existSilItf, ok := h.silences.Get(s.ID); ok {
+					existSil := existSilItf.(*model.Silence)
+					if existSil.ExpiredAt != s.ExpiredAt || existSil.Pattern != s.Pattern {
+						_, err := e.DoDelete(path, etcdv3.WithPrefix())
+						if err != nil {
+							level.Error(h.logger).Log("msg", "Error when deleting the outdated of silence",
+								"err", err)
+							continue
+						}
+						// Force calculate silence's TTL
+						s.CreatedAt = time.Now()
+						_ = s.Validate()
+						h.silences.Remove(s.ID)
 					}
-					// Force calculate silence's TTL
-					s.CreatedAt = time.Now()
-					_ = s.Validate()
-					delete(h.silences, s.ID)
 				}
 
 				t, _ := common.ParseDuration(s.TTL)
@@ -510,14 +513,15 @@ func (h *Healer) syncSilencesFromBackend(ctx context.Context, e *common.Etcd) {
 					level.Error(h.logger).Log("msg", "Error when creating silence", "err", err)
 					continue
 				}
-				h.silences[s.ID] = s
+				h.silences.Set(s.ID, s)
 				level.Info(h.logger).Log("msg", "Create a silence successfully", "id", s.ID)
 			}
-			
-			for id, silence := range h.silences {
+
+			for id, silence  := range h.silences.Items() {
+				sil := silence.(*model.Silence)
 				// If there is a synced silence exist on Faythe but is no longer
 				// available on Alertmanager, delete it.
-				if silence.Name != model.DefaultSyncedSilenceName {
+				if sil.Name != model.DefaultSyncedSilenceName {
 					continue
 				}
 				if _, ok := silencesMap[id]; !ok {
@@ -528,7 +532,7 @@ func (h *Healer) syncSilencesFromBackend(ctx context.Context, e *common.Etcd) {
 							"err", err)
 						continue
 					}
-					delete(h.silences, id)
+					h.silences.Remove(id)
 				}
 			}
 		}
