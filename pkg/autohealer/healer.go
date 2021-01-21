@@ -489,9 +489,10 @@ func (h *Healer) syncSilencesFromBackend(ctx context.Context, e *common.Etcd) {
 				if existSilItf, ok := h.silences.Get(s.ID); ok {
 					existSil := existSilItf.(*model.Silence)
 					if existSil.ExpiredAt != s.ExpiredAt || existSil.Pattern != s.Pattern {
+						level.Debug(h.logger).Log("msg", "Delete the outdated synced silence")
 						_, err := e.DoDelete(path, etcdv3.WithPrefix())
 						if err != nil {
-							level.Error(h.logger).Log("msg", "Error when deleting the outdated of silence",
+							level.Error(h.logger).Log("msg", "Error when deleting the outdated synced silence",
 								"err", err)
 							continue
 						}
@@ -517,7 +518,7 @@ func (h *Healer) syncSilencesFromBackend(ctx context.Context, e *common.Etcd) {
 				level.Info(h.logger).Log("msg", "Create a silence successfully", "id", s.ID)
 			}
 
-			for id, silence  := range h.silences.Items() {
+			for id, silence := range h.silences.Items() {
 				sil := silence.(*model.Silence)
 				// If there is a synced silence exist on Faythe but is no longer
 				// available on Alertmanager, delete it.
@@ -525,10 +526,11 @@ func (h *Healer) syncSilencesFromBackend(ctx context.Context, e *common.Etcd) {
 					continue
 				}
 				if _, ok := silencesMap[id]; !ok {
+					level.Debug(h.logger).Log("msg", "Delete the outdated synced silence")
 					path := common.Path(model.DefaultSilencePrefix, h.CloudID, id)
 					_, err := e.DoDelete(path, etcdv3.WithPrefix())
 					if err != nil {
-						level.Error(h.logger).Log("msg", "Error when deleting the outdated of silence",
+						level.Error(h.logger).Log("msg", "Error when deleting the outdated synced silence",
 							"err", err)
 						continue
 					}
