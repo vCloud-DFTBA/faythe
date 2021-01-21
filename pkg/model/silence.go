@@ -54,6 +54,9 @@ func (s *Silence) Validate() error {
 	s.RegexPattern = regex
 
 	if s.TTL == "" && !s.CreatedAt.IsZero() && !s.ExpiredAt.IsZero() {
+		if s.CreatedAt.Before(time.Now()) {
+			s.CreatedAt = time.Now()
+		}
 		durationHours := int(math.RoundToEven(s.ExpiredAt.Sub(s.CreatedAt).Hours()))
 		s.TTL = strconv.Itoa(durationHours) + "h"
 	} else if s.TTL != "" {
