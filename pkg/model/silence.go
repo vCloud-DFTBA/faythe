@@ -69,7 +69,9 @@ func (s *Silence) Validate() error {
 		return fmt.Errorf("silence ttl, created_at and expired_at cannot be both empty")
 	}
 
-	s.ID = common.Hash(fmt.Sprintf("%s-%s", s.Pattern, s.ExpiredAt.String()), crypto.MD5)
+	if s.ID == "" {
+		s.ID = common.Hash(fmt.Sprintf("%s-%s", s.Pattern, s.ExpiredAt.String()), crypto.MD5)
+	}
 
 	return nil
 }
