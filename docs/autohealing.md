@@ -94,10 +94,14 @@ If your metric backend is `Prometheus`, Faythe is able to sync from Prometheus A
 - Faythe retrieves the Prometheus backend's configuration then get Prometheus Alertmanager's urls and setup clients.
 - Faythe queries the active silences which satisfy [conditions](#222-conditions) from Prometheus Alertmanagers every **60 seconds** (Yes, this is fixed value, at least by now), converts them to Faythe silence format.
 - The Healer's silences dict will be updated with the new silences.
-- Note that, to reduce complexity, this is the **APPEND ONLY** process.
-  - Faythe will create a _complete new silence_ if there is a insert/update from Prometheus Alertmanager.
-  - If user expires silence in Prometheus Alermanager, Faythe won't notice that, silence will still be there.
-  - There are many cases when Alertmanager's silences changes. Faythe and Alertmanager silence creation logic are different, so trying to make them sync 100% with each other is a waste of time.
+- Note that, to reduce complexity, this is **one-way sync process from Alertmanager to Faythe**.
+- The logic is quite simple:
+
+| Alertmanager                  | Faythe                                                                                             |
+| ----------------------------- | -------------------------------------------------------------------------------------------------- |
+| Create/recreate a new silence | Create a new silence                                                                               |
+| Edit a silence                | Find the exist silence, check if pattern/expiration time was updated, force recreate a new silence |
+| Expire a silence              | Delete the exist silence                                                                           |
 
 #### 2.2.2. Conditions
 
