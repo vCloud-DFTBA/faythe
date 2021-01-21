@@ -456,13 +456,14 @@ func (h *Healer) syncSilencesFromBackend(ctx context.Context, e *common.Etcd) {
 					"backend", h.backend.GetAddress())
 				continue
 			}
-			for _, silence := range silencesMap {
+			for id, silence := range silencesMap {
 				// If silence's comment doesn't start with `[faythe]` prefix, ignore it.
 				if !strings.HasPrefix(strings.ToLower(*silence.Comment), "[faythe]") {
 					continue
 				}
 				s := &model.Silence{
-					Name:        "Auto sync silence from Alertmanger",
+					ID:          id, // Force use AM silence's ID
+					Name:        model.DefaultSyncedSilenceName,
 					CreatedBy:   *silence.CreatedBy,
 					CreatedAt:   time.Time(*silence.StartsAt),
 					ExpiredAt:   time.Time(*silence.EndsAt),
@@ -485,16 +486,19 @@ func (h *Healer) syncSilencesFromBackend(ctx context.Context, e *common.Etcd) {
 				}
 				// Check if the silence exists
 				path := common.Path(model.DefaultSilencePrefix, h.CloudID, s.ID)
-				getr, err := e.DoGet(path, etcdv3.WithCountOnly())
-				if err != nil {
-					level.Error(h.logger).Log("msg", "Error when checking the existence of silence",
-						"err", err)
-					continue
+				if existSil, ok := h.silences[s.ID]; ok && existSil.ExpiredAt != s.ExpiredAt || existSil.Pattern != s.Pattern {
+					_, err := e.DoDelete(path, etcdv3.WithPrefix())
+					if err != nil {
+						level.Error(h.logger).Log("msg", "Error when deleting the outdated of silence",
+							"err", err)
+						continue
+					}
+					// Force calculate silence's TTL
+					s.CreatedAt = time.Now()
+					_ = s.Validate()
+					delete(h.silences, s.ID)
 				}
-				if getr.Count > 0 {
-					level.Warn(h.logger).Log("msg", "There exists an silence with the same pattern and expiration time")
-					continue
-				}
+
 				t, _ := common.ParseDuration(s.TTL)
 				grantr, err := e.DoGrant(int64(t.Seconds()))
 				if err != nil {
@@ -508,6 +512,24 @@ func (h *Healer) syncSilencesFromBackend(ctx context.Context, e *common.Etcd) {
 				}
 				h.silences[s.ID] = s
 				level.Info(h.logger).Log("msg", "Create a silence successfully", "id", s.ID)
+			}
+			
+			for id, silence := range h.silences {
+				// If there is a synced silence exist on Faythe but is no longer
+				// available on Alertmanager, delete it.
+				if silence.Name != model.DefaultSyncedSilenceName {
+					continue
+				}
+				if _, ok := silencesMap[id]; !ok {
+					path := common.Path(model.DefaultSilencePrefix, h.CloudID, id)
+					_, err := e.DoDelete(path, etcdv3.WithPrefix())
+					if err != nil {
+						level.Error(h.logger).Log("msg", "Error when deleting the outdated of silence",
+							"err", err)
+						continue
+					}
+					delete(h.silences, id)
+				}
 			}
 		}
 	}
