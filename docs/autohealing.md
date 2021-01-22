@@ -107,10 +107,13 @@ If your metric backend is `Prometheus`, Faythe is able to sync from Prometheus A
 
 Faythe doesn't get all the silences from Prometheus Alertmanager. Here are the restricted conditions user has to follow when creating Prometheus Alertmanager's silence:
 
-- Silence's comment has to start with `[faythe]` prefix. For example:
+- Silence's comment has to start with `[faythe]` prefix and contains all Faythe healer's tags. For example:
 
 ```
-Comment: '[faythe] Silence for maintainance'
+# Faythe Healer's tags
+Tags: ["autohealing", "openstack-production-cluster"]
+# Alertmanager silence's comment
+Comment: '[faythe][autohealing][openstack-production-cluster] Silence for maintainance'
 ```
 
 - Silence's matcher has to be on `instance` label.

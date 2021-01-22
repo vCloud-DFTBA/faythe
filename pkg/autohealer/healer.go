@@ -457,8 +457,26 @@ func (h *Healer) syncSilencesFromBackend(ctx context.Context, e *common.Etcd) {
 				continue
 			}
 			for id, silence := range silencesMap {
-				// If silence's comment doesn't start with `[faythe]` prefix, ignore it.
-				if !strings.HasPrefix(strings.ToLower(*silence.Comment), "[faythe]") {
+				// If silence's comment doesn't
+				// - Start with `[faythe]` prefix,
+				// - Contain the Healer tags,
+				// ignore it!
+				// For example: [faythe][openstack-hlct5] Silence due to maintenance
+				var ignore bool
+				if !strings.HasPrefix(strings.ToLower(*silence.Comment), model.DefaultSyncSilencePrefix) {
+					ignore = true
+				}
+				if len(h.Tags) != 0 {
+					for _, t := range h.Tags {
+						if !strings.Contains(strings.ToLower(*silence.Comment), "["+t+"]") {
+							ignore = true
+							break
+						}
+					}
+				}
+				if ignore {
+					level.Debug(h.logger).Log("msg",
+						"Ignoring silence doesn't satisfy the comment's format condition", "id", id)
 					continue
 				}
 				s := &model.Silence{
@@ -481,7 +499,8 @@ func (h *Healer) syncSilencesFromBackend(ctx context.Context, e *common.Etcd) {
 					continue
 				}
 				if err := s.Validate(); err != nil {
-					level.Error(h.logger).Log("msg", "Error when validating silence", "err", err)
+					level.Error(h.logger).Log("msg", "Error when validating silence",
+						"id", s.ID, "err", err)
 					continue
 				}
 				// Check if the silence exists
@@ -489,11 +508,11 @@ func (h *Healer) syncSilencesFromBackend(ctx context.Context, e *common.Etcd) {
 				if existSilItf, ok := h.silences.Get(s.ID); ok {
 					existSil := existSilItf.(*model.Silence)
 					if existSil.ExpiredAt != s.ExpiredAt || existSil.Pattern != s.Pattern {
-						level.Debug(h.logger).Log("msg", "Delete the outdated synced silence")
+						level.Debug(h.logger).Log("msg", "Delete the outdated synced silence", "id", s.ID)
 						_, err := e.DoDelete(path, etcdv3.WithPrefix())
 						if err != nil {
 							level.Error(h.logger).Log("msg", "Error when deleting the outdated synced silence",
-								"err", err)
+								"id", s.ID, "err", err)
 							continue
 						}
 						// Force calculate silence's TTL
@@ -506,12 +525,14 @@ func (h *Healer) syncSilencesFromBackend(ctx context.Context, e *common.Etcd) {
 				t, _ := common.ParseDuration(s.TTL)
 				grantr, err := e.DoGrant(int64(t.Seconds()))
 				if err != nil {
-					level.Error(h.logger).Log("msg", "Error when getting grant for silence", "err", err)
+					level.Error(h.logger).Log("msg", "Error when getting grant for silence",
+						"id", s.ID, "err", err)
 					continue
 				}
 				raw, _ := json.Marshal(&s)
 				if _, err := e.DoPut(path, string(raw), etcdv3.WithLease(grantr.ID)); err != nil {
-					level.Error(h.logger).Log("msg", "Error when creating silence", "err", err)
+					level.Error(h.logger).Log("msg", "Error when creating silence",
+						"id", s.ID, "err", err)
 					continue
 				}
 				h.silences.Set(s.ID, s)
@@ -526,12 +547,12 @@ func (h *Healer) syncSilencesFromBackend(ctx context.Context, e *common.Etcd) {
 					continue
 				}
 				if _, ok := silencesMap[id]; !ok {
-					level.Debug(h.logger).Log("msg", "Delete the outdated synced silence")
+					level.Debug(h.logger).Log("msg", "Delete the outdated synced silence", "id", id)
 					path := common.Path(model.DefaultSilencePrefix, h.CloudID, id)
 					_, err := e.DoDelete(path, etcdv3.WithPrefix())
 					if err != nil {
 						level.Error(h.logger).Log("msg", "Error when deleting the outdated synced silence",
-							"err", err)
+							"id", id, "err", err)
 						continue
 					}
 					h.silences.Remove(id)
