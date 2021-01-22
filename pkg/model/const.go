@@ -35,6 +35,8 @@ const (
 	DefaultSilencePrefix             = "/silences"
 	DefaultSilenceValidationInterval = "30s"
 	DefaultSyncSilencesInterval      = "60s"
+	DefaultSyncedSilenceName         = "Auto sync silence from Alertmanger"
+	DefaultSyncSilencePrefix         = "[faythe]"
 
 	// DefaultUserPrefix is default etcd prefix for Users
 	DefaultUsersPrefix = "/users"
