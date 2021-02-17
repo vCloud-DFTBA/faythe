@@ -30,7 +30,7 @@ func (a *API) listNResolvers(rw http.ResponseWriter, req *http.Request) {
 	resp, err := a.etcdcli.DoGet(model.DefaultNResolverPrefix, etcdv3.WithPrefix(),
 		etcdv3.WithSort(etcdv3.SortByKey, etcdv3.SortAscend))
 	if err != nil {
-		err = fmt.Errorf("Error while getting nresolvers objects from etcdv3: %s", err.Error())
+		err = fmt.Errorf("error while getting nresolvers objects from etcdv3: %s", err.Error())
 		a.respondError(rw, apiError{
 			code: http.StatusInternalServerError,
 			err:  err,
@@ -42,7 +42,7 @@ func (a *API) listNResolvers(rw http.ResponseWriter, req *http.Request) {
 		nrt := model.NResolver{}
 		err = json.Unmarshal(e.Value, &nrt)
 		if err != nil {
-			level.Error(a.logger).Log("msg", "Error getting nresolver from etcd",
+			level.Error(a.logger).Log("msg", "error getting nresolver from etcd",
 				"nresolver", e.Key, "err", err.Error())
 			continue
 		}

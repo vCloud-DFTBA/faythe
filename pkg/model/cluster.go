@@ -38,7 +38,7 @@ type Member struct {
 // Validate returns nil if all fields of the member have valid values.
 func (m *Member) Validate() error {
 	if ip := net.ParseIP(m.Address); ip == nil {
-		return errors.Errorf("Member's address: %s is not a valid textual representation of an IP address", m.Address)
+		return errors.Errorf("member's address: %s is not a valid textual representation of an IP address", m.Address)
 	}
 	m.ID = common.Hash(m.Name+m.Address, crypto.MD5)
 	return nil
