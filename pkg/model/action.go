@@ -33,7 +33,7 @@ type ActionInterface interface {
 
 func (a Action) validate() error {
 	if a.Type == "" {
-		return errors.Errorf("Missing action type")
+		return errors.Errorf("missing action type")
 	}
 
 	switch strings.ToLower(a.Type) {

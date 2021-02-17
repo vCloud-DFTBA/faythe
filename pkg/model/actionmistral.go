@@ -27,7 +27,7 @@ type ActionMistral struct {
 // Validate returns nil if all fields of the Action have valid values.
 func (a *ActionMistral) Validate() error {
 	if a.WorkflowID == "" {
-		return errors.Errorf("Missing workflow_id")
+		return errors.Errorf("missing workflow_id")
 	}
 	if err := a.validate(); err != nil {
 		return err
