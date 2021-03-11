@@ -2,7 +2,7 @@ FROM golang:1.14.4-alpine as builder
 LABEL maintainer="Kien Nguyen-Tuan <kiennt2609@gmail.com>"
 ENV GO111MODULE=on
 ENV APPLOC=$GOPATH/src/faythe
-RUN apk add --no-cache git make bash
+RUN apk add --no-cache git make bash upx
 ADD . $APPLOC
 WORKDIR $APPLOC
 RUN GO_OUT=/bin make build && \

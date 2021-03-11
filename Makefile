@@ -47,6 +47,7 @@ GO_OUT     ?= cmd/faythe
 
 build: cmd/faythe/main.go
 	go build $(GO_FLAGS) -o $(GO_OUT) ./...
+	upx --brute $(GO_OUT)/faythe
 
 install:
 	go install $(GO_FLAGS) ./cmd/faythe
