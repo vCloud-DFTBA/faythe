@@ -293,6 +293,18 @@ func (h *Healer) do(compute string) {
 						at.Header["X-Auth-Token"] = token
 					}
 				}
+				// Set default Body if there is no user-defined Body
+				if at.Body == nil {
+					at.Body = struct {
+						compute string
+						cloud   string
+						alert   model.Alert
+					}{
+						compute: compute,
+						cloud:   os.Auth.AuthURL,
+						alert:   h.Alert,
+					}
+				}
 				if err := alert.SendHTTP(h.httpCli, at); err != nil {
 					msg = common.CnvSliceStrToSliceInf(append([]string{
 						"msg", "Execute action failed",
