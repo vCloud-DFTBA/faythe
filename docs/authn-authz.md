@@ -47,7 +47,7 @@ Check the [proposal](./proposal/authn-authz.md).
 
 ### 2.1. Get token
 
-**PATH**: `/public/tokens`
+**PATH**: `/tokens`
 
 **METHOD**: `POST`
 
