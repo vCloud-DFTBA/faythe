@@ -1,0 +1,502 @@
+{
+	"info": {
+		"_postman_id": "07520bdc-71e1-471e-80f5-a1a50fc9de41",
+		"name": "faythe",
+		"description": "Faythe APIs",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Get token",
+			"request": {
+				"auth": {
+					"type": "basic",
+					"basic": [
+						{
+							"key": "password",
+							"value": "{{password}}",
+							"type": "string"
+						},
+						{
+							"key": "username",
+							"value": "{{username}}",
+							"type": "string"
+						}
+					]
+				},
+				"method": "POST",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/tokens",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"tokens"
+					]
+				},
+				"description": "Get Bearer token for authentication and authorization"
+			},
+			"response": []
+		},
+		{
+			"name": "Create user",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "",
+						"value": "",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "urlencoded",
+					"urlencoded": [
+						{
+							"key": "username",
+							"value": "newuser",
+							"type": "text"
+						},
+						{
+							"key": "password",
+							"value": "secretpassword",
+							"type": "text"
+						}
+					],
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{base_url}}/users",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"users"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "List users with policies",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/users",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"users"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Delete user",
+			"request": {
+				"method": "DELETE",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/users/newusertodelete",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"users",
+						"newusertodelete"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Change user password",
+			"request": {
+				"method": "PUT",
+				"header": [],
+				"body": {
+					"mode": "urlencoded",
+					"urlencoded": [
+						{
+							"key": "password",
+							"value": "newsecret",
+							"type": "text"
+						}
+					]
+				},
+				"url": {
+					"raw": "{{base_url}}/users/newuser/change_password",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"users",
+						"newuser",
+						"change_password"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Add policies",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "[\n  {\n    \"path\": \"/clouds/*\",\n    \"method\": \"GET\"\n  },\n  {\n    \"path\": \"/scalers/*\",\n    \"method\": \"(GET)|(POST)\"\n  }\n]"
+				},
+				"url": {
+					"raw": "{{base_url}}/policies/newuser",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"policies",
+						"newuser"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Remove policies",
+			"request": {
+				"method": "DELETE",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "[\n  {\n    \"path\": \"/clouds/*\",\n    \"method\": \"GET\"\n  },\n  {\n    \"path\": \"/scalers/*\",\n    \"method\": \"(GET)|(POST)\"\n  }\n]"
+				},
+				"url": {
+					"raw": "{{base_url}}/policies/newuser",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"policies",
+						"newuser"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Register cloud",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"provider\": \"openstack\",\n    \"monitor\": {\n        \"backend\": \"prometheus\",\n        \"address\": \"{{prometheus_url}}\",\n        \"username\": \"admin\",\n        \"password\": \"test\"\n    },\n    \"tags\": [\n        \"test\"\n    ],\n    \"auth\": {\n        \"auth_url\": \"{{openstack_auth_url}}\",\n        \"username\": \"admin\",\n        \"password\": \"{{openstack_admin_password}}\",\n        \"domain_name\": \"Default\",\n        \"project_name\": \"admin\"\n    }\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{base_url}}/clouds/openstack",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"clouds",
+						"openstack"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "List all clouds",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/clouds",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"clouds"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Delete cloud",
+			"request": {
+				"method": "DELETE",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/clouds/{{provider_id}}",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"clouds",
+						"{{provider_id}}"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Create scaler",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"query\": \"up > 0\",\n    \"duration\": \"10s\",\n    \"description\": \"\",\n    \"interval\": \"10s\",\n    \"actions\": {\n        \"http-0\": {\n            \"attempts\": 10,\n            \"delay\": \"100ms\",\n            \"delay_type\": \"fixed\",\n            \"url\": \"http://localhost:8000\",\n            \"method\": \"GET\",\n            \"type\": \"http\",\n            \"cloud_auth_token\": false\n        }\n    },\n    \"tags\": [],\n    \"active\": true,\n    \"cooldown\": \"600ms\",\n    \"cloudid\": \"{{provider_id}}\"\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{base_url}}/scalers/{{provider_id}}",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"scalers",
+						"{{provider_id}}"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "List scalers by provider",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/scalers/{{provider_id}}",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"scalers",
+						"{{provider_id}}"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Delete scaler",
+			"request": {
+				"method": "DELETE",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/scalers/{{provider_id}}/{{scaler_id}}",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"scalers",
+						"{{provider_id}}",
+						"{{scaler_id}}"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get name resolvers",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/nresolvers",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"nresolvers"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Create healer",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"query\": \"up{job=~\\\".*compute-cadvisor.*|.*compute-node.*\\\"} < 1\",\n    \"receivers\": [\n        \"test@example.com\"\n    ],\n    \"tags\": [\n        \"test\"\n    ],\n    \"active\": true,\n    \"interval\": \"18s\",\n    \"duration\": \"3m\",\n    \"evaluation_level\": 2,\n    \"description\": \"\",\n    \"sync_silences\": false,\n    \"actions\": {\n        \"http-0\": {\n            \"attempts\": 10,\n            \"delay\": \"100ms\",\n            \"delay_type\": \"fixed\",\n            \"url\": \"http://localhost:8600\",\n            \"method\": \"GET\",\n            \"type\": \"http\",\n            \"cloud_auth_token\": false\n        }\n    }\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{base_url}}/healers/{{provider_id}}",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"healers",
+						"{{provider_id}}"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get healers",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/healers/{{provider_id}}",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"healers",
+						"{{provider_id}}"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Delete healer",
+			"request": {
+				"method": "DELETE",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/healers/{{provider_id}}/{{healer_id}}",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"healers",
+						"{{provider_id}}",
+						"{{healer_id}}"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Create silencer",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"name\": \"test silencer\",\n    \"pattern\": \"10.240.201.*\",\n    \"ttl\": \"10d\",\n    \"description\": \"This is a test silencer\",\n    \"tags\": []\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{base_url}}/silences/{{provider_id}}",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"silences",
+						"{{provider_id}}"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get silences",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/silences/{{provider_id}}",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"silences",
+						"{{provider_id}}"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Delete/Expire silence",
+			"request": {
+				"method": "DELETE",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/silences/72841b1d21fd6db13e350d9aebb95a02/40d9ec699fb21464ab8ee7b2e3eb2294",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"silences",
+						"72841b1d21fd6db13e350d9aebb95a02",
+						"40d9ec699fb21464ab8ee7b2e3eb2294"
+					]
+				}
+			},
+			"response": []
+		}
+	],
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE2MTkwNjI0NjcsImp0aSI6IjZlWjNsSTY2Q1hyX2c1RnNOVzN1TFdud2ZKQVhrM2lnelNiTEQtLVh4S2M9IiwiaWF0IjoxNjE5MDU4ODY3LCJkYXRhIjp7Im5hbWUiOiJhZG1pbiJ9fQ.BPg9SVYYJ_Hcmclv86AhFO34t5jDrkrQqhraLpS-Lp2fC4G2peNoljIAb77VzJpL_UIkaiLD6dVb-38Pqt8oY0gy2e89aXKEG-qtZyijFDWC3H5Sfemk8zOVrE6ISzqcbVNjv2m9FNgjybPssbJGScxi3No9KLYfi9ZcCWPGHt4wns6rOrp_FWEv0V51I5onTANmBFAXgPodTRV_7DgYYGTcf6h1S68QytEuTMPYwOFtXkuuqquZ7r_C1YpbIQ8Vkzg-lCwZLUhwViD_lCjVyurW4qas7BoiLjTA3dzUWn1lSfvuuITKlqZAFgIX6w_WtqpjnKhVZ4XpX3PdYLnvSw",
+				"type": "string"
+			}
+		]
+	},
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"id": "2848d1cf-bd32-4f5b-8172-4af4b84d330a",
+			"key": "base_url",
+			"value": "http://localhost:8600"
+		}
+	]
+}
