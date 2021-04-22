@@ -313,6 +313,8 @@ The Cloud provider is the main object so you have to register one first. Check o
 | monitor               | body | object | true     |         | The Cloud monitor.                                                                                    |
 | monitor.backend       | body | string | true     |         | The name of monitor service. Prometheus is the only supported by now.                                 |
 | monitor.address       | body | string | true     |         | The monitor service's endpoint used to query metrics. Should be in the format: `scheme://host:<port>` |
+| monitor.username      | body | string | false    |         | The monitor service username (basic auth)                                                             |
+| monitor.password      | body | string | false    |         | The monitor service password (basic auth)                                                             |
 | auth (openstack only) | body | object | true     |         | Auth stores information needed to authenticate to an OpenStack Cloud.                                 |
 | auth.auth_url         | body | string | true     |         | The HTTP endpoint that is required to work with the Identity API of the appropriate version.          |
 | auth.region_name      | body | string | false    |         | The OpenStack region.                                                                                 |
