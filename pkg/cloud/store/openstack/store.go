@@ -22,7 +22,9 @@ import (
 
 	etcdv3 "go.etcd.io/etcd/clientv3"
 
+	"github.com/vCloud-DFTBA/faythe/pkg/cluster"
 	"github.com/vCloud-DFTBA/faythe/pkg/common"
+	"github.com/vCloud-DFTBA/faythe/pkg/exporter"
 	"github.com/vCloud-DFTBA/faythe/pkg/model"
 )
 
@@ -62,6 +64,7 @@ func (s *Store) Set(key string, value model.OpenStack) {
 	defer s.mtx.Unlock()
 
 	s.clouds[key] = value
+	exporter.ReportNumberOfClouds(cluster.GetID(), 1)
 }
 
 // Delete removes an item from store
@@ -70,6 +73,7 @@ func (s *Store) Delete(key string) {
 	defer s.mtx.Unlock()
 
 	delete(s.clouds, key)
+	exporter.ReportNumberOfClouds(cluster.GetID(), -1)
 }
 
 var s *Store
