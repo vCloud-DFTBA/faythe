@@ -54,6 +54,8 @@ func (nr *NResolver) run(ctx context.Context, nc chan map[string]string) {
 	interval, _ := common.ParseDuration(nr.Interval)
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
+	// Record the number of healers
+	exporter.ReportNumberOfNResolvers(cluster.GetID(), 1)
 
 	// A trick to run it immediately to fetch the list of nodes
 	// before the corresponding healer is up.
@@ -104,5 +106,6 @@ func (nr *NResolver) run(ctx context.Context, nc chan map[string]string) {
 func (nr *NResolver) Stop() {
 	level.Debug(nr.logger).Log("msg", "NResolver is stopping")
 	close(nr.done)
+	exporter.ReportNumberOfNResolvers(cluster.GetID(), -1)
 	level.Debug(nr.logger).Log("msg", "NResolver is stopped")
 }
