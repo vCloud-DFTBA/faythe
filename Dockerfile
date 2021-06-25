@@ -1,4 +1,4 @@
-FROM golang:1.14.4-alpine as builder
+FROM golang:1.16-alpine as builder
 LABEL maintainer="Kien Nguyen-Tuan <kiennt2609@gmail.com>"
 ENV GO111MODULE=on
 ENV APPLOC=$GOPATH/src/faythe
