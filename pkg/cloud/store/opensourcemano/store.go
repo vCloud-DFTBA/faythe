@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Dat Vu Tuan <tuandatk25a@gmail.com>
+// Copyright (c) 2021 Manh Vu Duc <manhvd.hust@gmail.com>
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,19 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package openstack
+package opensourcemano
 
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/vCloud-DFTBA/faythe/pkg/cluster"
+	"github.com/vCloud-DFTBA/faythe/pkg/exporter"
 	"strings"
 	"sync"
 
 	etcdv3 "go.etcd.io/etcd/clientv3"
 
-	"github.com/vCloud-DFTBA/faythe/pkg/cluster"
 	"github.com/vCloud-DFTBA/faythe/pkg/common"
-	"github.com/vCloud-DFTBA/faythe/pkg/exporter"
 	"github.com/vCloud-DFTBA/faythe/pkg/model"
 )
 
@@ -32,11 +32,11 @@ import (
 type Store struct {
 	mtx     sync.RWMutex
 	etcdcli *common.Etcd
-	clouds  map[string]model.OpenStack
+	clouds  map[string]model.OpenSourceMano
 }
 
 // Get returns cloud information
-func (s *Store) Get(key string) (model.OpenStack, bool) {
+func (s *Store) Get(key string) (model.OpenSourceMano, bool) {
 	s.mtx.RLock()
 	defer s.mtx.RUnlock()
 
@@ -47,11 +47,11 @@ func (s *Store) Get(key string) (model.OpenStack, bool) {
 		if err != nil || len(r.Kvs) != 1 {
 			return value, ok
 		}
-		cloud := model.OpenStack{}
+		cloud := model.OpenSourceMano{}
 		if err := json.Unmarshal(r.Kvs[0].Value, &cloud); err != nil {
 			return value, ok
 		}
-        if cloud.Provider == "openstack" {
+		if cloud.Provider == "opensourcemano" {
 			s.Set(key, cloud)
 			value = cloud
 			ok = true
@@ -61,7 +61,7 @@ func (s *Store) Get(key string) (model.OpenStack, bool) {
 }
 
 // Set adds item to store
-func (s *Store) Set(key string, value model.OpenStack) {
+func (s *Store) Set(key string, value model.OpenSourceMano) {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 
@@ -84,7 +84,7 @@ var s *Store
 func InitStore(e *common.Etcd) {
 	s = &Store{
 		etcdcli: e,
-		clouds:  map[string]model.OpenStack{},
+		clouds:  map[string]model.OpenSourceMano{},
 	}
 }
 
@@ -97,7 +97,7 @@ func Load() error {
 
 	for _, c := range r.Kvs {
 		cID := strings.Split(string(c.Key), "/")[2]
-		cloud := model.OpenStack{}
+		cloud := model.OpenSourceMano{}
 		if err := json.Unmarshal(c.Value, &cloud); err != nil {
 			return fmt.Errorf("error unmarshling cloud information")
 		}

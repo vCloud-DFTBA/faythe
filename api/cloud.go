@@ -25,6 +25,7 @@ import (
 	cmap "github.com/orcaman/concurrent-map"
 	etcdv3 "go.etcd.io/etcd/clientv3"
 
+	"github.com/vCloud-DFTBA/faythe/pkg/cloud/store/opensourcemano"
 	"github.com/vCloud-DFTBA/faythe/pkg/cloud/store/openstack"
 	"github.com/vCloud-DFTBA/faythe/pkg/common"
 	"github.com/vCloud-DFTBA/faythe/pkg/metrics"
@@ -36,6 +37,7 @@ func (a *API) registerCloud(w http.ResponseWriter, req *http.Request) {
 		vars  map[string]string
 		p     string
 		ops   *model.OpenStack
+		osm   *model.OpenSourceMano
 		k     string
 		v     []byte
 		force bool
@@ -104,6 +106,65 @@ func (a *API) registerCloud(w http.ResponseWriter, req *http.Request) {
 
 		a.respondSuccess(w, http.StatusOK, nil)
 		return
+	case model.ManoType:
+		if err := a.receive(req, &osm); err != nil {
+			a.respondError(w, apiError{
+				code: http.StatusBadRequest,
+				err:  err,
+			})
+			return
+		}
+		if err := osm.Validate(); err != nil {
+			a.respondError(w, apiError{
+				code: http.StatusBadRequest,
+				err:  err,
+			})
+			return
+		}
+		creator := req.Context().Value("user").(map[string]interface{})
+		osm.CreatedBy = creator["name"].(string)
+
+		k = common.Path(model.DefaultCloudPrefix, osm.ID)
+		if strings.ToLower(req.URL.Query().Get("force")) == "true" {
+			force = true
+		}
+		resp, _ := a.etcdcli.DoGet(k, etcdv3.WithCountOnly())
+		if resp.Count > 0 && !force {
+			err := fmt.Errorf("the provider with id %s is existed", osm.ID)
+			a.respondError(w, apiError{
+				code: http.StatusBadRequest,
+				err:  err,
+			})
+			return
+		}
+		// Register Backend to registry
+		err := metrics.Register(osm.Monitor.Backend, string(osm.Monitor.Address),
+			osm.Monitor.Username, osm.Monitor.Password)
+		if err != nil {
+			a.respondError(w, apiError{
+				code: http.StatusBadRequest,
+				err:  fmt.Errorf("cannot connect to backend: %s", err.Error()),
+			})
+			return
+		}
+
+		v, _ = json.Marshal(&osm)
+		_, err = a.etcdcli.DoPut(k, string(v))
+		if err != nil {
+			err = fmt.Errorf("error putting a key-value pair into etcd: %s", err.Error())
+			a.respondError(w, apiError{
+				code: http.StatusInternalServerError,
+				err:  err,
+			})
+			return
+		}
+
+		// Set cloud to Store
+		store := opensourcemano.Get()
+		store.Set(osm.ID, *osm)
+
+		a.respondSuccess(w, http.StatusOK, nil)
+		return
 	}
 }
 
@@ -157,6 +218,10 @@ func (a *API) listClouds(w http.ResponseWriter, req *http.Request) {
 				var ops model.OpenStack
 				_ = json.Unmarshal(evv, &ops)
 				clouds.Set(evk, ops)
+			case "opensourcemano":
+				var osm model.OpenSourceMano
+				_ = json.Unmarshal(evv, &osm)
+				clouds.Set(evk, osm)
 			}
 		}(ev.Value, string(ev.Key))
 	}
