@@ -51,7 +51,7 @@ func (s *Store) Get(key string) (model.OpenStack, bool) {
 		if err := json.Unmarshal(r.Kvs[0].Value, &cloud); err != nil {
 			return value, ok
 		}
-        if cloud.Provider == "openstack" {
+		if cloud.Provider == "openstack" {
 			s.Set(key, cloud)
 			value = cloud
 			ok = true

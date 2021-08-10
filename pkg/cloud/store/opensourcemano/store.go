@@ -17,14 +17,14 @@ package opensourcemano
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/vCloud-DFTBA/faythe/pkg/cluster"
-	"github.com/vCloud-DFTBA/faythe/pkg/exporter"
 	"strings"
 	"sync"
 
 	etcdv3 "go.etcd.io/etcd/clientv3"
 
+	"github.com/vCloud-DFTBA/faythe/pkg/cluster"
 	"github.com/vCloud-DFTBA/faythe/pkg/common"
+	"github.com/vCloud-DFTBA/faythe/pkg/exporter"
 	"github.com/vCloud-DFTBA/faythe/pkg/model"
 )
 

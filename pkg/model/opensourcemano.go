@@ -24,6 +24,7 @@ import (
 	"net/http"
 
 	"github.com/pkg/errors"
+
 	"github.com/vCloud-DFTBA/faythe/pkg/common"
 )
 
@@ -41,22 +42,22 @@ type OpenSourceManoAuth struct {
 }
 
 type Roles struct {
-	Id   string `yaml:"id"`
+	ID   string `yaml:"id"`
 	Name string `yaml:"name"`
 }
 
 type OSMToken struct {
 	RemotePort  int     `yaml:"remote_port"`
 	Username    string  `yaml:"username"`
-	Id1          string  `yaml:"_id"`
+	ID1         string  `yaml:"_id"`
 	Admin       bool    `yaml:"admin"`
 	IssuedAt    float64 `yaml:"issued_at"`
 	RemoteHost  string  `yaml:"remote_host"`
 	Roles       []Roles `yaml:"roles"`
-	UserId      string  `yaml:"user_id"`
+	UserID      string  `yaml:"user_id"`
 	Expires     float64 `yaml:"expires"`
-	Id2         string  `yaml:"id"`
-	ProjectId   string  `yaml:"project_id"`
+	ID2         string  `yaml:"id"`
+	ProjectID   string  `yaml:"project_id"`
 	ProjectName string  `yaml:"project_name"`
 }
 
@@ -98,7 +99,7 @@ func (osm *OpenSourceMano) GetToken() (string, error) {
 	// Success is indicated with 2xx status codes
 	statusOK := resp.StatusCode >= 200 && resp.StatusCode < 300
 	if !statusOK {
-		return "",errors.Errorf("non-OK HTTP status: %s", resp.Status)
+		return "", errors.Errorf("non-OK HTTP status: %s", resp.Status)
 	}
 	respBody, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
@@ -111,5 +112,5 @@ func (osm *OpenSourceMano) GetToken() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return  osmToken.Id1, nil
+	return  osmToken.ID1, nil
 }
