@@ -65,6 +65,19 @@ func GetBackend(e *common.Etcd, pid string) (Backend, error) {
 			return nil, err
 		}
 		backend, _ = Get(fmt.Sprintf("%s-%s", ops.Monitor.Backend, ops.Monitor.Address))
+	case fmodel.ManoType:
+		var osm fmodel.OpenSourceMano
+		err = json.Unmarshal(value.Value, &osm)
+		if err != nil {
+			return nil, err
+		}
+		// Force register
+		err := Register(osm.Monitor.Backend, string(osm.Monitor.Address),
+			osm.Monitor.Username, osm.Monitor.Password)
+		if err != nil {
+			return nil, err
+		}
+		backend, _ = Get(fmt.Sprintf("%s-%s", osm.Monitor.Backend, osm.Monitor.Address))
 	}
 	return backend, nil
 }

@@ -10,6 +10,9 @@ const (
 	// OpenStackType represents a OpenStack type
 	OpenStackType string = "openstack"
 
+	// ManoType represents a Mano type
+	ManoType string = "opensourcemano"
+
 	// PrometheusType is a Prometheus backend
 	PrometheusType = "prometheus"
 
