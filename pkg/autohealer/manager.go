@@ -266,15 +266,15 @@ func (hm *Manager) Run() {
 
 // pubSubNodes receives the map info ({instance-ip: compute-name} from NResolver
 // and sends it to Healer
-func (hm *Manager) pubSubNodes(cloudId string) {
+func (hm *Manager) pubSubNodes(cloudID string) {
 	for {
 		select {
 		case <-hm.stop:
 			return
 		default:
-			nm := <-hm.ncin[cloudId]
-			if _, ok := hm.ncout[cloudId]; ok {
-				hm.ncout[cloudId] <- nm
+			nm := <-hm.ncin[cloudID]
+			if _, ok := hm.ncout[cloudID]; ok {
+				hm.ncout[cloudID] <- nm
 			}
 		}
 	}
