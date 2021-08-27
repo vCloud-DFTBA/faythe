@@ -214,11 +214,11 @@ func (a *API) listClouds(w http.ResponseWriter, req *http.Request) {
 			}
 			clouds.Set(evk, cloud)
 			switch cloud.Provider {
-			case "openstack":
+			case model.OpenStackType:
 				var ops model.OpenStack
 				_ = json.Unmarshal(evv, &ops)
 				clouds.Set(evk, ops)
-			case "opensourcemano":
+			case model.ManoType:
 				var osm model.OpenSourceMano
 				_ = json.Unmarshal(evv, &osm)
 				clouds.Set(evk, osm)

@@ -51,7 +51,7 @@ func (s *Store) Get(key string) (model.OpenSourceMano, bool) {
 		if err := json.Unmarshal(r.Kvs[0].Value, &cloud); err != nil {
 			return value, ok
 		}
-		if cloud.Provider == "opensourcemano" {
+		if cloud.Provider == model.ManoType {
 			s.Set(key, cloud)
 			value = cloud
 			ok = true
@@ -66,7 +66,7 @@ func (s *Store) Set(key string, value model.OpenSourceMano) {
 	defer s.mtx.Unlock()
 
 	s.clouds[key] = value
-	exporter.ReportNumberOfClouds(cluster.GetID(), 1)
+	exporter.ReportNumberOfClouds(cluster.GetID(), model.ManoType, 1)
 }
 
 // Delete removes an item from store
@@ -75,7 +75,7 @@ func (s *Store) Delete(key string) {
 	defer s.mtx.Unlock()
 
 	delete(s.clouds, key)
-	exporter.ReportNumberOfClouds(cluster.GetID(), -1)
+	exporter.ReportNumberOfClouds(cluster.GetID(), model.ManoType, -1)
 }
 
 var s *Store
@@ -101,7 +101,9 @@ func Load() error {
 		if err := json.Unmarshal(c.Value, &cloud); err != nil {
 			return fmt.Errorf("error unmarshling cloud information")
 		}
-		s.Set(cID, cloud)
+		if cloud.Provider == model.ManoType {
+			s.Set(cID, cloud)
+		}		
 	}
 	return nil
 }
