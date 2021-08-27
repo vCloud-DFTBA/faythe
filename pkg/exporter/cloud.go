@@ -28,13 +28,13 @@ var (
 			Name:      "clouds_total",
 			Help:      "The total number of clouds are currently registered.",
 		},
-		[]string{"cluster"})
+		[]string{"cluster", "provider"})
 )
 
 func init() {
 	prometheus.MustRegister(numberOfClouds)
 }
 
-func ReportNumberOfClouds(clusterID string, val float64) {
-	numberOfClouds.WithLabelValues(clusterID).Add(val)
+func ReportNumberOfClouds(clusterID string, provider string, val float64) {
+	numberOfClouds.WithLabelValues(clusterID, provider).Add(val)
 }

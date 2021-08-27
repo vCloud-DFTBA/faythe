@@ -156,7 +156,7 @@ func (s *Scaler) do() {
 			var msg []interface{}
 			go func(a *model.ActionHTTP) {
 				defer wg.Done()
-				if a.CloudAuthToken && os.Provider == "openstack" {
+				if a.CloudAuthToken && os.Provider == model.OpenStackType {
 					// If HTTP uses cloud auth token, let's get it from Cloud base client.
 					// Only OpenStack provider is supported at this time.
 					baseCli, _ := os.BaseClient()
@@ -167,7 +167,7 @@ func (s *Scaler) do() {
 						a.Header["X-Auth-Token"] = token
 					}
 				}
-				if a.CloudAuthToken && osm.Provider == "opensourcemano" {
+				if a.CloudAuthToken && osm.Provider == model.ManoType {
 					if token, err := osm.GetToken(); err == nil {
 						if a.Header == nil {
 							a.Header = make(map[string]string)
