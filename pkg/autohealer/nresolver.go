@@ -17,7 +17,6 @@ package autohealer
 import (
 	"context"
 	"encoding/json"
-	"sync"
 	"time"
 
 	"github.com/go-kit/kit/log"
@@ -35,7 +34,6 @@ import (
 type NResolver struct {
 	model.NResolver
 	logger  log.Logger
-	mtx     sync.RWMutex
 	done    chan struct{}
 	backend metrics.Backend
 }
@@ -71,7 +69,6 @@ func (nr *NResolver) run(ctx context.Context, nc chan map[string]string) {
 			return
 		}
 		level.Debug(nr.logger).Log("msg", "Execute query success", "query", model.DefaultNResolverQuery)
-		nr.mtx.Lock()
 		for _, el := range result {
 			j, err := el.MarshalJSON()
 			if err != nil {
@@ -88,7 +85,6 @@ func (nr *NResolver) run(ctx context.Context, nc chan map[string]string) {
 			}
 			nc <- map[string]string{nm.Metric.Instance: nm.Metric.Nodename}
 		}
-		defer nr.mtx.Unlock()
 	}
 	doWork()
 	for {

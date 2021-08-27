@@ -116,6 +116,7 @@ func (hm *Manager) startWorker(p string, name string, data []byte) {
 		hm.rqt.Set(name, h)
 		hm.ncout[h.CloudID] = make(chan map[string]string)
 		go h.run(context.Background(), hm.etcdcli, hm.ncout[h.CloudID])
+		go hm.pubSubNodes(h.CloudID)
 	}
 }
 
@@ -185,8 +186,6 @@ func (hm *Manager) Run() {
 		cancelc()
 		cancelh()
 	}()
-
-	go hm.pubSubNodes()
 
 	for {
 		select {
@@ -267,17 +266,15 @@ func (hm *Manager) Run() {
 
 // pubSubNodes receives the map info ({instance-ip: compute-name} from NResolver
 // and sends it to Healer
-func (hm *Manager) pubSubNodes() {
+func (hm *Manager) pubSubNodes(cloudID string) {
 	for {
 		select {
 		case <-hm.stop:
 			return
 		default:
-			for cl, nmch := range hm.ncin {
-				nm := <-nmch
-				if _, ok := hm.ncout[cl]; ok {
-					hm.ncout[cl] <- nm
-				}
+			nm := <-hm.ncin[cloudID]
+			if _, ok := hm.ncout[cloudID]; ok {
+				hm.ncout[cloudID] <- nm
 			}
 		}
 	}
