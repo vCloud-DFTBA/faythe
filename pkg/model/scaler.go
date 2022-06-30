@@ -87,7 +87,7 @@ func (s *Scaler) Validate() error {
 		return err
 	}
 
-	s.ID = common.Hash(s.Query, crypto.MD5)
+	s.ID = common.Hash(strings.Join(append([]string{s.Query}, s.Tags...), "."), crypto.MD5)
 
 	return nil
 }
