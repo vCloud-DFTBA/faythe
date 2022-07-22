@@ -144,14 +144,14 @@ func (a *API) listScalers(w http.ResponseWriter, req *http.Request) {
 		if fTags := req.FormValue("tags"); fTags != "" {
 			tags := strings.Split(fTags, ",")
 			if !common.Find(s.Tags, tags, "and") {
-				return
+				continue
 			}
 		}
 		// Clouds that match any tags in this list will be returned
 		if fTagsAny := req.FormValue("tags-any"); fTagsAny != "" {
 			tags := strings.Split(fTagsAny, ",")
 			if !common.Find(s.Tags, tags, "or") {
-				return
+				continue
 			}
 		}
 		scalers.Set(string(ev.Key), s)
