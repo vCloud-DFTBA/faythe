@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -118,7 +117,6 @@ func (a *API) listScalers(w http.ResponseWriter, req *http.Request) {
 		pid     string
 		path    string
 		scalers cmap.ConcurrentMap
-		wg      sync.WaitGroup
 	)
 	vars = mux.Vars(req)
 	pid = strings.ToLower(vars["provider_id"])
@@ -135,34 +133,29 @@ func (a *API) listScalers(w http.ResponseWriter, req *http.Request) {
 
 	scalers = cmap.New()
 	for _, ev := range resp.Kvs {
-		wg.Add(1)
-		go func(evv []byte, evk string) {
-			defer wg.Done()
-			var s model.Scaler
-			_ = json.Unmarshal(evv, &s)
-			// For backward compability, insert CloudID if isn't existing.
-			if s.CloudID == "" {
-				s.CloudID = pid
+		var s model.Scaler
+		_ = json.Unmarshal(ev.Value, &s)
+		// For backward compability, insert CloudID if isn't existing.
+		if s.CloudID == "" {
+			s.CloudID = pid
+		}
+		// Filter
+		// Clouds that match all tags in this list will be returned
+		if fTags := req.FormValue("tags"); fTags != "" {
+			tags := strings.Split(fTags, ",")
+			if !common.Find(s.Tags, tags, "and") {
+				return
 			}
-			// Filter
-			// Clouds that match all tags in this list will be returned
-			if fTags := req.FormValue("tags"); fTags != "" {
-				tags := strings.Split(fTags, ",")
-				if !common.Find(s.Tags, tags, "and") {
-					return
-				}
+		}
+		// Clouds that match any tags in this list will be returned
+		if fTagsAny := req.FormValue("tags-any"); fTagsAny != "" {
+			tags := strings.Split(fTagsAny, ",")
+			if !common.Find(s.Tags, tags, "or") {
+				return
 			}
-			// Clouds that match any tags in this list will be returned
-			if fTagsAny := req.FormValue("tags-any"); fTagsAny != "" {
-				tags := strings.Split(fTagsAny, ",")
-				if !common.Find(s.Tags, tags, "or") {
-					return
-				}
-			}
-			scalers.Set(evk, s)
-		}(ev.Value, string(ev.Key))
+		}
+		scalers.Set(string(ev.Key), s)
 	}
-	wg.Wait()
 	a.respondSuccess(w, http.StatusOK, scalers.Items())
 }
 
