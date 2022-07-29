@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -108,7 +107,7 @@ func (a *API) createScaler(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	a.respondSuccess(w, http.StatusOK, nil)
+	a.respondSuccess(w, http.StatusOK, s)
 }
 
 // List all current Scalers from etcd3
@@ -118,7 +117,6 @@ func (a *API) listScalers(w http.ResponseWriter, req *http.Request) {
 		pid     string
 		path    string
 		scalers cmap.ConcurrentMap
-		wg      sync.WaitGroup
 	)
 	vars = mux.Vars(req)
 	pid = strings.ToLower(vars["provider_id"])
@@ -135,34 +133,29 @@ func (a *API) listScalers(w http.ResponseWriter, req *http.Request) {
 
 	scalers = cmap.New()
 	for _, ev := range resp.Kvs {
-		wg.Add(1)
-		go func(evv []byte, evk string) {
-			defer wg.Done()
-			var s model.Scaler
-			_ = json.Unmarshal(evv, &s)
-			// For backward compability, insert CloudID if isn't existing.
-			if s.CloudID == "" {
-				s.CloudID = pid
+		var s model.Scaler
+		_ = json.Unmarshal(ev.Value, &s)
+		// For backward compability, insert CloudID if isn't existing.
+		if s.CloudID == "" {
+			s.CloudID = pid
+		}
+		// Filter
+		// Clouds that match all tags in this list will be returned
+		if fTags := req.FormValue("tags"); fTags != "" {
+			tags := strings.Split(fTags, ",")
+			if !common.Find(s.Tags, tags, "and") {
+				continue
 			}
-			// Filter
-			// Clouds that match all tags in this list will be returned
-			if fTags := req.FormValue("tags"); fTags != "" {
-				tags := strings.Split(fTags, ",")
-				if !common.Find(s.Tags, tags, "and") {
-					return
-				}
+		}
+		// Clouds that match any tags in this list will be returned
+		if fTagsAny := req.FormValue("tags-any"); fTagsAny != "" {
+			tags := strings.Split(fTagsAny, ",")
+			if !common.Find(s.Tags, tags, "or") {
+				continue
 			}
-			// Clouds that match any tags in this list will be returned
-			if fTagsAny := req.FormValue("tags-any"); fTagsAny != "" {
-				tags := strings.Split(fTagsAny, ",")
-				if !common.Find(s.Tags, tags, "or") {
-					return
-				}
-			}
-			scalers.Set(evk, s)
-		}(ev.Value, string(ev.Key))
+		}
+		scalers.Set(string(ev.Key), s)
 	}
-	wg.Wait()
 	a.respondSuccess(w, http.StatusOK, scalers.Items())
 }
 
@@ -192,5 +185,77 @@ func (a *API) deleteScaler(w http.ResponseWriter, req *http.Request) {
 }
 
 func (a *API) updateScaler(w http.ResponseWriter, req *http.Request) {
-	// Update a existed Scaler information
+	// Update an existed Scaler information
+	var (
+		vars map[string]string
+		pid  string
+		sid  string
+		path string
+		s    *model.Scaler
+		v    []byte
+	)
+
+	vars = mux.Vars(req)
+	pid = strings.ToLower(vars["provider_id"])
+	sid = strings.ToLower(vars["id"])
+	path = common.Path(model.DefaultScalerPrefix, pid, sid)
+
+	// Delete Scaler in Etcd
+	_, err := a.etcdcli.DoDelete(path, etcdv3.WithPrefix())
+	if err != nil {
+		a.respondError(w, apiError{
+			code: http.StatusInternalServerError,
+			err:  err,
+		})
+		return
+	}
+
+	// Update with new data
+	if err := a.receive(req, &s); err != nil {
+		a.respondError(w, apiError{
+			code: http.StatusBadRequest,
+			err:  err,
+		})
+		return
+	}
+
+	creator := req.Context().Value("user").(map[string]interface{})
+	s.CreatedBy = creator["name"].(string)
+
+	if err := s.Validate(); err != nil {
+		a.respondError(w, apiError{
+			code: http.StatusBadRequest,
+			err:  err,
+		})
+		return
+	}
+	s.CloudID = pid
+
+	// Override ScalerID with old ID
+	s.ID = sid
+
+	// Check whether query is syntactically correct
+	backend, _ := metrics.GetBackend(a.etcdcli, vars["provider_id"])
+	_, err = backend.QueryInstant(req.Context(), s.Query, time.Now())
+	if err != nil && strings.Contains(err.Error(), "bad_data") {
+		err = fmt.Errorf("invalid query: %s", err.Error())
+		a.respondError(w, apiError{
+			code: http.StatusBadRequest,
+			err:  err,
+		})
+		return
+	}
+
+	v, _ = json.Marshal(&s)
+	_, err = a.etcdcli.DoPut(path, string(v))
+	if err != nil {
+		err = fmt.Errorf("error putting a key-value pair into etcd: %s", err.Error())
+		a.respondError(w, apiError{
+			code: http.StatusInternalServerError,
+			err:  err,
+		})
+		return
+	}
+
+	a.respondSuccess(w, http.StatusOK, s)
 }
