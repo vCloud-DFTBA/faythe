@@ -20,7 +20,7 @@ else
 endif
 
 # Docker image info
-DOCKER_IMAGE_NAMESPACE       ?= kiennt26
+DOCKER_IMAGE_NAMESPACE       ?= tuandat825
 DOCKER_IMAGE_NAME            ?= faythe
 DOCKER_IMAGE_TAG             ?= $(shell ./tools/image-tag)
 DOCKER_LOCAL_REGISTRY        ?= ""

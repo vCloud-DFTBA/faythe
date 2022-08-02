@@ -1,5 +1,5 @@
-FROM golang:1.16-alpine as builder
-LABEL maintainer="Kien Nguyen-Tuan <kiennt2609@gmail.com>"
+FROM golang:1.18-alpine as builder
+LABEL maintainer="Tuan Dat Vu <tuandatk25a@gmail.com>"
 ENV GO111MODULE=on
 ENV APPLOC=$GOPATH/src/faythe
 RUN apk add --no-cache git make bash
@@ -9,7 +9,7 @@ RUN GO_OUT=/bin make build && \
     chmod +x /bin/faythe
 
 FROM alpine:3.12
-LABEL maintainer="Kien Nguyen <kiennt2609@gmail.com>"
+LABEL maintainer="Tuan Dat Vu <tuandatk25a@gmail.com>"
 COPY --from=builder /bin/faythe /bin/faythe
 RUN mkdir -p etc/faythe
 COPY examples/faythe.yml /etc/faythe/config.yml
