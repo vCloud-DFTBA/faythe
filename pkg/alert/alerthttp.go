@@ -16,10 +16,12 @@ package alert
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/json"
 	"io"
 	"io/ioutil"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/avast/retry-go"
@@ -52,6 +54,15 @@ func SendHTTP(cli *http.Client, a *model.ActionHTTP) error {
 				req.Body = ioutil.NopCloser(bytes.NewReader(b))
 				req.ContentLength = int64(len(b))
 			}
+
+			tr := &http.Transport{
+				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+			}
+
+			if strings.Contains(a.URL.String(), "https") {
+				cli.Transport = tr
+			}
+
 			resp, err := cli.Do(req)
 			if err != nil {
 				return err

@@ -16,6 +16,7 @@ package model
 
 import (
 	"crypto"
+	"strings"
 
 	"github.com/gophercloud/gophercloud"
 	"github.com/gophercloud/gophercloud/openstack"
@@ -101,6 +102,13 @@ func (op *OpenStack) BaseClient() (*gophercloud.ProviderClient, error) {
 		// https://github.com/gophercloud/gophercloud/blob/master/openstack/auth_env.go#L50
 		TenantID: op.Auth.ProjectID,
 	}
+
+	if strings.Contains(op.Auth.AuthURL, "https") {
+		ao.InsecureSkipTlsVerify = true
+	} else {
+		ao.InsecureSkipTlsVerify = false
+	}
+
 	p, err := openstack.AuthenticatedClient(ao)
 	if err != nil {
 		return nil, err

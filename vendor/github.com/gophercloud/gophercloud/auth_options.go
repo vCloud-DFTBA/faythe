@@ -87,6 +87,7 @@ type AuthOptions struct {
 
 	// Scope determines the scoping of the authentication request.
 	Scope *AuthScope `json:"-"`
+	InsecureSkipTlsVerify bool
 
 	// Authentication through Application Credentials requires supplying name, project and secret
 	// For project we can use TenantID
