@@ -16,6 +16,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/vCloud-DFTBA/faythe/pkg/scheduler"
 	"net"
 	"net/http"
 	"net/url"
@@ -108,6 +109,8 @@ func main() {
 		router    = mux.NewRouter()
 		fapi      = &api.API{}
 		fas       = &autoscaler.Manager{}
+		fah       = &autohealer.Manager{}
+		fsh       = &scheduler.Manager{}
 		cls       = &cluster.Cluster{}
 		clusterID string
 	)
@@ -162,8 +165,12 @@ func main() {
 	go fas.Run()
 
 	// Init autohealer manager
-	fah := autohealer.NewManager(log.With(logger, "component", "autohealer manager"), etcdcli, cls)
+	fah = autohealer.NewManager(log.With(logger, "component", "autohealer manager"), etcdcli, cls)
 	go fah.Run()
+
+	// Init scheduler manager
+	fsh = scheduler.NewManager(log.With(logger, "component", "scheduler manager"), etcdcli, cls)
+	go fsh.Run()
 
 	// Init Cloud store
 	openstack.InitStore(etcdcli)
@@ -181,7 +188,7 @@ func main() {
 		fas.Stop()
 		fah.Stop()
 		cls.Stop()
-		fah.Stop()
+		fsh.Stop()
 		etcdcli.Close()
 	}
 
@@ -198,6 +205,7 @@ func main() {
 			case <-reloadc:
 				fas.Reload()
 				fah.Reload()
+				fsh.Reload()
 			case <-stopc:
 				stopFunc()
 				level.Info(logger).Log("msg", "Faythe is stopping, bye bye!")

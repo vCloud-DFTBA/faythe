@@ -41,6 +41,7 @@ type Config struct {
 	// EnableProfiling enables profiling via web interface host:port/debug/pprof/
 	EnableProfiling     bool                `yaml:"enable_profiling"`
 	AdminAuthentication AdminAuthentication `yaml:"admin_authentication"`
+	IaaSConfiguration   IaaSConfiguration   `yaml:"iaas_config"`
 }
 
 // AdminAuthentication represents the `root/admin` user authentication
@@ -137,6 +138,12 @@ type EtcdConfig struct {
 	// For example, pass "grpc.WithBlock()" to block until the underlying connection is up.
 	// Without this, Dial returns immediately and connecting the server happens in background.
 	DialOptions []grpc.DialOption
+}
+
+// IaaSConfiguration credentials to IaaS API
+type IaaSConfiguration struct {
+	Endpoint string `yaml:"endpoint"`
+	Token    string `yaml:"token"`
 }
 
 const (

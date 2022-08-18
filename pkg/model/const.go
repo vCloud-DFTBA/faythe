@@ -34,6 +34,9 @@ const (
 	// DefaultScalerPrefix is the etcd default prefix for scaler
 	DefaultScalerPrefix = "/scalers"
 
+	// DefaultSchedulerPrefix is the etcd default prefix for scheduler
+	DefaultSchedulerPrefix = "/schedulers"
+
 	// DefaultSilencePrefix is default etcd prefix for Silences
 	DefaultSilencePrefix             = "/silences"
 	DefaultSilenceValidationInterval = "30s"
