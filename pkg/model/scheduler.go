@@ -88,3 +88,32 @@ func (s *Scheduler) Validate() error {
 
 	return nil
 }
+
+func (s *Scheduler) ForwardFromNextExec() {
+	now := time.Now()
+	fromSchedule, _ := cron.ParseStandard(s.FromCronSlices)
+	// FromNextExec still in the past
+	if s.FromNextExec.Sub(now) < time.Nanosecond {
+		s.FromNextExec = fromSchedule.Next(now)
+	}
+}
+
+func (s *Scheduler) ForwardToNextExec() {
+	now := time.Now()
+	toSchedule, _ := cron.ParseStandard(s.ToCronSlices)
+
+	// ToNextExec still in the past
+	if s.ToNextExec.Sub(now) < time.Nanosecond {
+		s.ToNextExec = toSchedule.Next(now)
+	}
+}
+
+func (s *Scheduler) IsExpired() bool {
+	now := time.Now()
+	return s.ToDateTime.Sub(now) < time.Nanosecond
+}
+
+func (s *Scheduler) IsActive() bool {
+	now := time.Now()
+	return s.FromDateTime.Sub(now) < time.Nanosecond && s.Active
+}

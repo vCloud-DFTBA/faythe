@@ -105,7 +105,7 @@ func (m *Manager) Run() {
 					// Create -> simply create and add it to registry
 					m.storeScheduler(sname, event.Kv.Value)
 				} else if event.IsModify() {
-					// Update -> force recreate schedule
+					// Update -> force recreate scheduler
 					if _, ok := m.rgt.Get(sname); ok {
 						m.removeScheduler(sname)
 						m.storeScheduler(sname, event.Kv.Value)
@@ -122,11 +122,30 @@ func (m *Manager) Run() {
 				switch it := s.Value.(type) {
 				case *Scheduler:
 					scheduler := it.Scheduler
+
+					// not yet
+					if !scheduler.IsActive() {
+						continue
+					}
+
+					// scheduler expired
+					if scheduler.IsExpired() {
+						m.removeScheduler(s.Name)
+						if _, err := m.etcdcli.DoDelete(s.Name, etcdv3.WithPrefix()); err != nil {
+							level.Error(m.logger).Log(
+								"msg", "error while removing scheduler", "name", s.Name)
+						}
+						level.Info(m.logger).Log(
+							"msg", "Removed scheduler", "name", s.Name)
+					}
+
 					if scheduler.FromNextExec.Sub(time.Now()) < interval {
 						it.Do()
+						scheduler.ForwardFromNextExec()
 					}
 					if scheduler.ToNextExec.Sub(time.Now()) < interval {
 						it.Do()
+						scheduler.ForwardToNextExec()
 					}
 
 				default:
@@ -140,7 +159,7 @@ func (m *Manager) Run() {
 }
 
 func (m *Manager) removeScheduler(name string) {
-	level.Info(m.logger).Log("msg", "Removing schedule", "name", name)
+	level.Info(m.logger).Log("msg", "Removing scheduler", "name", name)
 	m.rgt.Delete(name)
 }
 
@@ -150,7 +169,7 @@ func (m *Manager) storeScheduler(name string, data []byte) {
 			"scheduler", name, "local", local, "worker", worker)
 		return
 	}
-	level.Info(m.logger).Log("msg", "Creating schedule", "name", name)
+	level.Info(m.logger).Log("msg", "Creating scheduler", "name", name)
 	// Extract Cloud provider id from Etcd key
 	providerID := strings.Split(name, "/")[2]
 	s := newScheduler(log.With(m.logger, "scheduler", name), data)
@@ -158,6 +177,8 @@ func (m *Manager) storeScheduler(name string, data []byte) {
 	if s.CloudID == "" {
 		s.CloudID = providerID
 	}
+	s.ForwardFromNextExec()
+	s.ForwardToNextExec()
 	m.rgt.Set(name, s)
 }
 
