@@ -185,7 +185,7 @@ func (m *Manager) storeScheduler(name string, data []byte) {
 // save puts schedulers to etcd
 func (m *Manager) save() {
 	for i := range m.rgt.Iter() {
-		m.removeScheduler(i.Name)
+		level.Info(m.logger).Log("msg", "Saving scheduler", "name", i.Name)
 		raw, err := json.Marshal(&i.Value)
 		if err != nil {
 			level.Error(m.logger).Log("msg", "Error serializing scheduler object", "name", i.Name, "err", err)
