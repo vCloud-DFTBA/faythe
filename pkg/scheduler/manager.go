@@ -139,11 +139,11 @@ func (m *Manager) Run() {
 							"msg", "Removed scheduler", "name", s.Name)
 					}
 
-					if scheduler.FromNextExec.Sub(time.Now()) < interval {
+					if time.Until(scheduler.FromNextExec) < interval {
 						it.Do()
 						scheduler.ForwardFromNextExec()
 					}
-					if scheduler.ToNextExec.Sub(time.Now()) < interval {
+					if time.Until(scheduler.ToNextExec) < interval {
 						it.Do()
 						scheduler.ForwardToNextExec()
 					}

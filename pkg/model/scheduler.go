@@ -93,7 +93,7 @@ func (s *Scheduler) ForwardFromNextExec() {
 	now := time.Now()
 	fromSchedule, _ := cron.ParseStandard(s.FromCronSlices)
 	// FromNextExec still in the past
-	if s.FromNextExec.Sub(now) < time.Nanosecond {
+	if s.FromNextExec.Before(now) {
 		s.FromNextExec = fromSchedule.Next(now)
 	}
 }
@@ -103,17 +103,17 @@ func (s *Scheduler) ForwardToNextExec() {
 	toSchedule, _ := cron.ParseStandard(s.ToCronSlices)
 
 	// ToNextExec still in the past
-	if s.ToNextExec.Sub(now) < time.Nanosecond {
+	if s.ToNextExec.Before(now) {
 		s.ToNextExec = toSchedule.Next(now)
 	}
 }
 
 func (s *Scheduler) IsExpired() bool {
 	now := time.Now()
-	return s.ToDateTime.Sub(now) < time.Nanosecond
+	return s.ToDateTime.Before(now)
 }
 
 func (s *Scheduler) IsActive() bool {
 	now := time.Now()
-	return s.FromDateTime.Sub(now) < time.Nanosecond && s.Active
+	return s.FromDateTime.Before(now) && s.Active
 }

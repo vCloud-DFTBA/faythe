@@ -18,7 +18,6 @@ import (
 type Scheduler struct {
 	model.Scheduler
 	logger  log.Logger
-	mtx     sync.RWMutex
 	state   model.State
 	httpCli *http.Client
 }

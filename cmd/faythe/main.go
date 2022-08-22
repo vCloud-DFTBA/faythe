@@ -215,7 +215,7 @@ func main() {
 		MaxHeaderBytes: serverConfig.MaxHeaderBytes,
 		TLSConfig:      tlscfg,
 		Handler:        router,
-		TLSNextProto:   make(map[string]func(*http.Server, *tls.Conn, http.Handler), 0),
+		TLSNextProto:   make(map[string]func(*http.Server, *tls.Conn, http.Handler)),
 	}
 
 	srvc := make(chan struct{})
