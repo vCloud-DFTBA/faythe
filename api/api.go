@@ -156,6 +156,12 @@ func (a *API) Register(r *mux.Router) {
 	resr.HandleFunc("/silences/{provider_id:[a-z 0-9]+}", a.createSilence).Methods("OPTIONS", "POST")
 	resr.HandleFunc("/silences/{provider_id:[a-z 0-9]+}", a.listSilences).Methods("OPTIONS", "GET")
 	resr.HandleFunc("/silences/{provider_id:[a-z 0-9]+}/{id:[a-z 0-9]+}", a.expireSilence).Methods("OPTIONS", "DELETE")
+
+	// Scheduler endpoints
+	resr.HandleFunc("/schedulers/{provider_id:[a-z 0-9]+}", a.createScheduler).Methods("OPTIONS", "POST")
+	resr.HandleFunc("/schedulers/{provider_id:[a-z 0-9]+}", a.listSchedulers).Methods("OPTIONS", "GET")
+	resr.HandleFunc("/schedulers/{provider_id:[a-z 0-9]+}/{id:[a-z 0-9]+}", a.deleteScheduler).Methods("OPTIONS", "DELETE")
+	resr.HandleFunc("/schedulers/{provider_id:[a-z 0-9]+}/{id:[a-z 0-9]+}", a.updateScheduler).Methods("OPTIONS", "PUT")
 }
 
 func (a *API) receive(req *http.Request, v interface{}) error {

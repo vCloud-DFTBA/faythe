@@ -16,6 +16,9 @@ package model
 
 import (
 	"crypto"
+	"crypto/tls"
+	"net/http"
+	"strings"
 
 	"github.com/gophercloud/gophercloud"
 	"github.com/gophercloud/gophercloud/openstack"
@@ -101,7 +104,28 @@ func (op *OpenStack) BaseClient() (*gophercloud.ProviderClient, error) {
 		// https://github.com/gophercloud/gophercloud/blob/master/openstack/auth_env.go#L50
 		TenantID: op.Auth.ProjectID,
 	}
-	p, err := openstack.AuthenticatedClient(ao)
+
+	p, err := openstack.NewClient(ao.IdentityEndpoint)
+
+	if err != nil {
+		return nil, err
+	}
+
+	tlsconfig := &tls.Config{}
+	tlsconfig.InsecureSkipVerify = true
+	transport := &http.Transport{TLSClientConfig: tlsconfig}
+
+	if strings.Contains(op.Auth.AuthURL, "https") {
+		p.HTTPClient = http.Client{
+			Transport: transport,
+		}
+	}
+
+	p.HTTPClient = http.Client{
+		Transport: transport,
+	}
+
+	err = openstack.Authenticate(p, ao)
 	if err != nil {
 		return nil, err
 	}

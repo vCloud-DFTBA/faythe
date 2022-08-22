@@ -26,9 +26,10 @@ import (
 
 // Config is the top-level configuration for Faythe's config file.
 type Config struct {
-	EtcdConfig EtcdConfig `yaml:"etcd"`
-	JWTConfig  JWTConfig  `yaml:"jwt"`
-	MailConfig MailConfig `yaml:"mail,omitempty"`
+	ServerConfig ServerConfig `yaml:"server_config"`
+	EtcdConfig   EtcdConfig   `yaml:"etcd"`
+	JWTConfig    JWTConfig    `yaml:"jwt"`
+	MailConfig   MailConfig   `yaml:"mail,omitempty"`
 	// RemoteHostPattern can define an optional regexp pattern to be matched:
 	//
 	// - {name} matches anything until the next dot.
@@ -41,6 +42,16 @@ type Config struct {
 	// EnableProfiling enables profiling via web interface host:port/debug/pprof/
 	EnableProfiling     bool                `yaml:"enable_profiling"`
 	AdminAuthentication AdminAuthentication `yaml:"admin_authentication"`
+}
+
+// ServerConfig stores configs to setup HTTP Server
+type ServerConfig struct {
+	EnableTLS      bool          `yaml:"enable_tls"`
+	CertFile       string        `yaml:"cert_file"`
+	CertKey        string        `yaml:"cert_key"`
+	ReadTimeout    time.Duration `yaml:"read_timeout"`
+	WriteTimeout   time.Duration `yaml:"write_timeout"`
+	MaxHeaderBytes int           `yaml:"max_header_bytes"`
 }
 
 // AdminAuthentication represents the `root/admin` user authentication
@@ -149,16 +160,31 @@ const (
 	jwtDefaultUserProperty       = "user"
 	jwtDefaultPrivateKeyLocation = "/etc/faythe/keys/faythe.rsa"
 	jwtDefaultPublicKeyLocation  = "/etc/faythe/keys/faythe.rsa.pub"
+	serverDefaultCertFile        = "/etc/faythe/certs/faythe.crt"
+	serverDefaultCertKey         = "/etc/faythe/certs/faythe.key"
+	serverDefaultReadTimeout     = 5 * time.Second
+	serverDefaultWriteTimeout    = 5 * time.Second
+	serverDefaultMaxHeaderBytes  = 1048576
 )
 
 var (
 	// DefaultConfig is the default top-level configuration.
 	DefaultConfig = Config{
+		ServerConfig:        DefaultServerConfig,
 		EtcdConfig:          DefaultEtcdConfig,
 		JWTConfig:           DefaultJWTConfig,
 		RemoteHostPattern:   ".*",
 		EnableProfiling:     false,
 		PasswordHashingCost: bcrypt.DefaultCost,
+	}
+
+	DefaultServerConfig = ServerConfig{
+		EnableTLS:      false,
+		CertFile:       serverDefaultCertFile,
+		CertKey:        serverDefaultCertKey,
+		ReadTimeout:    serverDefaultReadTimeout,
+		WriteTimeout:   serverDefaultWriteTimeout,
+		MaxHeaderBytes: serverDefaultMaxHeaderBytes,
 	}
 
 	// DefaultEtcdConfig is the default Etcd configuration.

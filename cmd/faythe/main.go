@@ -15,6 +15,7 @@
 package main
 
 import (
+	"crypto/tls"
 	"fmt"
 	"net"
 	"net/http"
@@ -48,6 +49,7 @@ import (
 	"github.com/vCloud-DFTBA/faythe/pkg/cloud/store/openstack"
 	"github.com/vCloud-DFTBA/faythe/pkg/cluster"
 	"github.com/vCloud-DFTBA/faythe/pkg/common"
+	"github.com/vCloud-DFTBA/faythe/pkg/scheduler"
 )
 
 func init() {
@@ -108,6 +110,8 @@ func main() {
 		router    = mux.NewRouter()
 		fapi      = &api.API{}
 		fas       = &autoscaler.Manager{}
+		fah       = &autohealer.Manager{}
+		fsh       = &scheduler.Manager{}
 		cls       = &cluster.Cluster{}
 		clusterID string
 	)
@@ -162,8 +166,12 @@ func main() {
 	go fas.Run()
 
 	// Init autohealer manager
-	fah := autohealer.NewManager(log.With(logger, "component", "autohealer manager"), etcdcli, cls)
+	fah = autohealer.NewManager(log.With(logger, "component", "autohealer manager"), etcdcli, cls)
 	go fah.Run()
+
+	// Init scheduler manager
+	fsh = scheduler.NewManager(log.With(logger, "component", "scheduler manager"), etcdcli, cls)
+	go fsh.Run()
 
 	// Init Cloud store
 	openstack.InitStore(etcdcli)
@@ -181,7 +189,7 @@ func main() {
 		fas.Stop()
 		fah.Stop()
 		cls.Stop()
-		fah.Stop()
+		fsh.Stop()
 		etcdcli.Close()
 	}
 
@@ -189,7 +197,27 @@ func main() {
 	defer stopFunc()
 
 	// Init HTTP server
-	srv := http.Server{Addr: cfg.listenAddress, Handler: router}
+	serverConfig := config.Get().ServerConfig
+	tlscfg := &tls.Config{
+		MinVersion:       tls.VersionTLS12,
+		CurvePreferences: []tls.CurveID{tls.CurveP521, tls.CurveP384, tls.CurveP256},
+		CipherSuites: []uint16{
+			tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+			tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
+			tls.TLS_RSA_WITH_AES_256_GCM_SHA384,
+			tls.TLS_RSA_WITH_AES_256_CBC_SHA,
+		},
+	}
+	srv := &http.Server{
+		Addr:           cfg.listenAddress,
+		ReadTimeout:    serverConfig.ReadTimeout,
+		WriteTimeout:   serverConfig.WriteTimeout,
+		MaxHeaderBytes: serverConfig.MaxHeaderBytes,
+		TLSConfig:      tlscfg,
+		Handler:        router,
+		TLSNextProto:   make(map[string]func(*http.Server, *tls.Conn, http.Handler)),
+	}
+
 	srvc := make(chan struct{})
 
 	go func() {
@@ -198,6 +226,7 @@ func main() {
 			case <-reloadc:
 				fas.Reload()
 				fah.Reload()
+				fsh.Reload()
 			case <-stopc:
 				stopFunc()
 				level.Info(logger).Log("msg", "Faythe is stopping, bye bye!")
@@ -208,9 +237,17 @@ func main() {
 
 	go func() {
 		level.Info(logger).Log("msg", "Listening", "address", cfg.listenAddress)
-		if err := srv.ListenAndServe(); err != http.ErrServerClosed {
-			level.Error(logger).Log("msg", "Listen error", "err", err)
-			close(srvc)
+		switch serverConfig.EnableTLS {
+		case true:
+			if err := srv.ListenAndServeTLS(serverConfig.CertFile, serverConfig.CertKey); err != nil {
+				level.Error(logger).Log("msg", "Listen error", "err", err)
+				close(srvc)
+			}
+		default:
+			if err := srv.ListenAndServe(); err != nil {
+				level.Error(logger).Log("msg", "Listen error", "err", err)
+				close(srvc)
+			}
 		}
 		defer func() {
 			if err := srv.Close(); err != nil {
