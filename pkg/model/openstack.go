@@ -72,10 +72,10 @@ type OpenStackAuth struct {
 // Validate returns nil if all fields of the OpenStack have valid values.
 func (op *OpenStack) Validate() error {
 	if !op.Auth.Password.Encrypted {
-		op.Auth.Password.Encrypt()
+		_ = op.Auth.Password.Encrypt()
 	}
 	if !op.Monitor.Password.Encrypted {
-		op.Monitor.Password.Encrypt()
+		_ = op.Monitor.Password.Encrypt()
 	}
 	switch op.Provider {
 	case OpenStackType:
@@ -98,7 +98,7 @@ func (op *OpenStack) Validate() error {
 
 func (op *OpenStack) BaseClient() (*gophercloud.ProviderClient, error) {
 	op.Auth.Password.Decrypt()
-	defer op.Auth.Password.Encrypt()
+	defer func() { _ = op.Auth.Password.Encrypt() }()
 	ao := gophercloud.AuthOptions{
 		IdentityEndpoint: op.Auth.AuthURL,
 		Username:         op.Auth.Username,

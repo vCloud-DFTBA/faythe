@@ -1,8 +1,9 @@
 package common
 
 import (
-	"github.com/fernet/fernet-go"
 	"sync"
+
+	"github.com/fernet/fernet-go"
 
 	"github.com/vCloud-DFTBA/faythe/config"
 )
@@ -10,12 +11,13 @@ import (
 type FernetString struct {
 	Token     string `json:"token"`
 	Encrypted bool   `json:"encrypted" default:"false"`
-	mtx       sync.Mutex
 }
 
+var mtx sync.Mutex
+
 func (fs *FernetString) Encrypt() (err error) {
-	fs.mtx.Lock()
-	defer fs.mtx.Unlock()
+	mtx.Lock()
+	defer mtx.Unlock()
 	if fs.Encrypted {
 		return nil
 	}
@@ -30,8 +32,8 @@ func (fs *FernetString) Encrypt() (err error) {
 }
 
 func (fs *FernetString) Decrypt() bool {
-	fs.mtx.Lock()
-	defer fs.mtx.Unlock()
+	mtx.Lock()
+	defer mtx.Unlock()
 	if !fs.Encrypted {
 		return false
 	}
