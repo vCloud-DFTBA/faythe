@@ -17,7 +17,6 @@ package main
 import (
 	"crypto/tls"
 	"fmt"
-	"github.com/fernet/fernet-go"
 	"net"
 	"net/http"
 	"net/url"
@@ -28,6 +27,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/fernet/fernet-go"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/gorilla/mux"
@@ -126,7 +126,7 @@ func main() {
 	// Check FernetKey
 	_, err = fernet.DecodeKeys(config.Get().FernetKey)
 	if err != nil {
-		level.Error(logger).Log("msg", "fernet key is not correct", "err", err)
+		level.Error(logger).Log("msg", "connect to backend:", "err", err)
 		os.Exit(2)
 	}
 
