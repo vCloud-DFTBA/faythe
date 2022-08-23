@@ -126,7 +126,7 @@ func main() {
 	// Check FernetKey
 	_, err = fernet.DecodeKeys(config.Get().FernetKey)
 	if err != nil {
-		level.Error(logger).Log("msg", "connect to backend:", "err", err)
+		level.Error(logger).Log("msg", "wrong format fernet key", "err", err)
 		os.Exit(2)
 	}
 

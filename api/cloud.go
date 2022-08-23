@@ -84,7 +84,7 @@ func (a *API) registerCloud(w http.ResponseWriter, req *http.Request) {
 		if err = ops.Monitor.Password.Encrypt(); err != nil {
 			a.respondError(w, apiError{
 				code: http.StatusBadRequest,
-				err:  fmt.Errorf("cannot encrypt password %s", err.Error()),
+				err:  fmt.Errorf("connect to backend: %s", err.Error()),
 			})
 			return
 		}
