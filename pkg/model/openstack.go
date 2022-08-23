@@ -71,12 +71,8 @@ type OpenStackAuth struct {
 
 // Validate returns nil if all fields of the OpenStack have valid values.
 func (op *OpenStack) Validate() error {
-	if !op.Auth.Password.Encrypted {
-		_ = op.Auth.Password.Encrypt()
-	}
-	if !op.Monitor.Password.Encrypted {
-		_ = op.Monitor.Password.Encrypt()
-	}
+	_ = op.Auth.Password.Encrypt()
+	_ = op.Monitor.Password.Encrypt()
 	switch op.Provider {
 	case OpenStackType:
 	default:
