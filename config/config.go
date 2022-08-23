@@ -38,7 +38,8 @@ type Config struct {
 	RemoteHostPattern string `yaml:"remote_host_pattern,omitempty"`
 	// PasswordHashingCost is the cost to hash the user password.
 	// Check bcrypt for details: https://godoc.org/golang.org/x/crypto/bcrypt#pkg-constants
-	PasswordHashingCost int `yaml:"password_hashing_cost"`
+	PasswordHashingCost int    `yaml:"password_hashing_cost"`
+	FernetKey           string `yaml:"fernet_key"`
 	// EnableProfiling enables profiling via web interface host:port/debug/pprof/
 	EnableProfiling     bool                `yaml:"enable_profiling"`
 	AdminAuthentication AdminAuthentication `yaml:"admin_authentication"`
@@ -176,6 +177,7 @@ var (
 		RemoteHostPattern:   ".*",
 		EnableProfiling:     false,
 		PasswordHashingCost: bcrypt.DefaultCost,
+		FernetKey:           "RSkt1yqhOp9znrUzeCQRybYdRVqQGfO5G2VR-wF8OKc=",
 	}
 
 	DefaultServerConfig = ServerConfig{

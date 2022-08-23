@@ -17,6 +17,7 @@ package main
 import (
 	"crypto/tls"
 	"fmt"
+	"github.com/fernet/fernet-go"
 	"net"
 	"net/http"
 	"net/url"
@@ -119,6 +120,13 @@ func main() {
 	err = config.Set(cfg.configFile, log.With(logger, "component", "config manager"))
 	if err != nil {
 		level.Error(logger).Log("msg", "Error loading configuration file", "err", err)
+		os.Exit(2)
+	}
+
+	// Check FernetKey
+	_, err = fernet.DecodeKeys(config.Get().FernetKey)
+	if err != nil {
+		level.Error(logger).Log("msg", "fernet key is not correct", "err", err)
 		os.Exit(2)
 	}
 

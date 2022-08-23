@@ -26,6 +26,8 @@ require (
 	stathat.com/c/consistent v1.0.0
 )
 
+require github.com/fernet/fernet-go v0.0.0-20211208181803-9f70042a33ee
+
 require (
 	github.com/BurntSushi/toml v0.3.1 // indirect
 	github.com/Knetic/govaluate v3.0.1-0.20171022003610-9aa49832a739+incompatible // indirect

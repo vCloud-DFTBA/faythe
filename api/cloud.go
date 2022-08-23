@@ -80,11 +80,11 @@ func (a *API) registerCloud(w http.ResponseWriter, req *http.Request) {
 
 		// Register Backend to registry
 		err := metrics.Register(ops.Monitor.Backend, string(ops.Monitor.Address),
-			ops.Monitor.Username, ops.Monitor.Password)
-		if err != nil {
+			ops.Monitor.Username, ops.Monitor.Password.Token)
+		if err = ops.Monitor.Password.Encrypt(); err != nil {
 			a.respondError(w, apiError{
 				code: http.StatusBadRequest,
-				err:  fmt.Errorf("cannot connect to backend: %s", err.Error()),
+				err:  fmt.Errorf("cannot encrypt password %s", err.Error()),
 			})
 			return
 		}
@@ -139,7 +139,7 @@ func (a *API) registerCloud(w http.ResponseWriter, req *http.Request) {
 		}
 		// Register Backend to registry
 		err := metrics.Register(osm.Monitor.Backend, string(osm.Monitor.Address),
-			osm.Monitor.Username, osm.Monitor.Password)
+			osm.Monitor.Username, osm.Monitor.Password.Token)
 		if err != nil {
 			a.respondError(w, apiError{
 				code: http.StatusBadRequest,
