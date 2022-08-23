@@ -81,7 +81,7 @@ func (a *API) registerCloud(w http.ResponseWriter, req *http.Request) {
 		// Register Backend to registry
 		err := metrics.Register(ops.Monitor.Backend, string(ops.Monitor.Address),
 			ops.Monitor.Username, ops.Monitor.Password.Token)
-		if err = ops.Monitor.Password.Encrypt(); err != nil {
+		if err != nil {
 			a.respondError(w, apiError{
 				code: http.StatusBadRequest,
 				err:  fmt.Errorf("connect to backend: %s", err.Error()),
