@@ -47,7 +47,7 @@ type OpenStackAuth struct {
 	Username string `json:"username"`
 	UserID   string `json:"userid"`
 
-	Password string `json:"password"`
+	Password common.FernetString `json:"password"`
 
 	// At most one of DomainID and DomainName must be provided if using Username
 	// with Identity V3. Otherwise, either are optional.
@@ -71,6 +71,8 @@ type OpenStackAuth struct {
 
 // Validate returns nil if all fields of the OpenStack have valid values.
 func (op *OpenStack) Validate() error {
+	_ = op.Auth.Password.Encrypt()
+	_ = op.Monitor.Password.Encrypt()
 	switch op.Provider {
 	case OpenStackType:
 	default:
@@ -91,10 +93,12 @@ func (op *OpenStack) Validate() error {
 }
 
 func (op *OpenStack) BaseClient() (*gophercloud.ProviderClient, error) {
+	op.Auth.Password.Decrypt()
+	defer func() { _ = op.Auth.Password.Encrypt() }()
 	ao := gophercloud.AuthOptions{
 		IdentityEndpoint: op.Auth.AuthURL,
 		Username:         op.Auth.Username,
-		Password:         op.Auth.Password,
+		Password:         op.Auth.Password.Token,
 		DomainName:       op.Auth.DomainName,
 		DomainID:         op.Auth.DomainID,
 		// If OS_PROJECT_NAME is set, overwrite tenantName with the value.

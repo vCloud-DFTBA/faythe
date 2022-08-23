@@ -27,6 +27,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/fernet/fernet-go"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/gorilla/mux"
@@ -119,6 +120,13 @@ func main() {
 	err = config.Set(cfg.configFile, log.With(logger, "component", "config manager"))
 	if err != nil {
 		level.Error(logger).Log("msg", "Error loading configuration file", "err", err)
+		os.Exit(2)
+	}
+
+	// Check FernetKey
+	_, err = fernet.DecodeKeys(config.Get().FernetKey)
+	if err != nil {
+		level.Error(logger).Log("msg", "wrong format fernet key", "err", err)
 		os.Exit(2)
 	}
 

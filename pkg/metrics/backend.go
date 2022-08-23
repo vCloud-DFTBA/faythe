@@ -59,8 +59,10 @@ func GetBackend(e *common.Etcd, pid string) (Backend, error) {
 			return nil, err
 		}
 		// Force register
+		ops.Monitor.Password.Decrypt()
+		defer func() { _ = ops.Monitor.Password.Encrypt() }()
 		err := Register(ops.Monitor.Backend, string(ops.Monitor.Address),
-			ops.Monitor.Username, ops.Monitor.Password)
+			ops.Monitor.Username, ops.Monitor.Password.Token)
 		if err != nil {
 			return nil, err
 		}
@@ -72,8 +74,10 @@ func GetBackend(e *common.Etcd, pid string) (Backend, error) {
 			return nil, err
 		}
 		// Force register
+		osm.Monitor.Password.Decrypt()
+		defer func() { _ = osm.Monitor.Password.Encrypt() }()
 		err := Register(osm.Monitor.Backend, string(osm.Monitor.Address),
-			osm.Monitor.Username, osm.Monitor.Password)
+			osm.Monitor.Username, osm.Monitor.Password.Token)
 		if err != nil {
 			return nil, err
 		}

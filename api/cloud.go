@@ -80,7 +80,7 @@ func (a *API) registerCloud(w http.ResponseWriter, req *http.Request) {
 
 		// Register Backend to registry
 		err := metrics.Register(ops.Monitor.Backend, string(ops.Monitor.Address),
-			ops.Monitor.Username, ops.Monitor.Password)
+			ops.Monitor.Username, ops.Monitor.Password.Token)
 		if err != nil {
 			a.respondError(w, apiError{
 				code: http.StatusBadRequest,
@@ -139,7 +139,7 @@ func (a *API) registerCloud(w http.ResponseWriter, req *http.Request) {
 		}
 		// Register Backend to registry
 		err := metrics.Register(osm.Monitor.Backend, string(osm.Monitor.Address),
-			osm.Monitor.Username, osm.Monitor.Password)
+			osm.Monitor.Username, osm.Monitor.Password.Token)
 		if err != nil {
 			a.respondError(w, apiError{
 				code: http.StatusBadRequest,
