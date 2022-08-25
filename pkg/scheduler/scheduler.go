@@ -49,11 +49,11 @@ func (s *Scheduler) Do(n string) {
 	}
 
 	for k, a := range s.Actions {
+		if n != k {
+			continue
+		}
 		switch at := a.(type) {
 		case *model.ActionHTTP:
-			if n != k {
-				continue
-			}
 			wg.Add(1)
 			var msg []interface{}
 			go func(a *model.ActionHTTP) {

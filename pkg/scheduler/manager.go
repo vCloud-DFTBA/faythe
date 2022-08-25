@@ -121,15 +121,13 @@ func (m *Manager) Run() {
 			for s := range m.rgt.Iter() {
 				switch it := s.Value.(type) {
 				case *Scheduler:
-					scheduler := it.Scheduler
-
 					// not yet
-					if !scheduler.IsActive() {
+					if !it.Scheduler.IsActive() {
 						continue
 					}
 
 					// scheduler expired
-					if scheduler.IsExpired() {
+					if it.Scheduler.IsExpired() {
 						m.removeScheduler(s.Name)
 						if _, err := m.etcdcli.DoDelete(s.Name, etcdv3.WithPrefix()); err != nil {
 							level.Error(m.logger).Log(
@@ -139,13 +137,13 @@ func (m *Manager) Run() {
 							"msg", "Removed scheduler", "name", s.Name)
 					}
 
-					if time.Until(scheduler.FromNextExec) < interval {
+					if time.Until(it.Scheduler.FromNextExec) < interval {
 						it.Do("from")
-						scheduler.ForwardFromNextExec()
+						it.Scheduler.ForwardFromNextExec()
 					}
-					if time.Until(scheduler.ToNextExec) < interval {
+					if time.Until(it.Scheduler.ToNextExec) < interval {
 						it.Do("to")
-						scheduler.ForwardToNextExec()
+						it.Scheduler.ForwardToNextExec()
 					}
 
 				default:
