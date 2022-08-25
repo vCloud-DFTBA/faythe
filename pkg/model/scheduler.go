@@ -69,20 +69,20 @@ func (s *Scheduler) Validate() error {
 		return err
 	}
 
-	s.FromDateTime, err = time.Parse("2006-01-02", s.FromDate)
+	s.FromDateTime, err = time.Parse("2006-01-02 15:04:05-07:00", s.FromDate)
 
 	if err != nil {
 		return err
 	}
 
-	s.ToDateTime, err = time.Parse("2006-01-02", s.ToDate)
+	s.ToDateTime, err = time.Parse("2006-01-02 15:04:05-07:00", s.ToDate)
 
 	if err != nil {
 		return err
 	}
 
-	s.FromNextExec = fromSchedule.Next(s.FromDateTime)
-	s.ToNextExec = toSchedule.Next(s.ToDateTime)
+	s.FromNextExec = fromSchedule.Next(time.Now().UTC())
+	s.ToNextExec = toSchedule.Next(time.Now().UTC())
 
 	s.ID = common.Hash(strings.Join(s.Tags, "."), crypto.MD5)
 
@@ -90,7 +90,7 @@ func (s *Scheduler) Validate() error {
 }
 
 func (s *Scheduler) ForwardFromNextExec() {
-	now := time.Now()
+	now := time.Now().UTC()
 	fromSchedule, _ := cron.ParseStandard(s.FromCronSlices)
 	// FromNextExec still in the past
 	if s.FromNextExec.Before(now) {
@@ -99,7 +99,7 @@ func (s *Scheduler) ForwardFromNextExec() {
 }
 
 func (s *Scheduler) ForwardToNextExec() {
-	now := time.Now()
+	now := time.Now().UTC()
 	toSchedule, _ := cron.ParseStandard(s.ToCronSlices)
 
 	// ToNextExec still in the past
@@ -109,11 +109,11 @@ func (s *Scheduler) ForwardToNextExec() {
 }
 
 func (s *Scheduler) IsExpired() bool {
-	now := time.Now()
+	now := time.Now().UTC()
 	return s.ToDateTime.Before(now)
 }
 
 func (s *Scheduler) IsActive() bool {
-	now := time.Now()
+	now := time.Now().UTC()
 	return s.FromDateTime.Before(now) && s.Active
 }

@@ -38,7 +38,7 @@ func newScheduler(l log.Logger, data []byte) *Scheduler {
 func (s *Scheduler) Stop() {}
 
 // Do executes actions
-func (s *Scheduler) Do() {
+func (s *Scheduler) Do(n string) {
 	var wg sync.WaitGroup
 	store := openstack.Get()
 	os, ok1 := store.Get(s.CloudID)
@@ -48,9 +48,12 @@ func (s *Scheduler) Do() {
 		return
 	}
 
-	for _, a := range s.Actions {
+	for k, a := range s.Actions {
 		switch at := a.(type) {
 		case *model.ActionHTTP:
+			if n != k {
+				continue
+			}
 			wg.Add(1)
 			var msg []interface{}
 			go func(a *model.ActionHTTP) {
