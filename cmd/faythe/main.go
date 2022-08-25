@@ -46,7 +46,6 @@ import (
 	"github.com/vCloud-DFTBA/faythe/pkg/autohealer"
 	"github.com/vCloud-DFTBA/faythe/pkg/autoscaler"
 	_ "github.com/vCloud-DFTBA/faythe/pkg/build"
-	"github.com/vCloud-DFTBA/faythe/pkg/cloud/store/opensourcemano"
 	"github.com/vCloud-DFTBA/faythe/pkg/cloud/store/openstack"
 	"github.com/vCloud-DFTBA/faythe/pkg/cluster"
 	"github.com/vCloud-DFTBA/faythe/pkg/common"
@@ -183,12 +182,8 @@ func main() {
 
 	// Init Cloud store
 	openstack.InitStore(etcdcli)
-	opensourcemano.InitStore(etcdcli)
 	if err := openstack.Load(); err != nil {
 		level.Error(logger).Log("msg", "error while loading cloud information", "err", err)
-	}
-	if err := opensourcemano.Load(); err != nil {
-		level.Error(logger).Log("msg", "error while loading mano cloud information", "err", err)
 	}
 
 	stopc := make(chan struct{})

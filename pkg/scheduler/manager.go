@@ -140,11 +140,11 @@ func (m *Manager) Run() {
 					}
 
 					if time.Until(scheduler.FromNextExec) < interval {
-						it.Do()
+						it.Do("from")
 						scheduler.ForwardFromNextExec()
 					}
 					if time.Until(scheduler.ToNextExec) < interval {
-						it.Do()
+						it.Do("to")
 						scheduler.ForwardToNextExec()
 					}
 
