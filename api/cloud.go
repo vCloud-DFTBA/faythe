@@ -17,13 +17,11 @@ package api
 import (
 	"encoding/json"
 	"fmt"
-	"net/http"
-	"strings"
-	"sync"
-
 	"github.com/gorilla/mux"
 	cmap "github.com/orcaman/concurrent-map"
 	etcdv3 "go.etcd.io/etcd/clientv3"
+	"net/http"
+	"strings"
 
 	"github.com/vCloud-DFTBA/faythe/pkg/cloud/store/opensourcemano"
 	"github.com/vCloud-DFTBA/faythe/pkg/cloud/store/openstack"
@@ -79,6 +77,7 @@ func (a *API) registerCloud(w http.ResponseWriter, req *http.Request) {
 		}
 
 		// Register Backend to registry
+		ops.Monitor.Password.Decrypt()
 		err := metrics.Register(ops.Monitor.Backend, string(ops.Monitor.Address),
 			ops.Monitor.Username, ops.Monitor.Password.Token)
 		if err != nil {
@@ -88,6 +87,7 @@ func (a *API) registerCloud(w http.ResponseWriter, req *http.Request) {
 			})
 			return
 		}
+		_ = ops.Monitor.Password.Encrypt()
 
 		v, _ = json.Marshal(&ops)
 		_, err = a.etcdcli.DoPut(k, string(v))
@@ -138,6 +138,7 @@ func (a *API) registerCloud(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 		// Register Backend to registry
+		osm.Monitor.Password.Decrypt()
 		err := metrics.Register(osm.Monitor.Backend, string(osm.Monitor.Address),
 			osm.Monitor.Username, osm.Monitor.Password.Token)
 		if err != nil {
@@ -147,6 +148,7 @@ func (a *API) registerCloud(w http.ResponseWriter, req *http.Request) {
 			})
 			return
 		}
+		_ = osm.Monitor.Password.Encrypt()
 
 		v, _ = json.Marshal(&osm)
 		_, err = a.etcdcli.DoPut(k, string(v))
@@ -172,7 +174,6 @@ func (a *API) registerCloud(w http.ResponseWriter, req *http.Request) {
 func (a *API) listClouds(w http.ResponseWriter, req *http.Request) {
 	var (
 		clouds cmap.ConcurrentMap
-		wg     sync.WaitGroup
 	)
 	resp, err := a.etcdcli.DoGet(model.DefaultCloudPrefix, etcdv3.WithPrefix(),
 		etcdv3.WithSort(etcdv3.SortByKey, etcdv3.SortAscend))
@@ -186,46 +187,40 @@ func (a *API) listClouds(w http.ResponseWriter, req *http.Request) {
 
 	clouds = cmap.New()
 	for _, ev := range resp.Kvs {
-		wg.Add(1)
-		go func(evv []byte, evk string) {
-			defer wg.Done()
-			var cloud model.Cloud
-			_ = json.Unmarshal(evv, &cloud)
-			// Filter
-			if p := strings.ToLower(req.FormValue("provider")); p != "" && p != cloud.Provider {
-				return
+		var cloud model.Cloud
+		_ = json.Unmarshal(ev.Value, &cloud)
+		// Filter
+		if p := strings.ToLower(req.FormValue("provider")); p != "" && p != cloud.Provider {
+			continue
+		}
+		if id := strings.ToLower(req.FormValue("id")); id != "" && id != cloud.ID {
+			continue
+		}
+		// Clouds that match all tags in this list will be returned
+		if fTags := req.FormValue("tags"); fTags != "" {
+			tags := strings.Split(fTags, ",")
+			if !common.Find(cloud.Tags, tags, "and") {
+				continue
 			}
-			if id := strings.ToLower(req.FormValue("id")); id != "" && id != cloud.ID {
-				return
+		}
+		// Clouds that match any tags in this list will be returned
+		if fTagsAny := req.FormValue("tags-any"); fTagsAny != "" {
+			tags := strings.Split(fTagsAny, ",")
+			if !common.Find(cloud.Tags, tags, "or") {
+				continue
 			}
-			// Clouds that match all tags in this list will be returned
-			if fTags := req.FormValue("tags"); fTags != "" {
-				tags := strings.Split(fTags, ",")
-				if !common.Find(cloud.Tags, tags, "and") {
-					return
-				}
-			}
-			// Clouds that match any tags in this list will be returned
-			if fTagsAny := req.FormValue("tags-any"); fTagsAny != "" {
-				tags := strings.Split(fTagsAny, ",")
-				if !common.Find(cloud.Tags, tags, "or") {
-					return
-				}
-			}
-			clouds.Set(evk, cloud)
-			switch cloud.Provider {
-			case model.OpenStackType:
-				var ops model.OpenStack
-				_ = json.Unmarshal(evv, &ops)
-				clouds.Set(evk, ops)
-			case model.ManoType:
-				var osm model.OpenSourceMano
-				_ = json.Unmarshal(evv, &osm)
-				clouds.Set(evk, osm)
-			}
-		}(ev.Value, string(ev.Key))
+		}
+		switch cloud.Provider {
+		case model.OpenStackType:
+			var ops model.OpenStack
+			_ = json.Unmarshal(ev.Value, &ops)
+			clouds.Set(string(ev.Key), ops)
+		case model.ManoType:
+			var osm model.OpenSourceMano
+			_ = json.Unmarshal(ev.Value, &osm)
+			clouds.Set(string(ev.Key), osm)
+		}
 	}
-	wg.Wait()
 	a.respondSuccess(w, http.StatusOK, clouds.Items())
 }
 
