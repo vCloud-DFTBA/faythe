@@ -34,7 +34,6 @@ type Cloud struct {
 func (cl *Cloud) Validate() error {
 	switch cl.Provider {
 	case OpenStackType:
-	case ManoType:
 	default:
 		return errors.Errorf("unsupported provider %s", cl.Provider)
 	}
