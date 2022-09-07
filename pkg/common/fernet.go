@@ -9,7 +9,7 @@ import (
 )
 
 type FernetString struct {
-	Token     string `json:"token"`
+	Token     string `json:"token,omitempty"`
 	Encrypted bool   `json:"encrypted" default:"false"`
 }
 
