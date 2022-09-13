@@ -29,7 +29,7 @@ import (
 	"github.com/vCloud-DFTBA/faythe/pkg/model"
 )
 
-const Inverval = "5s"
+const Interval = "30s"
 
 // Manager manages a set of scheduler instances.
 type Manager struct {
@@ -78,14 +78,15 @@ func (m *Manager) Stop() {
 
 // Run starts processing of the scheduler manager
 func (m *Manager) Run() {
-	interval, _ := common.ParseDuration(Inverval)
+	interval, _ := common.ParseDuration(Interval)
 	ticker := time.NewTicker(interval)
-
-	defer ticker.Stop()
 
 	ctx, cancel := m.etcdcli.WatchContext()
 	watch := m.etcdcli.Watch(ctx, model.DefaultSchedulerPrefix, etcdv3.WithPrefix())
-	defer func() { cancel() }()
+	defer func() {
+		ticker.Stop()
+		cancel()
+	}()
 
 	for {
 		select {

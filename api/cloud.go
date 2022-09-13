@@ -19,13 +19,11 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	"sync"
 
 	"github.com/gorilla/mux"
 	cmap "github.com/orcaman/concurrent-map"
 	etcdv3 "go.etcd.io/etcd/clientv3"
 
-	"github.com/vCloud-DFTBA/faythe/pkg/cloud/store/opensourcemano"
 	"github.com/vCloud-DFTBA/faythe/pkg/cloud/store/openstack"
 	"github.com/vCloud-DFTBA/faythe/pkg/common"
 	"github.com/vCloud-DFTBA/faythe/pkg/metrics"
@@ -37,7 +35,6 @@ func (a *API) registerCloud(w http.ResponseWriter, req *http.Request) {
 		vars  map[string]string
 		p     string
 		ops   *model.OpenStack
-		osm   *model.OpenSourceMano
 		k     string
 		v     []byte
 		force bool
@@ -79,6 +76,7 @@ func (a *API) registerCloud(w http.ResponseWriter, req *http.Request) {
 		}
 
 		// Register Backend to registry
+		ops.Monitor.Password.Decrypt()
 		err := metrics.Register(ops.Monitor.Backend, string(ops.Monitor.Address),
 			ops.Monitor.Username, ops.Monitor.Password.Token)
 		if err != nil {
@@ -88,6 +86,7 @@ func (a *API) registerCloud(w http.ResponseWriter, req *http.Request) {
 			})
 			return
 		}
+		_ = ops.Monitor.Password.Encrypt()
 
 		v, _ = json.Marshal(&ops)
 		_, err = a.etcdcli.DoPut(k, string(v))
@@ -106,65 +105,6 @@ func (a *API) registerCloud(w http.ResponseWriter, req *http.Request) {
 
 		a.respondSuccess(w, http.StatusOK, nil)
 		return
-	case model.ManoType:
-		if err := a.receive(req, &osm); err != nil {
-			a.respondError(w, apiError{
-				code: http.StatusBadRequest,
-				err:  err,
-			})
-			return
-		}
-		if err := osm.Validate(); err != nil {
-			a.respondError(w, apiError{
-				code: http.StatusBadRequest,
-				err:  err,
-			})
-			return
-		}
-		creator := req.Context().Value("user").(map[string]interface{})
-		osm.CreatedBy = creator["name"].(string)
-
-		k = common.Path(model.DefaultCloudPrefix, osm.ID)
-		if strings.ToLower(req.URL.Query().Get("force")) == "true" {
-			force = true
-		}
-		resp, _ := a.etcdcli.DoGet(k, etcdv3.WithCountOnly())
-		if resp.Count > 0 && !force {
-			err := fmt.Errorf("the provider with id %s is existed", osm.ID)
-			a.respondError(w, apiError{
-				code: http.StatusBadRequest,
-				err:  err,
-			})
-			return
-		}
-		// Register Backend to registry
-		err := metrics.Register(osm.Monitor.Backend, string(osm.Monitor.Address),
-			osm.Monitor.Username, osm.Monitor.Password.Token)
-		if err != nil {
-			a.respondError(w, apiError{
-				code: http.StatusBadRequest,
-				err:  fmt.Errorf("cannot connect to backend: %s", err.Error()),
-			})
-			return
-		}
-
-		v, _ = json.Marshal(&osm)
-		_, err = a.etcdcli.DoPut(k, string(v))
-		if err != nil {
-			err = fmt.Errorf("error putting a key-value pair into etcd: %s", err.Error())
-			a.respondError(w, apiError{
-				code: http.StatusInternalServerError,
-				err:  err,
-			})
-			return
-		}
-
-		// Set cloud to Store
-		store := opensourcemano.Get()
-		store.Set(osm.ID, *osm)
-
-		a.respondSuccess(w, http.StatusOK, nil)
-		return
 	}
 }
 
@@ -172,7 +112,6 @@ func (a *API) registerCloud(w http.ResponseWriter, req *http.Request) {
 func (a *API) listClouds(w http.ResponseWriter, req *http.Request) {
 	var (
 		clouds cmap.ConcurrentMap
-		wg     sync.WaitGroup
 	)
 	resp, err := a.etcdcli.DoGet(model.DefaultCloudPrefix, etcdv3.WithPrefix(),
 		etcdv3.WithSort(etcdv3.SortByKey, etcdv3.SortAscend))
@@ -186,46 +125,36 @@ func (a *API) listClouds(w http.ResponseWriter, req *http.Request) {
 
 	clouds = cmap.New()
 	for _, ev := range resp.Kvs {
-		wg.Add(1)
-		go func(evv []byte, evk string) {
-			defer wg.Done()
-			var cloud model.Cloud
-			_ = json.Unmarshal(evv, &cloud)
-			// Filter
-			if p := strings.ToLower(req.FormValue("provider")); p != "" && p != cloud.Provider {
-				return
+		var cloud model.Cloud
+		_ = json.Unmarshal(ev.Value, &cloud)
+		// Filter
+		if p := strings.ToLower(req.FormValue("provider")); p != "" && p != cloud.Provider {
+			continue
+		}
+		if id := strings.ToLower(req.FormValue("id")); id != "" && id != cloud.ID {
+			continue
+		}
+		// Clouds that match all tags in this list will be returned
+		if fTags := req.FormValue("tags"); fTags != "" {
+			tags := strings.Split(fTags, ",")
+			if !common.Find(cloud.Tags, tags, "and") {
+				continue
 			}
-			if id := strings.ToLower(req.FormValue("id")); id != "" && id != cloud.ID {
-				return
+		}
+		// Clouds that match any tags in this list will be returned
+		if fTagsAny := req.FormValue("tags-any"); fTagsAny != "" {
+			tags := strings.Split(fTagsAny, ",")
+			if !common.Find(cloud.Tags, tags, "or") {
+				continue
 			}
-			// Clouds that match all tags in this list will be returned
-			if fTags := req.FormValue("tags"); fTags != "" {
-				tags := strings.Split(fTags, ",")
-				if !common.Find(cloud.Tags, tags, "and") {
-					return
-				}
-			}
-			// Clouds that match any tags in this list will be returned
-			if fTagsAny := req.FormValue("tags-any"); fTagsAny != "" {
-				tags := strings.Split(fTagsAny, ",")
-				if !common.Find(cloud.Tags, tags, "or") {
-					return
-				}
-			}
-			clouds.Set(evk, cloud)
-			switch cloud.Provider {
-			case model.OpenStackType:
-				var ops model.OpenStack
-				_ = json.Unmarshal(evv, &ops)
-				clouds.Set(evk, ops)
-			case model.ManoType:
-				var osm model.OpenSourceMano
-				_ = json.Unmarshal(evv, &osm)
-				clouds.Set(evk, osm)
-			}
-		}(ev.Value, string(ev.Key))
+		}
+		switch cloud.Provider {
+		case model.OpenStackType:
+			var ops model.OpenStack
+			_ = json.Unmarshal(ev.Value, &ops)
+			clouds.Set(string(ev.Key), ops)
+		}
 	}
-	wg.Wait()
 	a.respondSuccess(w, http.StatusOK, clouds.Items())
 }
 

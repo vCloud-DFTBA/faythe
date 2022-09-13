@@ -26,7 +26,6 @@ import (
 	"github.com/go-kit/kit/log/level"
 
 	"github.com/vCloud-DFTBA/faythe/pkg/alert"
-	"github.com/vCloud-DFTBA/faythe/pkg/cloud/store/opensourcemano"
 	"github.com/vCloud-DFTBA/faythe/pkg/cloud/store/openstack"
 	"github.com/vCloud-DFTBA/faythe/pkg/cluster"
 	"github.com/vCloud-DFTBA/faythe/pkg/common"
@@ -140,10 +139,8 @@ func (s *Scaler) run(ctx context.Context) {
 func (s *Scaler) do() {
 	var wg sync.WaitGroup
 	store := openstack.Get()
-	manoStore := opensourcemano.Get()
-	os, ok1 := store.Get(s.CloudID)
-	osm, ok2 := manoStore.Get(s.CloudID)
-	if !ok1 && !ok2 {
+	os, ok := store.Get(s.CloudID)
+	if !ok {
 		level.Error(s.logger).Log("msg",
 			fmt.Sprintf("cannot find cloud key %s in store", s.CloudID))
 		return
@@ -165,14 +162,6 @@ func (s *Scaler) do() {
 							a.Header = make(map[string]string)
 						}
 						a.Header["X-Auth-Token"] = token
-					}
-				}
-				if a.CloudAuthToken && osm.Provider == model.ManoType {
-					if token, err := osm.GetToken(); err == nil {
-						if a.Header == nil {
-							a.Header = make(map[string]string)
-						}
-						a.Header["Authorization"] = "Bearer " + token
 					}
 				}
 				if err := alert.SendHTTP(s.httpCli, a); err != nil {
