@@ -168,6 +168,12 @@ func main() {
 	router.StrictSlash(true)
 	fapi.Register(router)
 
+	// Init Cloud store
+	openstack.InitStore(etcdcli)
+	if err := openstack.Load(); err != nil {
+		level.Error(logger).Log("msg", "error while loading cloud information", "err", err)
+	}
+
 	// Init autoscaler manager
 	fas = autoscaler.NewManager(log.With(logger, "component", "autoscaler manager"), etcdcli, cls)
 	go fas.Run()
@@ -179,12 +185,6 @@ func main() {
 	// Init scheduler manager
 	fsh = scheduler.NewManager(log.With(logger, "component", "scheduler manager"), etcdcli, cls)
 	go fsh.Run()
-
-	// Init Cloud store
-	openstack.InitStore(etcdcli)
-	if err := openstack.Load(); err != nil {
-		level.Error(logger).Log("msg", "error while loading cloud information", "err", err)
-	}
 
 	stopc := make(chan struct{})
 	go etcdcli.Run(stopc)
